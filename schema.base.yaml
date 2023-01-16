@@ -1,0 +1,60 @@
+type: object
+required:
+  - analysis_pk
+  - logdir
+  - outdir
+  - slims
+
+properties:
+  analysis_pk:
+    description: Analysis primary key in SLIMS
+    type: integer
+  
+  content_pk:
+    default: 6
+    description: Content type primary key in SLIMS
+    type: integer
+  
+  log_level:
+    default: INFO
+    description: Log level
+    enum:
+      - DEBUG
+      - INFO
+      - WARNING
+      - ERROR
+      - CRITICAL
+    type: string
+  
+  logdir:
+    description: Log directory
+    type: path
+  
+  outdir:
+    description: Output directory
+    type: path
+  
+  sample_id:
+    description: SLIMS Sample IDs
+    type: array
+  
+  samples_file:
+    description: "Path YAML file with sample names and paths to fastq files (eg. sample: [fastq1, fastq2]"
+    type: path
+  
+  slims:
+    properties:
+      password:
+        description: SLIMS password
+        type: string
+      url:
+        description: SLIMS URL
+        type: string
+      username:
+        description: SLIMS username
+        type: string
+    required:
+      - username
+      - password
+      - url
+    type: object
