@@ -38,6 +38,7 @@ def _main(
     else:
         samples = data.Samples()
 
+    _log_handlers = logging.root.handlers.copy()
     for path in [*modules_path.glob("*.py"), *modules_path.glob("*/__init__.py")]:
         name = path.stem if path.stem != "__init__" else path.parent.name
         spec = spec_from_file_location(name, path)
@@ -46,6 +47,9 @@ def _main(
                 module = module_from_spec(spec)
                 if spec.loader is not None:
                     spec.loader.exec_module(module)
+                    for handler in [h for h in logging.root.handlers if h not in _log_handlers]:
+                        handler.close()
+                        logging.root.removeHandler(handler)
             except ImportError as exception:
                 logger.error(f"Failed to import module {name}: {exception}")
             else:

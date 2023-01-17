@@ -30,11 +30,12 @@ A wrapper directory structure should look something like this:
 │
 │   # Directory containing cellophane modules
 ├── modules
+│   ├── __init__.py
 │   ├── my_module.py
 │   ├── another_module
 │   │   └── __init__.py
 │   └── ...
-│   
+│
 │   # Directory containing scripts to be submitted by Popen, SGE, etc.
 ├── scripts
 │   ├── my_script.sh

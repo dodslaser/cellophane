@@ -61,10 +61,7 @@ def handle_logging(
     if path is not None:
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
-
-    for handler in logging.root.handlers:
-        logging.root.removeHandler(handler)
-
+    
     logger = get_logger(label, level, queue, path=path)
 
     def wrapper(func):
