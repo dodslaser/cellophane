@@ -1,4 +1,4 @@
-"""Cellophane: A Python library for writing wrappers using SLIMS"""
+"""Cellophane: A library for writing modular wrappers"""
 
 import inspect
 import logging
