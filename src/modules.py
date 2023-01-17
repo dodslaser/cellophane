@@ -63,7 +63,7 @@ class Runner(mp.Process):
         samples: data.SamplesType,
         log_queue: mp.Queue,
         log_level: int,
-        scripts_path: Path,
+        root: Path,
     ) -> None:
         _adapter = logs.get_logger(
             label=label,
@@ -79,7 +79,7 @@ class Runner(mp.Process):
                 config=config,
                 label=label,
                 logger=_adapter,
-                scripts_path=scripts_path,
+                root=root,
             )
 
         except Exception as exception:
@@ -108,7 +108,7 @@ class Hook:
         samples: data.Samples,
         log_queue: mp.Queue,
         log_level: int,
-        scripts_path: Path,
+        root: Path,
     ) -> data.Samples:
         _adapter = logs.get_logger(
             label=self.label,
@@ -119,7 +119,7 @@ class Hook:
             config=config,
             samples=samples,
             logger=_adapter,
-            scripts_path=scripts_path,
+            root=root,
         )
 
 

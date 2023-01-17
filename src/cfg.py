@@ -3,7 +3,7 @@
 from copy import deepcopy
 from functools import reduce
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Iterable, Optional, Type, TypeVar
 
 import rich_click as click
 from jsonschema import Draft7Validator, Validator, validators
@@ -13,8 +13,9 @@ from functools import wraps
 
 from . import data, util
 
+_V = TypeVar("_V", bound=Validator)
 
-def _set_options(cls: Validator) -> Validator:
+def _set_options(cls: Type[_V]) -> Type[_V]:
     """Set default values when validating"""
     validate_properties = cls.VALIDATORS["properties"]
 
@@ -51,7 +52,7 @@ def _set_options(cls: Validator) -> Validator:
     return validators.extend(cls, {"properties": _set}, type_checker=type_checker)
 
 
-def _get_options(cls: Validator) -> Validator:
+def _get_options(cls: Type[Validator]) -> Type[Validator]:
     """Parse options from schema and ignore validation errors"""
     validate_properties = cls.VALIDATORS["properties"]
 
@@ -123,7 +124,7 @@ class Schema(data.Container):
     def properties(self) -> dict:
         """Get properties from schema"""
         _properties: dict = {}
-        _get_options(Draft7Validator)({**self.data}).validate(_properties)
+        _get_options(Draft7Validator)({**self.data}).validate(_properties) # type: ignore
         return _properties
 
     @property
@@ -144,7 +145,7 @@ class Schema(data.Container):
     def validate(self, config: data.Container) -> data.Container:
         """Validate configuration"""
         _config = deepcopy(config)
-        _set_options(Draft7Validator)({**self.data}).validate(_config)
+        _set_options(Draft7Validator)({**self.data}).validate(_config) # type: ignore
         return _config
 
 

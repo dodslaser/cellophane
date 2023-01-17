@@ -28,7 +28,7 @@ def _main(
     logger: logging.LoggerAdapter,
     config: cfg.Config,
     modules_path: Path,
-    scripts_path: Path,
+    root: Path,
 ) -> None:
     """Run cellophane"""
     logger.setLevel(config.log_level)
@@ -75,7 +75,7 @@ def _main(
             samples=samples,
             log_queue=_LOG_QUEUE,
             log_level=config.log_level,
-            scripts_path=scripts_path,
+            root=root,
         )
 
         if issubclass(type(result), data.Samples):
@@ -97,7 +97,7 @@ def _main(
                             "log_queue": _LOG_QUEUE,
                             "log_level": config.log_level,
                             "samples": deepcopy(_samples),
-                            "scripts_path": scripts_path,
+                            "root": root,
                         },
                     )
                     proc.start()
@@ -128,7 +128,7 @@ def _main(
             samples=samples,
             log_queue=_LOG_QUEUE,
             log_level=config.log_level,
-            scripts_path=scripts_path,
+            root=root,
         )
 
 
@@ -137,14 +137,12 @@ def cellophane(
     wrapper_log: Optional[Path] = None,
     schema_path: Optional[Path] = None,
     modules_path: Optional[Path] = None,
-    scripts_path: Optional[Path] = None,
 ) -> Callable:
     """Generate a cellophane CLI from a schema file"""
-    wrapper_root = Path(inspect.stack()[1].filename).parent
-    _wrapper_log = wrapper_log or wrapper_root / "pipeline.log"
-    _schema_path = schema_path or wrapper_root / "schema.yaml"
-    _modules_path = modules_path or wrapper_root / "modules"
-    _scripts_path = scripts_path or wrapper_root / "scripts"
+    _root = Path(inspect.stack()[1].filename).parent
+    _wrapper_log = wrapper_log or _root / "pipeline.log"
+    _schema_path = schema_path or _root / "schema.yaml"
+    _modules_path = modules_path or _root / "modules"
 
     with (
         open(CELLOPHANE_ROOT / "schema.base.yaml", encoding="utf-8") as base_handle,
@@ -180,7 +178,7 @@ def cellophane(
             config=_config,
             logger=logger,
             modules_path=_modules_path,
-            scripts_path=_scripts_path,
+            root=_root,
         )
 
     for flag, _, default, description, _type in schema.flags:
