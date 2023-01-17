@@ -13,9 +13,8 @@ from functools import wraps
 
 from . import data, util
 
-_V = TypeVar("_V", bound=Validator)
 
-def _set_options(cls: Type[_V]) -> Type[_V]:
+def _set_options(cls: Type[Validator]) -> Type[Validator]:
     """Set default values when validating"""
     validate_properties = cls.VALIDATORS["properties"]
 
