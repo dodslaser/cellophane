@@ -7,14 +7,35 @@ A library for creating modular wrappers.
 Add cellophane as a subtree at the base of your project. A generic project structure can be generated with `cellophane init`.
 
 ```shell
-# Add the cellophane module as a subtree
+# Initialize an empty git repo
+git init my_awesome_wrapper
+cd my_awesome_wrapper
+
+# Add the cellophane repo as a remote and install cellophane as a subtree in the project root
 git remote add -f cellophane https://github.com/dodslaser/cellophane
 git subtree add --prefix cellophane cellophane main --squash
+
+# Initialize an empty cellophane project
+python -m cellophane init --path .
 
 # To upgrade to the latest commit
 git fetch cellophane
 git subtree pull --prefix cellophane cellophane main --squash -m "Upgrade cellophane"
 ```
+
+Pre-made modules can also be added from git
+
+```shell
+# Add the module repo as a remote and install a module as a subtree
+git remote add -f modules https://github.com/dodslaser/cellophane_modules
+git subtree add --prefix modules/hcp modules hcp --squash -m "Add HCP module"
+
+# Upgrading is done the same way as cellophane
+git fetch modules
+git subtree pull --prefix modules/hcp modules hcp --squash -m "Upgrade HCP module"
+```
+
+
 
 A wrapper directory structure should look something like this:
 
