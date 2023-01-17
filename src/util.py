@@ -1,8 +1,8 @@
 """Utility functions and classes"""
 
-from collections import UserDict
-from functools import reduce
-from typing import Any, Hashable, Mapping, Sequence
+from typing import Any
+import importlib.util
+import sys
 
 
 def map_nested_keys(data: Any) -> list[list[str]]:
@@ -29,36 +29,14 @@ def merge_mappings(m_1: Any, m_2: Any) -> Any:
             return m_2
 
 
-class Container(UserDict):
-    """A dict that allows attribute access to its items"""
-
-    def __setitem__(self, key: Hashable | Sequence[Hashable], item: Any) -> None:
-        if isinstance(item, Mapping) and not isinstance(item, Container):
-            item = Container(item)
-
-        match key:
-            case k if isinstance(k, Hashable):
-                self.data[k] = item
-            case *k,:
-                reduce(lambda d, k: d.setdefault(k, Container()), k[:-1], self.data)[
-                    k[-1]
-                ] = item
-            case _:
-                raise TypeError("Key must be a string or a sequence of strings")
-
-    def __getitem__(self, key: Hashable | Sequence[Hashable]) -> Any:
-        match key:
-            case k if isinstance(k, Hashable):
-                return self.data[k]
-            case *k,:
-                return reduce(lambda d, k: d[k], k, self.data)
-            case _:
-                raise TypeError("Key must be hashble or a sequence of hashables")
-
-    def __getattr__(self, key: str) -> Any:
-        if "data" in self.__dict__ and key in self.data:
-            return self.data[key]
-        else:
-            raise AttributeError(
-                f"'{self.__class__.__name__}' object has no attribute '{key}'"
-            )
+def lazy_import(name: str):
+    """Lazy import a module"""
+    spec = importlib.util.find_spec(name)
+    if spec is None or spec.loader is None:
+        raise ModuleNotFoundError(f"No module named '{name}'")
+    loader = importlib.util.LazyLoader(spec.loader)
+    spec.loader = loader
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    loader.exec_module(module)
+    return module

@@ -12,7 +12,7 @@ import rich_click as click
 import yaml
 from jsonschema.exceptions import ValidationError
 
-from .src import cfg, logs, modules, slims, util
+from .src import cfg, data, logs, modules, util, sge
 
 _MP_MANAGER = mp.Manager()
 _LOG_QUEUE = logs.get_log_queue(_MP_MANAGER)
@@ -33,22 +33,10 @@ def _main(
     """Run cellophane"""
     logger.setLevel(config.log_level)
     # FIXME: Make slims optional if a samples_file is provided
-    slims_connection = slims.Slims(name=__package__, **config.slims)
-
     if config.samples_file:
-        samples = slims.Samples.from_file(config.samples_file)
-    elif config.sample_id:
-        samples = slims.Samples.from_ids(slims_connection, config.sample_id)
-        for sid in config.sample_id:
-            if sid not in [sample.id for sample in samples]:
-                logger.warning(f"Sample {sid} not found in SLIMS")
+        samples = data.Samples.from_file(config.samples_file)
     else:
-        samples = slims.Samples.novel(
-            connection=slims_connection,
-            content_type=config.content_pk,
-            analysis=config.analysis_pk,
-            create=True,
-        )
+        samples = data.Samples()
 
     for path in [*modules_path.glob("*.py"), *modules_path.glob("*/__init__.py")]:
         name = path.stem if path.stem != "__init__" else path.parent.name
@@ -86,7 +74,7 @@ def _main(
             scripts_path=scripts_path,
         )
 
-        if isinstance(result, slims.Samples):
+        if issubclass(type(result), data.Samples):
             samples = result
 
     if samples and _RUNNERS:
@@ -95,7 +83,7 @@ def _main(
                 logger.info(f"Starting {runner.label} for {len(samples)} samples")
 
                 for _samples in (
-                    [slims.Samples([s]) for s in samples]
+                    [data.Samples([s]) for s in samples]
                     if runner.individual_samples
                     else [samples]
                 ):

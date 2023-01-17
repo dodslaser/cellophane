@@ -1,6 +1,6 @@
 # Cellophane
 
-A library for creating wrappers with SLIMS integration.
+A library for creating modular wrappers.
 
 ## Usage
 
@@ -11,6 +11,13 @@ git remote add -f cellophane https://github.com/dodslaser/cellophane
 git subtree add --prefix cellophane cellophane main --squash
 
 python -m cellophane init my_awesome_wrapper --path .
+```
+
+To upgrade cellophane, run the following at the project root
+
+```shell
+git fetch cellophane
+git subtree pull --prefix cellophane cellophane main --squash
 ```
 
 A wrapper directory structure should look something like this:
@@ -157,11 +164,7 @@ $ python -m my_awesome_wrapperrunpy
 │ --logdir                                PATH                                 Log directory                                                                           │
 │ --content_pk                            INTEGER                              Content primary key in SLIMS [default: 6]                                               │
 │ --analysis_pk                           INTEGER                              Analysis primary key in SLIMS                                                           │
-│ --slims_url                             TEXT                                 SLIMS URL                                                                               │
-│ --slims_password                        TEXT                                 SLIMS password                                                                          │
-│ --slims_username                        TEXT                                 SLIMS username                                                                          │
 │ --log_level                             [DEBUG|INFO|WARNING|ERROR|CRITICAL]  Log level [default: INFO]                                                               │
-│ --sample_id                             TEXT                                 SLIMS Sample IDs                                                                        │
 │ --samples_file                          PATH                                 Path YAML file with sample names and paths to fastq files (eg. sample: [fastq1, fastq2] │
 │ --foo_skip                                                                   Skip foo                                                                                │
 │ --foo_baz                               [HELLO|WORLD]                        Some other parameter                                                                    │
@@ -186,7 +189,7 @@ At least one module must contain at least one `runner` decorated function. Runne
 
 A module may also define pre/post-hooks. These are functions that will be executed before or after the whle pipeline completes. A hook function must take `config`, `samples`, amd `logger` as arguments. Hooks are executed sequentially and can be given a numeric priority to ensure correct execution order. By default the priority will be `inf`. Setting a lower `priority` means the hook will be executed earlier.
 
-The main use-case for pre-hooks is to modify the `samples` container before it is passed to the runners. This can be used to eg. download `.fastq.gz` files from a backup location, decompress `.fasterq` files, add related samples, remove samples with missing files, and so on. If a pre-hook returns a `cellophane.slims.Samples` object it will replace the current `samples`. The use-case for post-hooks is mayble less obvious, ut they can be used to eg. clean up temporary files.
+The main use-case for pre-hooks is to modify `samples` before it is passed to the runners. This can be used to eg. download `.fastq.gz` files from a backup location, decompress `.fasterq` files, add related samples, remove samples with missing files, and so on. If a pre-hook returns a `cellophane.data.Samples` (or a subclass) object it will replace the current `samples`. The use-case for post-hooks is mayble less obvious, ut they can be used to eg. clean up temporary files, or send an email when a pipeline completes/fails.
 
 Note that hooks are not module specific, but rather ALL pre-hooks will be executed before ALL runners and ALL post-hooks will be executed afterwards. Module specific functionality should be handeled inside the runner function.
 
@@ -271,3 +274,4 @@ def bar(label, samples, config, logger):
 - Improve logging to file
 - Handle of complex JSON schemas
 - Add functionality for generating `hydra-genetics` units.tsv/samples.tsv
+- Make hook priority overridable
