@@ -4,20 +4,18 @@ A library for creating modular wrappers.
 
 ## Usage
 
-Add cellophane as a subtree at the base of your project. A generic project structure can be generated with `cellophane init`.
+Add cellophane as a subtree/submodule at the base of your project. A generic project structure can be generated with `cellophane init`.
 
 ```shell
 git remote add -f cellophane https://github.com/dodslaser/cellophane
 git subtree add --prefix cellophane cellophane main --squash
-
-python -m cellophane init my_awesome_wrapper --path .
 ```
 
 To upgrade cellophane, run the following at the project root
 
 ```shell
 git fetch cellophane
-git subtree pull --prefix cellophane cellophane main --squash
+git subtree pull --prefix cellophane cellophane main --squash -m "Upgrade cellophane"
 ```
 
 A wrapper directory structure should look something like this:
@@ -32,14 +30,21 @@ A wrapper directory structure should look something like this:
 ├── modules
 │   ├── __init__.py
 │   ├── my_module.py
-│   ├── another_module
-│   │   └── __init__.py
-│   └── ...
+│   └── another_module
+│       ├── scripts
+│       │   │   # Modules may contain module specific scripts/data
+│       │   └── module_script.sh
+│       ├── data
+│       │   └── some_data.txt
+│       └── __init__.py
 │
 │   # Directory containing scripts to be submitted by Popen, SGE, etc.
 ├── scripts
-│   ├── my_script.sh
-│   └── ...
+│   └── my_script.sh
+│
+│   # Directory containing misc. files used by the wrapper.
+├── scripts
+│   └── some_more_data.txt
 │
 │   # JSON Schema defining configuration options
 ├── schema.yaml
