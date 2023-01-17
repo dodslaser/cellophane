@@ -8,7 +8,8 @@ from pathlib import Path
 from signal import SIGTERM, signal
 from typing import Optional
 
-import drmaa
+from . import util
+drmaa = util.lazy_import("drmaa")
 
 
 def _cleanup(jid, session):
