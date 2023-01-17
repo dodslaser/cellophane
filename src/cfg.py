@@ -3,7 +3,7 @@
 from copy import deepcopy
 from functools import reduce
 from pathlib import Path
-from typing import Any, Callable, Iterable, Optional
+from typing import Iterable, Optional
 
 import rich_click as click
 from jsonschema import Draft7Validator, Validator, validators
@@ -11,7 +11,7 @@ from yaml import safe_load
 
 from functools import wraps
 
-from . import util
+from . import data, util
 
 
 def _set_options(cls: Validator) -> Validator:
@@ -20,7 +20,7 @@ def _set_options(cls: Validator) -> Validator:
 
     def _is_object_or_container(_, instance):
         return cls.TYPE_CHECKER.is_type(instance, "object") or isinstance(
-            instance, util.Container
+            instance, data.Container
         )
 
     def _is_array(_, instance):
@@ -106,7 +106,7 @@ def _get_options(cls: Validator) -> Validator:
     )
 
 
-class Schema(util.Container):
+class Schema(data.Container):
     """Schema for validating configuration files"""
 
     @classmethod
@@ -141,23 +141,23 @@ class Schema(util.Container):
             )
             yield flag, key, default, description, _type
 
-    def validate(self, config: util.Container) -> util.Container:
+    def validate(self, config: data.Container) -> data.Container:
         """Validate configuration"""
         _config = deepcopy(config)
         _set_options(Draft7Validator)({**self.data}).validate(_config)
         return _config
 
 
-class Config(util.Container):
+class Config(data.Container):
     """Configuration file"""
 
     def __init__(self, path: Optional[Path | click.Path], schema: Schema, **kwargs):
 
         if path is not None:
             with open(str(path), "r", encoding="utf-8") as handle:
-                _data = util.Container(safe_load(handle))
+                _data = data.Container(safe_load(handle))
         else:
-            _data = util.Container({})
+            _data = data.Container({})
 
         for flag, key, *_ in schema.flags:
             if flag not in _data and kwargs[flag] is not None:

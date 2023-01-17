@@ -12,7 +12,7 @@ from pathlib import Path
 
 import psutil
 
-from . import cfg, logs, slims
+from . import cfg, data, logs
 
 
 def _cleanup(logger: LoggerAdapter):
@@ -60,7 +60,7 @@ class Runner(mp.Process):
         self,
         label: str,
         config: cfg.Config,
-        samples: slims.Samples,
+        samples: data.SamplesType,
         log_queue: mp.Queue,
         log_level: int,
         scripts_path: Path,
@@ -105,11 +105,11 @@ class Hook:
     def __call__(
         self,
         config: cfg.Config,
-        samples: slims.Samples,
+        samples: data.Samples,
         log_queue: mp.Queue,
         log_level: int,
         scripts_path: Path,
-    ) -> slims.Samples:
+    ) -> data.Samples:
         _adapter = logs.get_logger(
             label=self.label,
             level=log_level,
