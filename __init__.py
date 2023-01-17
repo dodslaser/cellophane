@@ -155,8 +155,9 @@ def cellophane(
         with open(module_schema_path, "r", encoding="utf-8") as module_handle:
             module = yaml.safe_load(module_handle)
             custom = util.merge_mappings(custom, module)
-    
-    schema = util.merge_mappings(base, custom)
+
+    merged = util.merge_mappings(custom, base)
+    schema = cfg.Schema(merged)
 
     @click.command()
     @logs.handle_logging(
