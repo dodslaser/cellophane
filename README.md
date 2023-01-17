@@ -162,8 +162,6 @@ $ python -m my_awesome_wrapperrunpy
 ╭─ Options ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ --outdir                                PATH                                 Output directory                                                                        │
 │ --logdir                                PATH                                 Log directory                                                                           │
-│ --content_pk                            INTEGER                              Content primary key in SLIMS [default: 6]                                               │
-│ --analysis_pk                           INTEGER                              Analysis primary key in SLIMS                                                           │
 │ --log_level                             [DEBUG|INFO|WARNING|ERROR|CRITICAL]  Log level [default: INFO]                                                               │
 │ --samples_file                          PATH                                 Path YAML file with sample names and paths to fastq files (eg. sample: [fastq1, fastq2] │
 │ --foo_skip                                                                   Skip foo                                                                                │
