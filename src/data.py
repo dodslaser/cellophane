@@ -4,7 +4,7 @@ from collections import UserList, UserDict
 from json import loads
 from pathlib import Path
 from time import time
-from typing import Any, Mapping, Hashable, Sequence
+from typing import Any, Mapping, Hashable, Sequence, TypeVar
 from yaml import safe_load
 from functools import reduce
 
@@ -111,3 +111,6 @@ class Samples(UserList):
                         )
             case _:
                 raise ValueError(f"Invalid state: {state}")
+
+
+SamplesType = TypeVar("SamplesType", bound=Samples)
