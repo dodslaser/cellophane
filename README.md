@@ -23,20 +23,6 @@ git fetch cellophane
 git subtree pull --prefix cellophane cellophane main --squash -m "Upgrade cellophane"
 ```
 
-Pre-made modules can also be added from git
-
-```shell
-# Add the module repo as a remote and install a module as a subtree
-git remote add -f modules https://github.com/dodslaser/cellophane_modules
-git subtree add --prefix modules/hcp modules hcp --squash -m "Add HCP module"
-
-# Upgrading is done the same way as cellophane
-git fetch modules
-git subtree pull --prefix modules/hcp modules hcp --squash -m "Upgrade HCP module"
-```
-
-
-
 A wrapper directory structure should look something like this:
 
 ```
@@ -85,12 +71,23 @@ from cellophane import cellophane
 if __name__ == "__main__":
     main = cellphane(
         "My Awesome Wrapper" # Will be used for logging
-        scripts_path=Path(__file__) / "scripts" # Not required if scripts are in the default location (./scripts)
-        modules_path=Path(__file__) / "scripts" # Not required if modules are in the default location (./modules)
-        schema_path=Path(__file__) / "schema.yaml" # Not required if modules are in the default location (./schema.yaml)
+        modules_path=Path(__file__) / "my_modules"
+        schema_path=Path(__file__) / "schema.yaml"
     )
 
     main(prog_name="my_awesome_wrapper")
+```
+
+Pre-made modules can also be added from git
+
+```shell
+# Add the module repo as a remote and install a module as a subtree
+git remote add -f modules https://github.com/dodslaser/cellophane_modules
+git subtree add --prefix modules/slims modules slims --squash -m "Add SLIMS module"
+
+# Upgrading is done the same way as cellophane
+git fetch modules
+git subtree pull --prefix modules/slims modules slims --squash -m "Upgrade SLIMS module"
 ```
 
 A cellophane wrapper can be run as a script or as a module
