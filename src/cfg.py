@@ -3,13 +3,11 @@
 from copy import deepcopy
 from functools import reduce
 from pathlib import Path
-from typing import Iterable, Optional, Type, TypeVar
+from typing import Iterable, Optional, Type
 
 import rich_click as click
 from jsonschema import Draft7Validator, Validator, validators
 from yaml import safe_load
-
-from functools import wraps
 
 from . import data, util
 
@@ -123,7 +121,7 @@ class Schema(data.Container):
     def properties(self) -> dict:
         """Get properties from schema"""
         _properties: dict = {}
-        _get_options(Draft7Validator)({**self.data}).validate(_properties) # type: ignore
+        _get_options(Draft7Validator)({**self.data}).validate(_properties)
         return _properties
 
     @property
@@ -144,7 +142,7 @@ class Schema(data.Container):
     def validate(self, config: data.Container) -> data.Container:
         """Validate configuration"""
         _config = deepcopy(config)
-        _set_options(Draft7Validator)({**self.data}).validate(_config) # type: ignore
+        _set_options(Draft7Validator)({**self.data}).validate(_config)
         return _config
 
 
@@ -165,4 +163,3 @@ class Config(data.Container):
 
         _data = schema.validate(_data)
         super().__init__(_data)
-    

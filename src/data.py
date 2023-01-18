@@ -1,14 +1,11 @@
 """Utilities for interacting with SLIMS"""
 
 from collections import UserList, UserDict
-from json import loads
 from pathlib import Path
-from time import time
-from typing import Any, Mapping, Hashable, Sequence, TypeVar
+from typing import Any, Mapping, Hashable, Sequence
 from yaml import safe_load
 from functools import reduce
 
-from . import util
 
 class Container(UserDict):
     """A dict that allows attribute access to its items"""
@@ -20,7 +17,7 @@ class Container(UserDict):
         match key:
             case k if isinstance(k, Hashable):
                 self.data[k] = item
-            case *k,:
+            case *k, :
                 reduce(lambda d, k: d.setdefault(k, Container()), k[:-1], self.data)[
                     k[-1]
                 ] = item
@@ -31,7 +28,7 @@ class Container(UserDict):
         match key:
             case k if isinstance(k, Hashable):
                 return self.data[k]
-            case *k,:
+            case *k, :
                 return reduce(lambda d, k: d[k], k, self.data)
             case _:
                 raise TypeError("Key must be hashble or a sequence of hashables")
@@ -111,6 +108,3 @@ class Samples(UserList):
                         )
             case _:
                 raise ValueError(f"Invalid state: {state}")
-
-
-SamplesType = TypeVar("SamplesType", bound=Samples)

@@ -60,7 +60,7 @@ class Runner(mp.Process):
         self,
         label: str,
         config: cfg.Config,
-        samples: data.SamplesType,
+        samples: data.Samples,
         log_queue: mp.Queue,
         log_level: int,
         root: Path,

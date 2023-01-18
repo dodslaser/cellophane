@@ -1,5 +1,4 @@
 from pathlib import Path
-from shutil import copy
 import multiprocessing as mp
 import rich_click as click
 from typing import Optional
@@ -7,9 +6,10 @@ from logging import LoggerAdapter
 
 import re
 
-from . import logs, cellophane
+from . import logs
 
 _ROOT = Path(__file__).parent
+
 
 @click.group()
 def main(**_):
@@ -29,8 +29,8 @@ def main(**_):
     default=None,
 )
 @logs.handle_logging(
-    label = "cellophane",
-    queue = logs.get_log_queue(mp.Manager()),
+    label="cellophane",
+    queue=logs.get_log_queue(mp.Manager()),
     propagate_exceptions=False,
 )
 def init(name: str, path: Optional[click.Path], logger: LoggerAdapter):
@@ -45,7 +45,7 @@ def init(name: str, path: Optional[click.Path], logger: LoggerAdapter):
         _path / "scripts",
     ):
         subdir.mkdir(parents=True, exist_ok=False)
-    
+
     for file in (
         _path / "modules" / "__init__.py",
         _path / "schema.yaml",
@@ -65,6 +65,7 @@ def init(name: str, path: Optional[click.Path], logger: LoggerAdapter):
     else:
         logger.critical(f"File {dest_file} already exists")
         raise SystemExit(1)
+
 
 if __name__ == "__main__":
     main()

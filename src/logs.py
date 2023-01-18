@@ -61,7 +61,7 @@ def handle_logging(
     if path is not None:
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     logger = get_logger(label, level, queue, path=path)
 
     def wrapper(func):
