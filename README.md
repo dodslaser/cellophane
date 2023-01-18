@@ -4,7 +4,7 @@ A library for creating modular wrappers.
 
 ## Usage
 
-Add cellophane as a subtree at the base of your project. A generic project structure can be generated with `cellophane init`.
+Add cellophane as a subtree (or a submodule) at the base of your project. A generic project structure can be generated with `cellophane init`.
 
 ```shell
 # Initialize an empty git repo
@@ -18,7 +18,7 @@ git subtree add --prefix cellophane cellophane main --squash
 # Initialize an empty cellophane project
 python -m cellophane init --path .
 
-# To upgrade to the latest commit
+# To upgrade to the latest commit on main
 git fetch cellophane
 git subtree pull --prefix cellophane cellophane main --squash -m "Upgrade cellophane"
 ```

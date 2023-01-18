@@ -1,10 +1,11 @@
 """Utilities for interacting with SLIMS"""
 
-from collections import UserList, UserDict
-from pathlib import Path
-from typing import Any, Mapping, Hashable, Sequence
-from yaml import safe_load
+from collections import UserDict, UserList
 from functools import reduce
+from pathlib import Path
+from typing import Any, Hashable, Mapping, Optional, Sequence, TypeVar
+
+from yaml import safe_load
 
 
 class Container(UserDict):
@@ -17,7 +18,7 @@ class Container(UserDict):
         match key:
             case k if isinstance(k, Hashable):
                 self.data[k] = item
-            case *k, :
+            case *k,:
                 reduce(lambda d, k: d.setdefault(k, Container()), k[:-1], self.data)[
                     k[-1]
                 ] = item
@@ -28,7 +29,7 @@ class Container(UserDict):
         match key:
             case k if isinstance(k, Hashable):
                 return self.data[k]
-            case *k, :
+            case *k,:
                 return reduce(lambda d, k: d[k], k, self.data)
             case _:
                 raise TypeError("Key must be hashble or a sequence of hashables")
@@ -42,14 +43,24 @@ class Container(UserDict):
             )
 
 
-class Samples(UserList):
+class Sample(Container):
+    """A basic sample container"""
+    id: str
+    fastq_paths: list[str]
+    backup: Optional[Container]
+
+
+S = TypeVar("S", bound=Sample)
+
+class Samples(UserList[S]):
     """A list of sample containers"""
+
     @classmethod
     def from_file(cls, path: Path):
         """Get samples from a YAML file"""
         with open(path, "r", encoding="utf-8") as handle:
             samples = [
-                Container(
+                Sample(
                     id=str(_id),
                     fastq_paths=[fastq1, fastq2],
                     backup=None,
@@ -96,15 +107,3 @@ class Samples(UserList):
             handle.write(_samplesheet)
 
         return _path
-
-    def update_bioinformatics(self, state: str) -> None:
-        """Update bioinformatics state in SLIMS"""
-        match state:
-            case "running" | "complete" | "error":
-                for sample in self:
-                    if sample.bioinformatics is not None:
-                        sample.bioinformatics = sample.bioinformatics.update(
-                            {"cntn_cstm_SecondaryAnalysisState": state}
-                        )
-            case _:
-                raise ValueError(f"Invalid state: {state}")
