@@ -7,6 +7,7 @@ from functools import wraps
 from logging.handlers import QueueHandler, QueueListener
 from pathlib import Path
 from typing import Callable, Optional
+from queue import Queue
 
 from rich.logging import RichHandler
 
@@ -28,7 +29,7 @@ def get_log_queue(manager) -> mp.Queue:
 def get_logger(
     label: str,
     level: int,
-    queue: mp.Queue,
+    queue: Queue,
     path: Optional[Path] = None,
 ) -> logging.LoggerAdapter:
     """Create a logger with a queue handler and a file handler if specified."""
@@ -70,7 +71,7 @@ def handle_logging(
             try:
                 func(*args, logger=logger, **kwargs)
             except Exception as exception:  # pylint: disable=broad-except
-                logger.critical("Caught an exception", exc_info=True)
+                logger.critical("Caught an unhandeled exception", exc_info=True)
                 if propagate_exceptions:
                     raise Exception from exception
 

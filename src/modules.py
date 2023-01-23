@@ -3,19 +3,20 @@
 import multiprocessing as mp
 import os
 import sys
+from copy import deepcopy
 from dataclasses import dataclass
-from logging import LoggerAdapter
+import logging
 from signal import SIGTERM, signal
-from typing import Callable, Optional
+from typing import Callable, Optional, ClassVar
 from pathlib import Path
-
+from queue import Queue
 
 import psutil
 
 from . import cfg, data, logs
 
 
-def _cleanup(logger: LoggerAdapter):
+def _cleanup(logger: logging.LoggerAdapter):
     def inner(*_):
         for proc in psutil.Process().children(recursive=True):
             logger.debug(f"Waiting for {proc.name()} ({proc.pid})")
@@ -29,9 +30,9 @@ def _cleanup(logger: LoggerAdapter):
 class Runner(mp.Process):
     """Base class for cellophane runners."""
 
-    label: str
-    individual_samples: bool
-    wait: bool
+    label: ClassVar[str]
+    individual_samples: ClassVar[bool]
+    wait: ClassVar[bool]
 
     def __init_subclass__(
         cls,
@@ -45,45 +46,74 @@ class Runner(mp.Process):
     def __init__(
         self,
         config: cfg.Config,
-        kwargs: Optional[dict] = None,
+        samples: data.Samples,
+        log_queue: Queue,
+        log_level: int,
+        output: mp.Queue,
+        root: Path,
     ):
+        self.output = output
+        self.log_queue = log_queue
+        self.log_level = log_level
         super().__init__(
             target=self._main,
             kwargs={
-                "label": self.label,
                 "config": config,
-                **(kwargs or {}),
+                "samples": samples,
+                "root": root,
             },
         )
 
     def _main(
         self,
-        label: str,
         config: cfg.Config,
         samples: data.Samples,
-        log_queue: mp.Queue,
-        log_level: int,
         root: Path,
     ) -> None:
-        _adapter = logs.get_logger(
-            label=label,
-            level=log_level,
-            queue=log_queue,
+        logger = logs.get_logger(
+            label=self.label,
+            level=self.log_level,
+            queue=self.log_queue,
         )
-        signal(SIGTERM, _cleanup(_adapter))
+        signal(SIGTERM, _cleanup(logger))
         sys.stdout = open(os.devnull, "w", encoding="utf-8")
         sys.stderr = open(os.devnull, "w", encoding="utf-8")
         try:
-            self.main(
+            original = deepcopy(samples)
+            returned = self.main(
                 samples=samples,
                 config=config,
-                label=label,
-                logger=_adapter,
+                label=self.label,
+                logger=logger,
                 root=root,
             )
 
+            match returned:
+                case None if any(s.id not in [o.id for o in original] for s in samples):
+                    logger.warning("Runner returned None, but samples were modified")
+                    self.output.put(original)
+                case None:
+                    logger.debug("Runner did not modify samples")
+                    self.output.put(original)
+                case data.Samples:
+                    self.output.put(returned)
+                case _:
+                    logger.warning(
+                        f"Runner returned an unexpected type {type(returned)}"
+                    )
+                    self.output.put(original)
+            
+            self.output.close()
+            self.output.join_thread()
+
         except Exception as exception:
-            _adapter.critical("Caught an exception", exc_info=True)
+            logger.critical(
+                "Caught an exception",
+                exc_info=config.log_level == "DEBUG",
+            )
+            self.output.put(None)
+            self.output.close()
+            self.output.join_thread()
             raise SystemExit(1) from exception
 
     @staticmethod

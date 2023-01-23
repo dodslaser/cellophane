@@ -3,7 +3,7 @@
 from collections import UserDict, UserList
 from functools import reduce
 from pathlib import Path
-from typing import Any, Hashable, Mapping, Optional, Sequence, TypeVar
+from typing import Any, Hashable, Mapping, Optional, Sequence, TypeVar, Callable
 
 from yaml import safe_load
 
@@ -45,12 +45,14 @@ class Container(UserDict):
 
 class Sample(Container):
     """A basic sample container"""
+
     id: str
     fastq_paths: list[str]
     backup: Optional[Container]
 
 
 S = TypeVar("S", bound=Sample)
+
 
 class Samples(UserList[S]):
     """A list of sample containers"""
@@ -107,3 +109,7 @@ class Samples(UserList[S]):
             handle.write(_samplesheet)
 
         return _path
+
+
+    def __reduce__(self) -> Callable | tuple:
+        return self.__class__, (self.data,)
