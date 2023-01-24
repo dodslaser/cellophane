@@ -182,7 +182,7 @@ properties:
 This is the resulting auto-generated CLI:
 
 ```shell
-$ python -m my_awesome_wrapperrunpy
+$ python -m my_awesome_wrapper
 
 
  Usage: my_awesome_wrapper [OPTIONS]
