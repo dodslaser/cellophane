@@ -2,6 +2,10 @@
 
 A library for creating modular wrappers.
 
+# ❗️ HERE BE DRAGONS 🐉 ❗️
+
+Cellophane is currently very unstable and may break, blow up, and/or eat your pet(s), etc.
+
 ## Usage
 
 Add cellophane as a subtree (or a submodule) at the base of your project. A generic project structure can be generated with `cellophane init`.
@@ -211,7 +215,12 @@ At least one module must contain at least one `runner` decorated function. Runne
 
 A module may also define pre/post-hooks. These are functions that will be executed before or after the whle pipeline completes. A hook function must take `config`, `samples`, amd `logger` as arguments. Hooks are executed sequentially and can be given a numeric priority to ensure correct execution order. By default the priority will be `inf`. Setting a lower `priority` means the hook will be executed earlier.
 
-The main use-case for pre-hooks is to modify `samples` before it is passed to the runners. This can be used to eg. download `.fastq.gz` files from a backup location, decompress `.fasterq` files, add related samples, remove samples with missing files, and so on. If a pre-hook returns a `cellophane.data.Samples` (or a subclass) object it will replace the current `samples`. The use-case for post-hooks is mayble less obvious, ut they can be used to eg. clean up temporary files, or send an email when a pipeline completes/fails.
+The main use-case for pre-hooks is to modify `samples` before it is passed to the runners. This can be used to eg. download `.fastq.gz` files from a backup location, decompress `.fasterq` files, add related samples, remove samples with missing files, and so on. If a pre-hook returns a `cellophane.data.Samples` (or a subclass) object it will replace the current `samples`.
+
+The use-case for post-hooks is mayble less obvious, ut they can be used to eg. clean up temporary files, or send an email when a pipeline completes/fails. If your runner returns a `cellophane.data.Samples` (or a subclass) object this will be used by post-hooks, otherwise the original samples will be used. The samples supplied to a post-hook differs from pre-hooks/runners:
+
+1. Samples are combined from all runners. If yout workflow has multiple runners you will get multiple instances of the same sample.
+3. Samples will contain `complete` (bool) and `runner` (str) attributes to designate what runner produced them and if it completed
 
 Note that hooks are not module specific, but rather ALL pre-hooks will be executed before ALL runners and ALL post-hooks will be executed afterwards. Module specific functionality should be handeled inside the runner function.
 
