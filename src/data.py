@@ -93,8 +93,8 @@ class Samples(UserList[S]):
         _data = [
             {
                 "sample": sample.id,
-                "fastq_1": sample.fastq_paths[0],
-                "fastq_2": sample.fastq_paths[1],
+                "fastq_1": str(sample.fastq_paths[0]),
+                "fastq_2": str(sample.fastq_paths[1]),
                 **{
                     k: v[sample.id] if isinstance(v, Mapping) else v
                     for k, v in kwargs.items()
