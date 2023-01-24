@@ -47,6 +47,7 @@ class Runner(mp.Process):
         self,
         config: cfg.Config,
         samples: data.Samples,
+        timestamp: str,
         log_queue: Queue,
         log_level: int,
         output: mp.Queue,
@@ -60,6 +61,7 @@ class Runner(mp.Process):
             kwargs={
                 "config": config,
                 "samples": samples,
+                "timestamp": timestamp,
                 "root": root,
             },
         )
@@ -68,6 +70,7 @@ class Runner(mp.Process):
         self,
         config: cfg.Config,
         samples: data.Samples[data.Sample],
+        timestamp: str,
         root: Path,
     ) -> Optional[data.Samples[data.Sample]]:
         logger = logs.get_logger(
@@ -88,6 +91,7 @@ class Runner(mp.Process):
             returned = self.main(
                 samples=samples,
                 config=config,
+                timestamp=timestamp,
                 label=self.label,
                 logger=logger,
                 root=root,
@@ -141,21 +145,23 @@ class Hook:
 
     def __call__(
         self,
-        config: cfg.Config,
         samples: data.Samples,
+        config: cfg.Config,
+        timestamp: str,
         log_queue: mp.Queue,
         log_level: int,
         root: Path,
     ) -> data.Samples:
-        _adapter = logs.get_logger(
+        _logger = logs.get_logger(
             label=self.label,
             level=log_level,
             queue=log_queue,
         )
         return self.func(
-            config=config,
             samples=samples,
-            logger=_adapter,
+            config=config,
+            timestamp=timestamp,
+            logger=_logger,
             root=root,
         )
 

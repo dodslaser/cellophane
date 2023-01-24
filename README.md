@@ -211,7 +211,7 @@ $ python -m my_awesome_wrapperrunpy
 
 ## Defining pipeline modules
 
-At least one module must contain at least one `runner` decorated function. Runners are responsible for launching the pipeline with the provided samples. They are executed as separate processes in parallel. Optinally, if `individual_samples=True` is specified in the `runner` decorator cellophane will spawn one runner process per sample. A `runner` function must accept `label`, `samples`, `config`, and `logger` as arguments.
+At least one module must contain at least one `runner` decorated function. Runners are responsible for launching the pipeline with the provided samples. They are executed as separate processes in parallel. Optinally, if `individual_samples=True` is specified in the `runner` decorator cellophane will spawn one runner process per sample. A `runner` function must accept `samples`, `config`, `timestamp`, `label`, `logger`, and `root` as arguments.
 
 A module may also define pre/post-hooks. These are functions that will be executed before or after the whle pipeline completes. A hook function must take `config`, `samples`, amd `logger` as arguments. Hooks are executed sequentially and can be given a numeric priority to ensure correct execution order. By default the priority will be `inf`. Setting a lower `priority` means the hook will be executed earlier.
 
@@ -232,13 +232,13 @@ from pathlib import Path
 from cellophane import sge, modules
 
 @modules.pre_hook(priority=10)
-def filter_missing(config, samples, logger, scripts_path):
+def filter_missing(samples, config, timestamp, logger, root):
     _samples = [s for s in samples if all(Path(p).exists() for p in s.fastq_paths)]
     return Samples(_samples)
 
 
 @modules.runner()
-def foo(label, samples, config, logger, scripts_path):
+def foo(samples, config, timestamp, label, logger, root):
 
     # config is a UserDict that allows attrubute access
     if not config.foo.skip:
@@ -292,7 +292,7 @@ def foo(label, samples, config, logger, scripts_path):
     individual_samples=True,
     label="My Fancy Label"
 )
-def bar(label, samples, config, logger):
+def bar(samples, config, timestamp, logger, root):
 
     # samples is still a sequence but length is 1
     sample = samples[0]

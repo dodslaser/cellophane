@@ -7,6 +7,7 @@ from copy import deepcopy
 from importlib.util import spec_from_file_location, module_from_spec
 from pathlib import Path
 from typing import Any, Optional, Type, Callable
+import time
 
 import rich_click as click
 import yaml
@@ -20,6 +21,8 @@ _LOG_QUEUE = logs.get_log_queue(_MP_MANAGER)
 _RUNNERS: list[Type[modules.Runner]] = []
 _PROCS: list[modules.Runner] = []
 _HOOKS: list[modules.Hook] = []
+_TIMESTAMP: str = time.strftime("%Y%m%d_%H%M%S")
+
 
 CELLOPHANE_ROOT = Path(__file__).parent
 
@@ -76,8 +79,9 @@ def _main(
         for hook in [h for h in _HOOKS if h.when == "pre"]:
             logger.info(f"Running pre-hook {hook.label}")
             result = hook(
+                samples=deepcopy(samples),
                 config=config,
-                samples=samples,
+                timestamp=_TIMESTAMP,
                 log_queue=_LOG_QUEUE,
                 log_level=config.log_level,
                 root=root,
@@ -94,8 +98,9 @@ def _main(
                     else [samples]
                 ):
                     proc = runner(
-                        config=deepcopy(config),
-                        samples=deepcopy(_samples),
+                        samples=_samples,
+                        config=config,
+                        timestamp=_TIMESTAMP,
                         log_queue=_LOG_QUEUE,
                         log_level=config.log_level,
                         output=mp.Queue(),
@@ -139,8 +144,9 @@ def _main(
         for hook in [h for h in _HOOKS if h.when == "post"]:
             logger.info(f"Running post-hook {hook.label}")
             hook(
-                config=config,
                 samples=samples.__class__([*completed_samples, *failed_samples]),
+                config=config,
+                timestamp=_TIMESTAMP,
                 log_queue=_LOG_QUEUE,
                 log_level=config.log_level,
                 root=root,
