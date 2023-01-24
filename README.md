@@ -16,7 +16,7 @@ git init my_awesome_wrapper
 cd my_awesome_wrapper
 
 # Add the cellophane repo as a remote and install cellophane as a subtree in the project root
-git remote add -f cellophane https://github.com/dodslaser/cellophane
+git remote add -f cellophane https://github.com/ClinicalGenomicsGBG/cellophane
 git subtree add --prefix cellophane cellophane main --squash
 
 # Initialize an empty cellophane project
@@ -86,7 +86,7 @@ Pre-made modules can also be added from git
 
 ```shell
 # Add the module repo as a remote and install a module as a subtree
-git remote add -f modules https://github.com/dodslaser/cellophane_modules
+git remote add -f modules https://github.com/ClinicalGenomicsGBG/cellophane_modules
 git subtree add --prefix modules/slims modules slims --squash -m "Add SLIMS module"
 
 # Upgrading is done the same way as cellophane
