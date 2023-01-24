@@ -105,5 +105,5 @@ def submit(
     if check:
         proc.join()
         if proc.exitcode != 0:
-            raise SystemExit(proc.exitcode)
+            raise RuntimeError(f"Job {name} failed with exit code {proc.exitcode}")
     return proc
