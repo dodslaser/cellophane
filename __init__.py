@@ -119,32 +119,22 @@ def _main(
         )
 
     finally:
-        results: dict[str, data.Samples] = {
-            r.label: samples.__class__() for r in _RUNNERS
-        }
         completed_samples: list[data.Sample] = []
+        failed_samples: list[data.Sample] = []
+
         for proc in _PROCS:
             if proc.exitcode is None:
                 logger.debug(f"Terminating {proc.label}")
                 try:
                     proc.terminate()
                     proc.join()
-                # Handle weird edge cases
+                # Handle weird edge cases when terminating processes
                 except Exception as exception:
                     logger.debug(f"Failed to terminate {proc.label}: {exception}")
-                    pass
 
-            if (runner_samples := proc.output.get_nowait()) is not None:
-                for sample in runner_samples:
-                    sample.complete = True
-                results[proc.label].extend(runner_samples)
-                completed_samples.extend(runner_samples)
-
-        failed_samples = [
-            s for s in samples if s.id not in [c.id for c in completed_samples]
-        ]
-        for sample in failed_samples:
-            sample.complete = False
+            runner_samples = proc.output.get_nowait()
+            completed_samples.extend(s for s in runner_samples if s.complete)
+            failed_samples.extend(s for s in runner_samples if not s.complete)
 
         for hook in [h for h in _HOOKS if h.when == "post"]:
             logger.info(f"Running post-hook {hook.label}")
@@ -156,17 +146,25 @@ def _main(
                 root=root,
             )
 
-        for name, processed in results.items():
-            if processed:
-                _n_processed = sum(p.id in [s.id for s in samples] for p in processed)
-                _n_failed = sum(s.id not in [p.id for p in processed] for s in samples)
-                _n_extra = len(processed) - _n_processed
-                if _n_processed:
-                    logger.info(f"Runner {name} completed {_n_processed} samples")
-                if _n_extra:
-                    logger.info(f"Runner {name} introduced {_n_extra} extra samples")
-                if _n_failed:
-                    logger.info(f"Runner {name} failed for {_n_failed} samples")
+        original_ids = [s.id for s in samples]
+        for runner in _RUNNERS:
+            n_completed = sum(
+                s.runner == runner.label and s.id in original_ids
+                for s in completed_samples
+            )
+            n_failed = sum(
+                s.runner == runner.label and s.id in original_ids
+                for s in failed_samples
+            )
+            n_extra = sum(
+                s.id not in original_ids for s in [*completed_samples, *failed_samples]
+            )
+            if n_completed:
+                logger.info(f"Runner {runner.label} completed {n_completed} samples")
+            if n_extra:
+                logger.info(f"Runner {runner.label} introduced {n_extra} extra samples")
+            if n_failed:
+                logger.warning(f"Runner {runner.label} failed for {n_failed} samples")
 
 
 def cellophane(

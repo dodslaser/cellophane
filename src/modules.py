@@ -67,9 +67,9 @@ class Runner(mp.Process):
     def _main(
         self,
         config: cfg.Config,
-        samples: data.Samples,
+        samples: data.Samples[data.Sample],
         root: Path,
-    ) -> None:
+    ) -> Optional[data.Samples[data.Sample]]:
         logger = logs.get_logger(
             label=self.label,
             level=self.log_level,
@@ -78,8 +78,13 @@ class Runner(mp.Process):
         signal(SIGTERM, _cleanup(logger))
         sys.stdout = open(os.devnull, "w", encoding="utf-8")
         sys.stderr = open(os.devnull, "w", encoding="utf-8")
+        
+        for sample in samples:
+            sample.complete = False
+            sample.runner = self.label
+        original = deepcopy(samples)
+        
         try:
-            original = deepcopy(samples)
             returned = self.main(
                 samples=samples,
                 config=config,
@@ -89,35 +94,37 @@ class Runner(mp.Process):
             )
 
             match returned:
-                case None if any(s.id not in [o.id for o in original] for s in samples):
-                    logger.warning("Runner returned None, but samples were modified")
-                    self.output.put(original)
                 case None:
-                    logger.debug("Runner did not modify samples")
+                    if returned is None and any(
+                        s.id not in [o.id for o in original] for s in samples
+                    ):
+                        logger.warning("Samples were modified but not returned")
+                    for sample in original:
+                        sample.complete = True
                     self.output.put(original)
-                case data.Samples:
+                case returned if issubclass(type(returned), data.Samples):
+                    for sample in returned:
+                        sample.complete = sample.complete or True
                     self.output.put(returned)
                 case _:
-                    logger.warning(
-                        f"Runner returned an unexpected type {type(returned)}"
-                    )
+                    logger.warning(f"Unexpected return type {type(returned)}")
                     self.output.put(original)
-            
+
             self.output.close()
             self.output.join_thread()
 
         except Exception as exception:
             logger.critical(
-                "Caught an exception",
+                "Caught an unhandeled exception",
                 exc_info=config.log_level == "DEBUG",
             )
-            self.output.put(None)
+            self.output.put(original)
             self.output.close()
             self.output.join_thread()
             raise SystemExit(1) from exception
 
     @staticmethod
-    def main(*args, **kwargs) -> None:
+    def main(*args, **kwargs) -> Optional[data.Samples[data.Sample]]:
         """Main function for the runner."""
         raise NotImplementedError
 

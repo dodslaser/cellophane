@@ -49,6 +49,8 @@ class Sample(Container):
     id: str
     fastq_paths: list[str]
     backup: Optional[Container]
+    complete: Optional[bool] = None
+    runner: Optional[str] = None
 
 
 S = TypeVar("S", bound=Sample)
