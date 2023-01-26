@@ -126,13 +126,13 @@ class Runner(mp.Process):
 
         except Exception as exception:
             logger.critical(
-                "Caught an unhandeled exception",
+                f"Runner threw an {exception}",
                 exc_info=config.log_level == "DEBUG",
             )
             self.output.put(original)
             self.output.close()
             self.output.join_thread()
-            raise SystemExit(1) from exception
+            raise SystemExit(1)
 
     @staticmethod
     def main(*args, **kwargs) -> Optional[data.Samples[data.Sample]]:
