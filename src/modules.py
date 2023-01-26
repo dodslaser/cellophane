@@ -16,12 +16,19 @@ import psutil
 from . import cfg, data, logs
 
 
-def _cleanup(logger: logging.LoggerAdapter):
+def _cleanup(
+    logger: logging.LoggerAdapter,
+    output: mp.Queue,
+    samples: data.Samples,
+) -> Callable:
     def inner(*_):
         for proc in psutil.Process().children(recursive=True):
             logger.debug(f"Waiting for {proc.name()} ({proc.pid})")
             proc.terminate()
             proc.wait()
+        output.put(samples)
+        output.close()
+        output.join_thread()
         raise SystemExit(1)
 
     return inner
@@ -73,20 +80,20 @@ class Runner(mp.Process):
         timestamp: str,
         root: Path,
     ) -> Optional[data.Samples[data.Sample]]:
+        for sample in samples:
+            sample.complete = False
+            sample.runner = self.label
+        original = deepcopy(samples)
+
         logger = logs.get_logger(
             label=self.label,
             level=self.log_level,
             queue=self.log_queue,
         )
-        signal(SIGTERM, _cleanup(logger))
+        signal(SIGTERM, _cleanup(logger, self.output, original))
         sys.stdout = open(os.devnull, "w", encoding="utf-8")
         sys.stderr = open(os.devnull, "w", encoding="utf-8")
-        
-        for sample in samples:
-            sample.complete = False
-            sample.runner = self.label
-        original = deepcopy(samples)
-        
+
         try:
             returned = self.main(
                 samples=samples,
