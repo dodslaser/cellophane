@@ -68,8 +68,8 @@ def _run(
         except KeyboardInterrupt:
             _cleanup(jid, session)()
         finally:
-            if session.jobStatus(jid) == drmaa.JobState.FAILED:
-                raise SystemExit(1)
+            job_info = session.wait(jid, drmaa.Session.TIMEOUT_WAIT_FOREVER)
+            raise SystemExit(job_info.hasExited and job_info.exitStatus)
 
 def submit(
     script: str,
