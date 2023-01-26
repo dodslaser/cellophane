@@ -9,6 +9,7 @@ from signal import SIGTERM, signal
 from typing import Optional
 
 from . import util
+
 drmaa = util.lazy_import("drmaa")
 
 
@@ -70,6 +71,7 @@ def _run(
         finally:
             job_info = session.wait(jid, drmaa.Session.TIMEOUT_WAIT_FOREVER)
             raise SystemExit(job_info.hasExited and job_info.exitStatus)
+
 
 def submit(
     script: str,

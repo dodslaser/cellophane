@@ -1,6 +1,8 @@
 # Cellophane
 
-A library for creating modular wrappers.
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
+Cellophane is a library for creating modular wrappers.
 
 # ❗️ HERE BE DRAGONS 🐉 ❗️
 
@@ -73,7 +75,7 @@ If for some reason you need to change this structure you can change `__main__.py
 from cellophane import cellophane
 
 if __name__ == "__main__":
-    main = cellphane(
+    main = cellophane(
         "My Awesome Wrapper" # Will be used for logging
         modules_path=Path(__file__) / "my_modules"
         schema_path=Path(__file__) / "schema.yaml"
@@ -260,7 +262,7 @@ def foo(samples, config, timestamp, label, logger, root):
 
         # sge.submit submits scripts jobs to an SGE cluster (via DRMAA)
         sge.submit(
-            str(scripts_path / "nextflow.sh"),
+            str(root / "scripts" / "nextflow.sh"),
             # *args will be passed as arguments to the script
             *(
                 f"-log {outdir / 'logs' / 'foo.log'}",
