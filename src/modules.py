@@ -125,10 +125,7 @@ class Runner(mp.Process):
             self.output.join_thread()
 
         except Exception as exception:
-            logger.critical(
-                f"Runner threw an {exception}",
-                exc_info=config.log_level == "DEBUG",
-            )
+            logger.critical(exception, exc_info=config.log_level == "DEBUG")
             self.output.put(original)
             self.output.close()
             self.output.join_thread()
