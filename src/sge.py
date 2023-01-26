@@ -69,7 +69,7 @@ def _run(
             _cleanup(jid, session)()
         finally:
             if session.jobStatus(jid) == drmaa.JobState.FAILED:
-                raise RuntimeError(f"Job {name} failed")
+                raise SystemExit(1)
 
 def submit(
     script: str,
