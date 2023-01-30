@@ -36,7 +36,7 @@ def _main(
 ) -> None:
     """Run cellophane"""
     logger.setLevel(config.log_level)
-    if config.samples_file:
+    if "samples_file" in config:
         samples = data.Samples.from_file(config.samples_file)
     else:
         samples = data.Samples()
