@@ -70,7 +70,7 @@ def _get_options(cls: Type[Validator]) -> Type[Validator]:
                         instance[prop].append(description)
                     case _:
                         instance[prop].append("")
-                
+
                 match subschema:
                     case {"secret": True}:
                         instance[prop].append(True)
@@ -99,14 +99,7 @@ def _get_options(cls: Type[Validator]) -> Type[Validator]:
             yield error
 
     return validators.extend(
-        cls,
-        {k: None for k in cls.VALIDATORS}
-        | {
-            "properties": func,
-            "if": None,
-            "then": None,
-            "else": None,
-        },
+        cls, {k: None for k in cls.VALIDATORS} | {"properties": func}
     )
 
 
@@ -120,7 +113,10 @@ class Schema(data.Container):
         schema: dict = {}
         for file in path:
             with open(file, "r", encoding="utf-8") as handle:
-                schema |= safe_load(handle) or {}
+                schema = util.merge_mappings(
+                    deepcopy(schema),
+                    safe_load(handle) or {},
+                )
         cls(schema)
 
     @property
