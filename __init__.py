@@ -180,10 +180,10 @@ def cellophane(
     modules_path: Optional[Path] = None,
 ) -> Callable:
     """Generate a cellophane CLI from a schema file"""
-    _root = Path(inspect.stack()[1].filename).parent
-    _wrapper_log = wrapper_log or _root / "pipeline.log"
-    _schema_path = schema_path or _root / "schema.yaml"
-    _modules_path = modules_path or _root / "modules"
+    root = Path(inspect.stack()[1].filename).parent
+    _wrapper_log = wrapper_log or root / "pipeline.log"
+    _schema_path = schema_path or root / "schema.yaml"
+    _modules_path = modules_path or root / "modules"
 
     with (
         open(CELLOPHANE_ROOT / "schema.base.yaml", encoding="utf-8") as base_handle,
@@ -208,12 +208,6 @@ def cellophane(
         queue=_LOG_QUEUE,
         propagate_exceptions=False,
     )
-    @click.option(
-        "config_path",
-        "--config",
-        type=click.Path(exists=True),
-        help="Path to config file",
-    )
     def inner(config_path, logger, **kwargs) -> Any:
         try:
             _config = cfg.Config(config_path, schema, **kwargs)
@@ -224,7 +218,7 @@ def cellophane(
             config=_config,
             logger=logger,
             modules_path=_modules_path,
-            root=_root,
+            root=root,
         )
 
     for flag, _, default, description, _type in schema.flags:
@@ -237,5 +231,14 @@ def cellophane(
             help=description,
             show_default=True,
         )(inner)
+
+    inner = click.option(
+        "config_path",
+        "--config",
+        type=click.Path(exists=True),
+        help="Path to config file",
+        is_eager=True,
+        callback=lambda ctx, _, value: cfg.set_defaults(ctx, value, schema),
+    )(inner)
 
     return inner

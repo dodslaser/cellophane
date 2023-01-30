@@ -11,6 +11,14 @@ from yaml import safe_load
 class Container(UserDict):
     """A dict that allows attribute access to its items"""
 
+    def __contains__(self, key: Hashable | Sequence[Hashable]) -> bool:
+        try:
+            self[key]
+        except (KeyError, TypeError):
+            return False
+        else:
+            return True
+
     def __setitem__(self, key: Hashable | Sequence[Hashable], item: Any) -> None:
         if isinstance(item, Mapping) and not isinstance(item, Container):
             item = Container(item)
@@ -18,7 +26,7 @@ class Container(UserDict):
         match key:
             case k if isinstance(k, Hashable):
                 self.data[k] = item
-            case *k,:
+            case *k, :
                 reduce(lambda d, k: d.setdefault(k, Container()), k[:-1], self.data)[
                     k[-1]
                 ] = item
@@ -27,12 +35,12 @@ class Container(UserDict):
 
     def __getitem__(self, key: Hashable | Sequence[Hashable]) -> Any:
         match key:
+            case *k, :
+                return reduce(lambda d, k: d[k], k, self.data)
             case k if isinstance(k, Hashable):
                 return self.data[k]
-            case *k,:
-                return reduce(lambda d, k: d[k], k, self.data)
-            case _:
-                raise TypeError("Key must be hashble or a sequence of hashables")
+            case k:
+                raise TypeError("Key {k} is not hashble or a sequence of hashables")
 
     def __getattr__(self, key: str) -> Any:
         if "data" in self.__dict__ and key in self.data:

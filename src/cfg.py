@@ -161,5 +161,15 @@ class Config(data.Container):
             if flag not in _data and kwargs[flag] is not None:
                 _data[key] = kwargs[flag]
 
-        _data = schema.validate(_data)
         super().__init__(_data)
+
+
+def set_defaults(ctx: click.Context, config_path: Path | click.Path, schema: Schema):
+    """Set click defaults from schema and configuration file"""
+    with open(str(config_path), "r", encoding="utf-8") as handle:
+        config = data.Container(safe_load(handle))
+
+    ctx.default_map = {
+        flag: config[key] if key in config else default
+        for flag, key, default, _, _ in schema.flags
+    }
