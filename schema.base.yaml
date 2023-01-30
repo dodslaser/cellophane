@@ -24,6 +24,6 @@ properties:
     type: path
   
   samples_file:
-    description: "Path YAML file with sample names and paths to fastq files (eg. sample: [fastq1, fastq2]"
+    description: "Path YAML file with sample names and paths to fastq files (eg. sample: [fastq1, fastq2])"
     type: path
   
