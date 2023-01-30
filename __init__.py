@@ -36,7 +36,7 @@ def _main(
 ) -> None:
     """Run cellophane"""
     logger.setLevel(config.log_level)
-    if "samples_file" in config:
+    if config.samples_file is not None:
         samples = data.Samples.from_file(config.samples_file)
     else:
         samples = data.Samples()
@@ -78,7 +78,7 @@ def _main(
 
     try:
         for hook in [h for h in _HOOKS if h.when == "pre"]:
-            logger.info(f"Running pre-hook {hook.label}")
+            logger.debug(f"Running pre-hook {hook.label}")
             result = hook(
                 samples=deepcopy(samples),
                 config=config,
@@ -110,7 +110,7 @@ def _main(
                     _PROCS.append(proc)
 
             for proc in _PROCS:
-                logger.info(f"Starting {proc.label} for {len(samples)} samples")
+                logger.debug(f"Starting {proc.label} for {len(samples)} samples")
                 proc.start()
             for proc in _PROCS:
                 proc.join()
@@ -122,6 +122,7 @@ def _main(
         logger.critical(
             f"Unhandled exception: {exception}",
             exc_info=config.log_level == "DEBUG",
+            stacklevel=2,
         )
 
     finally:
@@ -143,7 +144,7 @@ def _main(
             failed_samples.extend(s for s in runner_samples if not s.complete)
 
         for hook in [h for h in _HOOKS if h.when == "post"]:
-            logger.info(f"Running post-hook {hook.label}")
+            logger.debug(f"Running post-hook {hook.label}")
             hook(
                 samples=samples.__class__([*completed_samples, *failed_samples]),
                 config=config,

@@ -167,6 +167,7 @@ class Config(data.Container):
             if flag not in _data and kwargs[flag] is not None:
                 _data[key] = kwargs[flag]
 
+        _data = schema.validate(_data)
         super().__init__(_data)
 
 
