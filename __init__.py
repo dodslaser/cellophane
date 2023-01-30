@@ -26,6 +26,7 @@ _TIMESTAMP: str = time.strftime("%Y%m%d_%H%M%S")
 
 CELLOPHANE_ROOT = Path(__file__).parent
 
+click.rich_click.DEFAULT_STRING = "[{}]"
 
 def _main(
     logger: logging.LoggerAdapter,
