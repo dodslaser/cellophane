@@ -3,16 +3,16 @@
 from copy import deepcopy
 from functools import reduce
 from pathlib import Path
-from typing import Iterable, Optional, Type
+from typing import Iterable, Optional, Type, Iterator
 
 import rich_click as click
-from jsonschema import Draft7Validator, Validator, validators
+from jsonschema import Draft7Validator, Validator, validators, ValidationError
 from yaml import safe_load
 
 from . import data, util
 
 
-def _set_options(cls: Type[Validator]) -> Type[Validator]:
+def _set_options(cls: Type[Validator], validate: bool) -> Type[Validator]:
     """Set default values when validating"""
     validate_properties = cls.VALIDATORS["properties"]
 
@@ -36,8 +36,9 @@ def _set_options(cls: Type[Validator]) -> Type[Validator]:
             if subschema.get("type", None) == "path" and prop in instance:
                 instance[prop] = Path(instance[prop])
 
-        for error in validate_properties(cls, properties, instance, schema):
-            yield error
+        if validate:
+            for error in validate_properties(cls, properties, instance, schema):
+                yield error
 
     type_checker = cls.TYPE_CHECKER.redefine_many(
         {
@@ -141,17 +142,34 @@ class Schema(data.Container):
             )
             yield flag, key, default, description, secret, _type
 
-    def validate(self, config: data.Container) -> data.Container:
+    def set_defaults(
+        self,
+        config: data.Container,
+        validate: bool = True,
+    ) -> data.Container:
         """Validate configuration"""
         _config = deepcopy(config)
-        _set_options(Draft7Validator)({**self.data}).validate(_config)
+        _validator = _set_options(Draft7Validator, validate=validate)({**self.data})
+        _validator.validate(_config)
         return _config
+
+    def iter_errors(self, config: data.Container) -> Iterator[ValidationError]:
+        """Iterate over validation errors"""
+        _config = deepcopy(config)
+        _validator = _set_options(Draft7Validator, validate=True)({**self.data})
+        return _validator.iter_errors(_config)
 
 
 class Config(data.Container):
     """Configuration file"""
 
-    def __init__(self, path: Optional[Path | click.Path], schema: Schema, **kwargs):
+    def __init__(
+        self,
+        path: Optional[Path | click.Path],
+        schema: Schema,
+        validate: bool = True,
+        **kwargs,
+    ):
 
         if path is not None:
             with open(str(path), "r", encoding="utf-8") as handle:
@@ -163,7 +181,7 @@ class Config(data.Container):
             if flag not in _data and kwargs[flag] is not None:
                 _data[key] = kwargs[flag]
 
-        _data = schema.validate(_data)
+        _data = schema.set_defaults(_data, validate=validate)
         super().__init__(_data)
 
 

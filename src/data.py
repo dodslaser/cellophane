@@ -10,7 +10,6 @@ from yaml import safe_load
 
 class Container(UserDict):
     """A dict that allows attribute access to its items"""
-
     def __contains__(self, key: Hashable | Sequence[Hashable]) -> bool:
         try:
             self[key]

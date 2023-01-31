@@ -1,6 +1,6 @@
 """Utility functions and classes"""
 
-from typing import Any, Iterable, Hashable
+from typing import Any, Hashable
 import importlib.util
 import sys
 
@@ -12,7 +12,7 @@ def map_nested_keys(data: Any) -> list[list[str]]:
             return [
                 [k, *p]
                 for k, v in data.items()
-                for p in map_nested_keys(v)  # pylint: disable=not-an-iterable
+                for p in map_nested_keys(v)
             ]
         case _:
             return [[]]
