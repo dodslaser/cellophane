@@ -33,8 +33,8 @@ def _set_options(cls: Type[Validator]) -> Type[Validator]:
         for prop, subschema in properties.items():
             if "default" in subschema:
                 instance.setdefault(prop, subschema["default"])
-            if subschema.get("type", None) == "path":
-                instance[prop] = Path(instance[prop]) if prop in instance else None
+            if subschema.get("type", None) == "path" and prop in instance:
+                instance[prop] = Path(instance[prop])
 
         for error in validate_properties(cls, properties, instance, schema):
             yield error
