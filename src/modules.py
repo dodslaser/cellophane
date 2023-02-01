@@ -11,6 +11,9 @@ from typing import Callable, Optional, ClassVar
 from pathlib import Path
 from queue import Queue
 
+import xxhash
+import inspect
+import pickle
 import psutil
 
 from . import cfg, data, logs
@@ -95,6 +98,31 @@ class Runner(mp.Process):
         sys.stdout = open(os.devnull, "w", encoding="utf-8")
         sys.stderr = open(os.devnull, "w", encoding="utf-8")
 
+        outdir: Path = config.outdir / self.label
+
+        runhash = xxhash.xxh3_128()
+        runhash.update(pickle.dumps(config))
+        runhash.update(pickle.dumps(inspect.getsource(self.main)))
+        for sample in samples:
+            for fq in sample.fastq_paths:
+                with open(fq, "rb") as file:
+                    for block in iter(lambda: file.read(int(128e6)), b""):
+                        runhash.update(block)
+        runhash = runhash.hexdigest()
+
+        logger.debug(f"Run hash: {runhash}")
+
+        if (outdir / runhash).exists():
+            try:
+                returned = pickle.loads((outdir / runhash).read_bytes())
+            except Exception as exception:
+                logger.warning(
+                    f"Unable to load cached results: {exception}",
+                    exc_info=config.log_level == "DEBUG",
+                )
+            else:
+                logger.info("Using cached results")
+
         try:
             returned = self.main(
                 samples=samples,
@@ -103,7 +131,7 @@ class Runner(mp.Process):
                 label=self.label,
                 logger=logger,
                 root=root,
-                outdir=config.outdir / self.label,
+                outdir=outdir,
             )
 
             match returned:

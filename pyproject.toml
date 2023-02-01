@@ -16,6 +16,7 @@ humanfriendly = "^10.0"
 jsonschema = "^4.17.3"
 ngpiris = "^4.2.0"
 pyaml = "^21.10.1"
+xxhash = "^3.2.0"
 
 
 [tool.poetry.group.dev.dependencies]
