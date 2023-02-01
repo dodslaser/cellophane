@@ -105,9 +105,8 @@ class Runner(mp.Process):
         runhash.update(pickle.dumps(inspect.getsource(self.main)))
         for sample in samples:
             for fq in sample.fastq_paths:
-                with open(fq, "rb") as file:
-                    for block in iter(lambda: file.read(int(128e6)), b""):
-                        runhash.update(block)
+                with open(fq, "rb") as handle:
+                    runhash.update(handle.read(int(128e6)))
         runhash = runhash.hexdigest()
 
         logger.debug(f"Run hash: {runhash}")
