@@ -90,6 +90,7 @@ class Runner(mp.Process):
             level=self.log_level,
             queue=self.log_queue,
         )
+
         signal(SIGTERM, _cleanup(logger, self.output, original))
         sys.stdout = open(os.devnull, "w", encoding="utf-8")
         sys.stderr = open(os.devnull, "w", encoding="utf-8")
@@ -102,6 +103,7 @@ class Runner(mp.Process):
                 label=self.label,
                 logger=logger,
                 root=root,
+                outdir=config.outdir / self.label,
             )
 
             match returned:
@@ -132,7 +134,7 @@ class Runner(mp.Process):
             raise SystemExit(1)
 
     @staticmethod
-    def main(*args, **kwargs) -> Optional[data.Samples[data.Sample]]:
+    def main(**_) -> Optional[data.Samples[data.Sample]]:
         """Main function for the runner."""
         raise NotImplementedError
 
@@ -220,9 +222,9 @@ def runner(
             label=label or func.__name__,
             individual_samples=individual_samples,
         ):
-            @staticmethod
-            def main(*args, **kwargs):
-                return func(*args, **kwargs)
+            def __init__(self, *args, **kwargs):
+                self.main = staticmethod(func)
+                super().__init__(*args, **kwargs)
 
         return _runner
 

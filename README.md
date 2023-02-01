@@ -213,7 +213,7 @@ $ python -m my_awesome_wrapper
 
 ## Defining pipeline modules
 
-At least one module must contain at least one `runner` decorated function. Runners are responsible for launching the pipeline with the provided samples. They are executed as separate processes in parallel. Optinally, if `individual_samples=True` is specified in the `runner` decorator cellophane will spawn one runner process per sample. A `runner` function must accept `samples`, `config`, `timestamp`, `label`, `logger`, and `root` as arguments.
+At least one module must contain at least one `runner` decorated function. Runners are responsible for launching the pipeline with the provided samples. They are executed as separate processes in parallel. Optinally, if `individual_samples=True` is specified in the `runner` decorator cellophane will spawn one runner process per sample. A `runner` function must accept `samples`, `config`, `timestamp`, `label`, `logger`, `root` and `outdir` as arguments.
 
 A module may also define pre/post-hooks. These are functions that will be executed before or after the whle pipeline completes. A hook function must take `config`, `samples`, amd `logger` as arguments. Hooks are executed sequentially and can be given a numeric priority to ensure correct execution order. By default the priority will be `inf`. Setting a lower `priority` means the hook will be executed earlier.
 
@@ -240,16 +240,13 @@ def filter_missing(samples, config, timestamp, logger, root):
 
 
 @modules.runner()
-def foo(samples, config, timestamp, label, logger, root):
+def foo(samples, config, timestamp, label, logger, root, outdir):
 
     # config is a UserDict that allows attrubute access
     if not config.foo.skip:
         # Logging is preconfigured
         logger.info("Important information about foo")
         logger.debug(f"Some less important debug information about {config.foo.baz}")
-
-        # Note that in reality outdir must be accessible on all SGE nodes
-        outdir = Path("/tmp/foo")
 
         # Sample sheets for nf-core can be generated automatically
         sample_sheet = samples.nfcore_samplesheet(
@@ -294,7 +291,7 @@ def foo(samples, config, timestamp, label, logger, root):
     individual_samples=True,
     label="My Fancy Label"
 )
-def bar(samples, config, timestamp, logger, root):
+def bar(samples, config, timestamp, logger, root, outdir):
 
     # samples is still a sequence but length is 1
     sample = samples[0]
