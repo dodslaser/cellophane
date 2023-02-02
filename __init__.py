@@ -61,13 +61,13 @@ def _main(
                 for obj in [getattr(module, a) for a in dir(module)]:
                     match obj:
                         case modules.Hook() as hook:
-                            logger.debug(f"Found hook {hook.label} ({name})")
+                            logger.debug(f"Found hook {hook.name} ({base})")
                             _HOOKS.append(hook)
                         case type() as runner if (
                             issubclass(runner, modules.Runner)
                             and runner != modules.Runner
                         ):
-                            logger.debug(f"Found runner {runner.label} ({name})")
+                            logger.debug(f"Found runner {runner.name} ({base})")
                             _RUNNERS.append(obj)
                         case _:
                             pass

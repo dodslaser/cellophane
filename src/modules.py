@@ -3,7 +3,7 @@
 import multiprocessing as mp
 import os
 import sys
-from copy import deepcopy
+from copy import deepcopy, copy
 from dataclasses import dataclass
 import logging
 from signal import SIGTERM, signal
@@ -41,15 +41,18 @@ class Runner(mp.Process):
     """Base class for cellophane runners."""
 
     label: ClassVar[str]
+    name: ClassVar[str]
     individual_samples: ClassVar[bool]
     wait: ClassVar[bool]
 
     def __init_subclass__(
         cls,
+        name: str,
         label: Optional[str] = None,
         individual_samples: bool = False,
     ) -> None:
-        cls.label = label or cls.__name__
+        cls.label = label or name
+        cls.name = name
         cls.individual_samples = individual_samples
         super().__init_subclass__()
 
@@ -98,32 +101,42 @@ class Runner(mp.Process):
         sys.stdout = open(os.devnull, "w", encoding="utf-8")
         sys.stderr = open(os.devnull, "w", encoding="utf-8")
 
-        outdir: Path = config.outdir / self.label
+        run_hash = xxhash.xxh3_128()
+        run_hash.update(
+            pickle.dumps({k: v for k, v in config.items() if k not in ["log_level"]})
+        )
+        run_hash.update(pickle.dumps(inspect.getsource(self.main)))
 
-        runhash = xxhash.xxh3_128()
-        runhash.update(pickle.dumps(config))
-        runhash.update(pickle.dumps(inspect.getsource(self.main)))
         for sample in samples:
             for fq in sample.fastq_paths:
+                run_hash.update(Path(fq).stat().st_size.to_bytes(8, "big"))
                 with open(fq, "rb") as handle:
-                    runhash.update(handle.read(int(128e6)))
-        runhash = runhash.hexdigest()
+                    run_hash.update(handle.read(int(128e6)))
+                    handle.seek(-int(128e6), 2)
+                    run_hash.update(handle.read(int(128e6)))
 
-        logger.debug(f"Run hash: {runhash}")
-
-        if (outdir / runhash).exists():
-            try:
-                returned = pickle.loads((outdir / runhash).read_bytes())
-            except Exception as exception:
-                logger.warning(
-                    f"Unable to load cached results: {exception}",
-                    exc_info=config.log_level == "DEBUG",
-                )
-            else:
-                logger.info("Using cached results")
+        run_hash = run_hash.hexdigest()[:16]
+        outdir: Path = config.outdir / f"{self.name}_{run_hash}"
+        logger.debug(f"Run hash: {run_hash}")
 
         try:
-            returned = self.main(
+            checksum = pickle.loads((outdir / ".cellophane_integrity").read_bytes())
+            integrity = xxhash.xxh3_128()
+            integrity.update(pickle.dumps(outdir.glob("**/*")))
+
+            if checksum == integrity:
+                returned = pickle.loads((outdir / ".cellophane_cache").read_bytes())
+                logger.info("Using cached results")
+            else:
+                raise Exception("Integrity check failed")
+
+        except Exception as exception:
+            logger.debug(f"Unable to load cached results: {exception}")
+            returned = None
+            integrity = None
+
+        try:
+            returned = returned or self.main(
                 samples=samples,
                 config=config,
                 timestamp=timestamp,
@@ -133,6 +146,14 @@ class Runner(mp.Process):
                 outdir=outdir,
             )
 
+        except Exception as exception:
+            logger.critical(exception, exc_info=config.log_level == "DEBUG")
+            self.output.put(original)
+            self.output.close()
+            self.output.join_thread()
+            raise SystemExit(1)
+
+        else:
             match returned:
                 case None:
                     if returned is None and any(
@@ -153,12 +174,14 @@ class Runner(mp.Process):
             self.output.close()
             self.output.join_thread()
 
-        except Exception as exception:
-            logger.critical(exception, exc_info=config.log_level == "DEBUG")
-            self.output.put(original)
-            self.output.close()
-            self.output.join_thread()
-            raise SystemExit(1)
+            try:
+                with open(outdir / ".cellophane_integrity", "wb") as handle:
+                    if integrity is None:
+                        integrity = xxhash.xxh3_128()
+                        integrity.update(pickle.dumps(outdir.glob("**/*")))
+                    pickle.dump(integrity, handle)
+            except Exception as exception:
+                logger.debug(f"Unable to save integrity data: {exception}")
 
     @staticmethod
     def main(**_) -> Optional[data.Samples[data.Sample]]:
@@ -171,6 +194,7 @@ class Hook:
     """Base class for cellophane pre/post-hooks."""
 
     label: str
+    name: str
     func: Callable
     overwrite: bool
     when: str
@@ -209,6 +233,7 @@ def pre_hook(
     def wrapper(func):
         return Hook(
             label=label or func.__name__,
+            name=func.__name__,
             func=func,
             overwrite=overwrite,
             when="pre",
@@ -228,6 +253,7 @@ def post_hook(
     def wrapper(func):
         return Hook(
             label=label or func.__name__,
+            name=func.__name__,
             func=func,
             overwrite=overwrite,
             when="post",
@@ -246,7 +272,8 @@ def runner(
     def wrapper(func):
         class _runner(
             Runner,
-            label=label or func.__name__,
+            name=func.__name__,
+            label=label,
             individual_samples=individual_samples,
         ):
             def __init__(self, *args, **kwargs):
