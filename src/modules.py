@@ -3,7 +3,7 @@
 import multiprocessing as mp
 import os
 import sys
-from copy import deepcopy, copy
+from copy import deepcopy
 from dataclasses import dataclass
 import logging
 from signal import SIGTERM, signal
@@ -11,9 +11,6 @@ from typing import Callable, Optional, ClassVar
 from pathlib import Path
 from queue import Queue
 
-import xxhash
-import inspect
-import pickle
 import psutil
 
 from . import cfg, data, logs
@@ -101,42 +98,12 @@ class Runner(mp.Process):
         sys.stdout = open(os.devnull, "w", encoding="utf-8")
         sys.stderr = open(os.devnull, "w", encoding="utf-8")
 
-        run_hash = xxhash.xxh3_128()
-        run_hash.update(
-            pickle.dumps({k: v for k, v in config.items() if k not in ["log_level"]})
-        )
-        run_hash.update(pickle.dumps(inspect.getsource(self.main)))
-
-        for sample in samples:
-            for fq in sample.fastq_paths:
-                run_hash.update(Path(fq).stat().st_size.to_bytes(8, "big"))
-                with open(fq, "rb") as handle:
-                    run_hash.update(handle.read(int(128e6)))
-                    handle.seek(-int(128e6), 2)
-                    run_hash.update(handle.read(int(128e6)))
-
-        run_hash = run_hash.hexdigest()[:16]
-        outdir: Path = config.outdir / f"{self.name}_{run_hash}"
-        logger.debug(f"Run hash: {run_hash}")
+        outdir = config.outdir / timestamp / self.label
+        if self.individual_samples:
+            outdir /= samples[0].id
 
         try:
-            checksum = pickle.loads((outdir / ".cellophane_integrity").read_bytes())
-            integrity = xxhash.xxh3_128()
-            integrity.update(pickle.dumps(outdir.glob("**/*")))
-
-            if checksum == integrity:
-                returned = pickle.loads((outdir / ".cellophane_cache").read_bytes())
-                logger.info("Using cached results")
-            else:
-                raise Exception("Integrity check failed")
-
-        except Exception as exception:
-            logger.debug(f"Unable to load cached results: {exception}")
-            returned = None
-            integrity = None
-
-        try:
-            returned = returned or self.main(
+            returned = self.main(
                 samples=samples,
                 config=config,
                 timestamp=timestamp,
@@ -173,15 +140,6 @@ class Runner(mp.Process):
 
             self.output.close()
             self.output.join_thread()
-
-            try:
-                with open(outdir / ".cellophane_integrity", "wb") as handle:
-                    if integrity is None:
-                        integrity = xxhash.xxh3_128()
-                        integrity.update(pickle.dumps(outdir.glob("**/*")))
-                    pickle.dump(integrity, handle)
-            except Exception as exception:
-                logger.debug(f"Unable to save integrity data: {exception}")
 
     @staticmethod
     def main(**_) -> Optional[data.Samples[data.Sample]]:
