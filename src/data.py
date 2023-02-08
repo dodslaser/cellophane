@@ -10,6 +10,7 @@ from yaml import safe_load
 
 class Container(UserDict):
     """A dict that allows attribute access to its items"""
+
     def __contains__(self, key: Hashable | Sequence[Hashable]) -> bool:
         try:
             self[key]
@@ -25,7 +26,7 @@ class Container(UserDict):
         match key:
             case k if isinstance(k, Hashable):
                 self.data[k] = item
-            case *k, :
+            case *k,:
                 reduce(lambda d, k: d.setdefault(k, Container()), k[:-1], self.data)[
                     k[-1]
                 ] = item
@@ -34,7 +35,7 @@ class Container(UserDict):
 
     def __getitem__(self, key: Hashable | Sequence[Hashable]) -> Any:
         match key:
-            case *k, :
+            case *k,:
                 return reduce(lambda d, k: d[k], k, self.data)
             case k if isinstance(k, Hashable):
                 return self.data[k]
@@ -71,12 +72,7 @@ class Samples(UserList[S]):
         """Get samples from a YAML file"""
         with open(path, "r", encoding="utf-8") as handle:
             samples = [
-                Sample(
-                    id=str(_id),
-                    fastq_paths=[fastq1, fastq2],
-                    backup=dict()
-                )
-                for _id, (fastq1, fastq2) in safe_load(handle).items()
+                Sample(id=str(id), **data) for id, data in safe_load(handle).items()
             ]
         return cls(samples)
 
