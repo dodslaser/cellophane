@@ -74,7 +74,7 @@ class Samples(UserList[S]):
                 Sample(
                     id=str(_id),
                     fastq_paths=[fastq1, fastq2],
-                    backup=None,
+                    backup=dict()
                 )
                 for _id, (fastq1, fastq2) in safe_load(handle).items()
             ]
