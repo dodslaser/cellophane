@@ -3,7 +3,16 @@
 from collections import UserDict, UserList
 from functools import reduce
 from pathlib import Path
-from typing import Any, Hashable, Mapping, Optional, Sequence, TypeVar, Callable
+from typing import (
+    Any,
+    Hashable,
+    Mapping,
+    Optional,
+    Sequence,
+    TypeVar,
+    Callable,
+    Required,
+)
 
 from yaml import safe_load
 
@@ -56,9 +65,11 @@ class Sample(Container):
 
     id: str
     fastq_paths: list[str]
-    backup: Optional[Container]
     complete: Optional[bool] = None
     runner: Optional[str] = None
+
+    def __init__(self, /, id, fastq_paths, **kwargs):
+        super().__init__(id=id, fastq_paths=fastq_paths, **kwargs)
 
 
 S = TypeVar("S", bound=Sample)
@@ -71,9 +82,11 @@ class Samples(UserList[S]):
     def from_file(cls, path: Path):
         """Get samples from a YAML file"""
         with open(path, "r", encoding="utf-8") as handle:
-            samples = [
-                Sample(id=str(id), **data) for id, data in safe_load(handle).items()
-            ]
+            samples = []
+            for sample in safe_load(handle):
+                id = sample.pop("id")
+                fastq_paths = sample.pop("fastq_paths")
+                samples.append(Sample(id=id, fastq_paths=fastq_paths, **sample))
         return cls(samples)
 
     def hydra_units_samples(self, *_, location: str = "samples", **kwargs):
