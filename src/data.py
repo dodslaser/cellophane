@@ -55,7 +55,7 @@ class Sample(Container):
     """A basic sample container"""
 
     id: str
-    fastq_paths: Optional[list[str]] = None
+    fastq_paths: list[Optional[str]] = [None, None]
     complete: Optional[bool] = None
     runner: Optional[str] = None
 
