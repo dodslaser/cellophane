@@ -55,11 +55,10 @@ class Sample(Container):
     """A basic sample container"""
 
     id: str
-    fastq_paths: list[Optional[str]] = [None, None]
     complete: Optional[bool] = None
     runner: Optional[str] = None
 
-    def __init__(self, /, id, fastq_paths=None, **kwargs):
+    def __init__(self, /, id, fastq_paths=[None, None], **kwargs):
         super().__init__(id=id, fastq_paths=fastq_paths, **kwargs)
 
 
