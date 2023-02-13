@@ -3,16 +3,7 @@
 from collections import UserDict, UserList
 from functools import reduce
 from pathlib import Path
-from typing import (
-    Any,
-    Hashable,
-    Mapping,
-    Optional,
-    Sequence,
-    TypeVar,
-    Callable,
-    Required,
-)
+from typing import Any, Callable, Hashable, Mapping, Optional, Sequence, TypeVar
 
 from yaml import safe_load
 
@@ -64,11 +55,11 @@ class Sample(Container):
     """A basic sample container"""
 
     id: str
-    fastq_paths: list[str]
+    fastq_paths: Optional[list[str]] = None
     complete: Optional[bool] = None
     runner: Optional[str] = None
 
-    def __init__(self, /, id, fastq_paths, **kwargs):
+    def __init__(self, /, id, fastq_paths=None, **kwargs):
         super().__init__(id=id, fastq_paths=fastq_paths, **kwargs)
 
 
@@ -85,8 +76,7 @@ class Samples(UserList[S]):
             samples = []
             for sample in safe_load(handle):
                 id = sample.pop("id")
-                fastq_paths = sample.pop("fastq_paths")
-                samples.append(Sample(id=id, fastq_paths=fastq_paths, **sample))
+                samples.append(Sample(id=id, **sample))
         return cls(samples)
 
     def hydra_units_samples(self, *_, location: str = "samples", **kwargs):
