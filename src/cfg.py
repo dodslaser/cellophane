@@ -185,10 +185,13 @@ class Config(data.Container):
         super().__init__(_data)
 
 
-def set_defaults(ctx: click.Context, config_path: Path | click.Path, schema: Schema):
+def set_defaults(ctx: click.Context, config_path: Optional[Path | click.Path], schema: Schema,):
     """Set click defaults from schema and configuration file"""
-    with open(str(config_path), "r", encoding="utf-8") as handle:
-        config = data.Container(safe_load(handle))
+    if config_path is not None:
+        with open(str(config_path), "r", encoding="utf-8") as handle:
+            config = data.Container(safe_load(handle))
+    else:
+        config = data.Container({})
 
     ctx.default_map = {
         flag: config[key] if key in config else default
