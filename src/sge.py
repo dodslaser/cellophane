@@ -51,7 +51,7 @@ def _run(
         template = session.createJobTemplate()
         template.remoteCommand = str(script)
         template.args = _args
-        template.nativeSpecification = f"-notify {_queue} {_pe}"
+        template.nativeSpecification = f"-S /bin/bash -notify {_queue} {_pe}"
         template.jobName = name
         template.jobEnvironment = _env
         template.outputPath = f":{stdout}"
