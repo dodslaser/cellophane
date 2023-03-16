@@ -55,23 +55,28 @@ class Sample(Container):
     """A basic sample container"""
 
     id: str
+    fastq_paths: list[Optional[str]]
     complete: Optional[bool] = None
     runner: Optional[str] = None
 
     def __init__(self, /, id, fastq_paths=[None, None], **kwargs):
-        super().__init__(id=id, fastq_paths=fastq_paths, **kwargs)
-    
+        super().__init__(id=id, fastq_paths = fastq_paths, **kwargs)
+
     def add_mixin(self, mixin):
-        self.__class__ = type(
+        sample_class = type(
             self.__class__.__name__,
             (self.__class__, mixin),
             {}
         )
+        self.__class__ = sample_class
+        return sample_class
 
 
 S = TypeVar("S", bound=Sample)
 class Samples(UserList[S]):
     """A list of sample containers"""
+
+    sample_class: type = S
 
     @classmethod
     def from_file(cls, path: Path):
@@ -82,7 +87,14 @@ class Samples(UserList[S]):
                 id = sample.pop("id")
                 samples.append(Sample(id=id, **sample))
         return cls(samples)
-
+    
+    def validate(self):
+        for idx, sample in enumerate(self):
+            if None in sample.fastq_paths or not isinstance(sample.id, str):
+                self[idx] = None
+                yield sample
+        self.data = [s for s in self if s is not None]
+    
     def add_mixin(self, mixin: type):
         mixin_origin = get_origin(mixin) or mixin
         (mixin_arg, *_) = get_args(mixin) or (None,)
@@ -93,7 +105,8 @@ class Samples(UserList[S]):
         )
         if mixin_arg:
             for s in self:
-                s.add_mixin(mixin_arg)
+                sample_class = s.add_mixin(mixin_arg)
+            self.__class__.sample_class = sample_class
 
     def __reduce__(self) -> Callable | tuple:
         return self.__class__, (self.data,)

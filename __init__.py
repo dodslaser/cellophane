@@ -89,6 +89,9 @@ def _main(
             if issubclass(type(result), data.Samples):
                 samples = result
 
+        for invalid_sample in samples.validate():
+            logger.warning(f"Removed invalid sample {invalid_sample.id}")
+
         if samples:
             for runner in _RUNNERS:
                 for _samples in (
