@@ -108,11 +108,7 @@ def _main(
 
         if samples:
             for runner in _RUNNERS:
-                for _samples in (
-                    [data.Samples([s]) for s in samples]
-                    if runner.individual_samples
-                    else [samples]
-                ):
+                for _samples in samples.split() if runner.individual_samples else [samples]:
                     proc = runner(
                         samples=_samples,
                         config=config,

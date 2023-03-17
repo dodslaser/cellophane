@@ -87,7 +87,7 @@ class Samples(UserList[S]):
 
     def split(self):
         for sample in self:
-            yield self.__class__(sample)
+            yield self.__class__([sample])
 
     def validate(self):
         for sample in self:
