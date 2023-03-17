@@ -17,7 +17,6 @@ from yaml import safe_load
 
 class Container(UserDict):
     """A dict that allows attribute access to its items"""
-
     def __contains__(self, key: Hashable | Sequence[Hashable]) -> bool:
         try:
             self[key]
@@ -85,6 +84,10 @@ class Samples(UserList[S]):
                 id = sample.pop("id")
                 samples.append(Sample(id=id, **sample))
         return cls(samples)
+
+    def split(self):
+        for sample in self:
+            yield self.__class__(sample)
 
     def validate(self):
         for sample in self:
