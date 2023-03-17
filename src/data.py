@@ -11,8 +11,6 @@ from typing import (
     Optional,
     Sequence,
     TypeVar,
-    get_args,
-    get_origin,
 )
 
 from yaml import safe_load
@@ -94,18 +92,24 @@ class Samples(UserList[S]):
                 yield sample
         self.data = [s for s in self if None not in s.fastq_paths]
 
-    def add_mixin(self, mixin: type):
-        mixin_origin = get_origin(mixin) or mixin
-        (mixin_arg, *_) = get_args(mixin) or (None,)
+    def add_mixin(self, mixin: type, sample_mixin: Optional[type] = None):
         self.__class__ = type(
-            self.__class__.__name__, (self.__class__, mixin_origin), {}
+            self.__class__.__name__, (self.__class__, mixin), {}
         )
-        if mixin_arg:
-            self.sample_class = type(
-                self.__class__.__name__, (self.__class__, mixin_arg), {}
+        if sample_mixin:
+            self.__class__.sample_class = type(
+                self.sample_class.__name__, (self.sample_class, sample_mixin), {}
             )
             for sample in self:
                 sample.__class__ = self.sample_class
 
     def __reduce__(self) -> Callable | tuple:
         return self.__class__, (self.data,)
+
+
+class Mixin:
+    sample_mixin: Optional[type]
+
+    """Mixin class for adding properties to Samples"""
+    def __init_subclass__(cls, sample_mixin: Optional[type] = None) -> None:
+        cls.sample_mixin = sample_mixin

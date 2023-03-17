@@ -20,6 +20,7 @@ _LOG_QUEUE = logs.get_log_queue(_MP_MANAGER)
 _RUNNERS: list[Type[modules.Runner]] = []
 _PROCS: list[modules.Runner] = []
 _HOOKS: list[modules.Hook] = []
+_MIXINS: list[Type[data.Mixin]] = []
 _TIMESTAMP: str = time.strftime("%Y%m%d_%H%M%S")
 CELLOPHANE_ROOT = Path(__file__).parent
 
@@ -63,6 +64,15 @@ def _main(
                         case modules.Hook() as hook:
                             logger.debug(f"Found hook {hook.name} ({base})")
                             _HOOKS.append(hook)
+
+                        case type() as mixin if (
+                            issubclass(mixin, data.Mixin)
+                            and mixin != data.Mixin
+                            and mixin.__module__ == name
+                        ):
+                            logger.debug(f"Found mixin {mixin.__name__} ({base})")
+                            _MIXINS.append(mixin)
+                        
                         case type() as runner if (
                             issubclass(runner, modules.Runner)
                             and runner != modules.Runner
@@ -75,6 +85,10 @@ def _main(
     _HOOKS.sort(key=lambda h: h.priority)
 
     try:
+        for mixin in [m for m in _MIXINS]:
+            logger.debug(f"Adding {mixin.__name__} mixin to samples")
+            samples.add_mixin(mixin, sample_mixin=mixin.sample_mixin)
+
         for hook in [h for h in _HOOKS if h.when == "pre"]:
             logger.debug(f"Running pre-hook {hook.label}")
             result = hook(
