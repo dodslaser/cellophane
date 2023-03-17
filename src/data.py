@@ -3,10 +3,19 @@
 from collections import UserDict, UserList
 from functools import reduce
 from pathlib import Path
-from typing import Any, Callable, Hashable, Mapping, Optional, Sequence, TypeVar, get_args, get_origin
+from typing import (
+    Any,
+    Callable,
+    Hashable,
+    Mapping,
+    Optional,
+    Sequence,
+    TypeVar,
+    get_args,
+    get_origin,
+)
 
 from yaml import safe_load
-
 
 class Container(UserDict):
     """A dict that allows attribute access to its items"""
@@ -60,23 +69,14 @@ class Sample(Container):
     runner: Optional[str] = None
 
     def __init__(self, /, id, fastq_paths=[None, None], **kwargs):
-        super().__init__(id=id, fastq_paths = fastq_paths, **kwargs)
-
-    def add_mixin(self, mixin):
-        sample_class = type(
-            self.__class__.__name__,
-            (self.__class__, mixin),
-            {}
-        )
-        self.__class__ = sample_class
-        return sample_class
+        super().__init__(id=id, fastq_paths=fastq_paths, **kwargs)
 
 
 S = TypeVar("S", bound=Sample)
 class Samples(UserList[S]):
     """A list of sample containers"""
 
-    sample_class: type = S
+    sample_class: type = Sample
 
     @classmethod
     def from_file(cls, path: Path):
@@ -87,26 +87,25 @@ class Samples(UserList[S]):
                 id = sample.pop("id")
                 samples.append(Sample(id=id, **sample))
         return cls(samples)
-    
+
     def validate(self):
-        for idx, sample in enumerate(self):
+        for sample in self:
             if None in sample.fastq_paths or not isinstance(sample.id, str):
-                self[idx] = None
                 yield sample
-        self.data = [s for s in self if s is not None]
-    
+        self.data = [s for s in self if None not in s.fastq_paths]
+
     def add_mixin(self, mixin: type):
         mixin_origin = get_origin(mixin) or mixin
         (mixin_arg, *_) = get_args(mixin) or (None,)
         self.__class__ = type(
-            self.__class__.__name__,
-            (self.__class__, mixin_origin),
-            {}
+            self.__class__.__name__, (self.__class__, mixin_origin), {}
         )
         if mixin_arg:
-            for s in self:
-                sample_class = s.add_mixin(mixin_arg)
-            self.__class__.sample_class = sample_class
+            self.sample_class = type(
+                self.__class__.__name__, (self.__class__, mixin_arg), {}
+            )
+            for sample in self:
+                sample.__class__ = self.sample_class
 
     def __reduce__(self) -> Callable | tuple:
         return self.__class__, (self.data,)
