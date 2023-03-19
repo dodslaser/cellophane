@@ -15,6 +15,7 @@ from typing import (
 
 from yaml import safe_load
 
+
 class Container(UserDict):
     """A dict that allows attribute access to its items"""
     def __contains__(self, key: Hashable | Sequence[Hashable]) -> bool:
@@ -94,17 +95,6 @@ class Samples(UserList[S]):
             if None in sample.fastq_paths or not isinstance(sample.id, str):
                 yield sample
         self.data = [s for s in self if None not in s.fastq_paths]
-
-    def add_mixin(self, mixin: type, sample_mixin: Optional[type] = None):
-        self.__class__ = type(
-            self.__class__.__name__, (self.__class__, mixin), {}
-        )
-        if sample_mixin:
-            self.__class__.sample_class = type(
-                self.sample_class.__name__, (self.sample_class, sample_mixin), {}
-            )
-            for sample in self:
-                sample.__class__ = self.sample_class
 
     def __reduce__(self) -> Callable | tuple:
         return self.__class__, (self.data,)
