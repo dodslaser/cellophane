@@ -168,7 +168,7 @@ class Hook:
         log_level: int,
         root: Path,
     ) -> data.Samples:
-        if self.when = "pre" or self.condition == "always" or self.samples:
+        if self.when == "pre" or self.condition == "always" or samples:
             _logger = logs.get_logger(
                 label=self.label,
                 level=log_level,
