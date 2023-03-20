@@ -155,19 +155,21 @@ def _main(
 
             result_samples += proc.output.get()
 
-        failed_samples = {sample for sample in result_samples if not sample.complete}
-        complete_samples = {
+        failed_samples = data.Samples(
+            sample for sample in result_samples if not sample.complete
+        )
+        complete_samples = data.Samples(
             sample
             for sid in {s.id for s in result_samples}
             for sample in result_samples
             if sample.id == sid
             if all(s.complete for s in result_samples if s.id == sid)
-        }
-        partial_samples = {
+        )
+        partial_samples = data.Samples(
             sample
             for sample in result_samples
             if sample.complete and sample.id not in [s.id for s in complete_samples]
-        }
+        )
 
         for hook in [h for h in _HOOKS if h.when == "post"]:
 
