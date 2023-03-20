@@ -7,7 +7,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 import logging
 from signal import SIGTERM, signal
-from typing import Callable, Optional, ClassVar
+from typing import Callable, Optional, ClassVar, Literal
 from pathlib import Path
 from queue import Queue
 
@@ -155,7 +155,8 @@ class Hook:
     name: str
     func: Callable
     overwrite: bool
-    when: str
+    when: Literal["pre", "post"]
+    condition: Literal["complete", "partial", "always"] = "always"
     priority: int | float = float("inf")
 
     def __call__(
@@ -167,18 +168,22 @@ class Hook:
         log_level: int,
         root: Path,
     ) -> data.Samples:
-        _logger = logs.get_logger(
-            label=self.label,
-            level=log_level,
-            queue=log_queue,
-        )
-        return self.func(
-            samples=samples,
-            config=config,
-            timestamp=timestamp,
-            logger=_logger,
-            root=root,
-        )
+        if self.when = "pre" or self.condition == "always" or self.samples:
+            _logger = logs.get_logger(
+                label=self.label,
+                level=log_level,
+                queue=log_queue,
+            )
+            _logger.debug(f"Running {self.label} hook")
+            return self.func(
+                samples=samples,
+                config=config,
+                timestamp=timestamp,
+                logger=_logger,
+                root=root,
+            )
+        else:
+            return samples
 
 
 def pre_hook(
@@ -195,6 +200,7 @@ def pre_hook(
             func=func,
             overwrite=overwrite,
             when="pre",
+            condition="always",
             priority=priority,
         )
 
@@ -205,6 +211,7 @@ def post_hook(
     label: Optional[str] = None,
     overwrite: bool = False,
     priority: int | float = float("inf"),
+    condition: Literal["complete", "partial", "always"] = "always",
 ):
     """Decorator for hooks that will run after all runners."""
 
@@ -215,6 +222,7 @@ def post_hook(
             func=func,
             overwrite=overwrite,
             when="post",
+            condition=condition,
             priority=priority,
         )
 

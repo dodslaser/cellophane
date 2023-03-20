@@ -72,7 +72,7 @@ def _main(
                         ):
                             logger.debug(f"Found mixin {mixin.__name__} ({base})")
                             _MIXINS.append(mixin)
-                        
+
                         case type() as runner if (
                             issubclass(runner, modules.Runner)
                             and runner != modules.Runner
@@ -110,7 +110,9 @@ def _main(
 
         if samples:
             for runner in _RUNNERS:
-                for _samples in samples.split() if runner.individual_samples else [samples]:
+                for _samples in (
+                    samples.split() if runner.individual_samples else [samples]
+                ):
                     proc = runner(
                         samples=_samples,
                         config=config,
@@ -139,8 +141,7 @@ def _main(
         )
 
     finally:
-        completed_samples: list[data.Sample] = []
-        failed_samples: list[data.Sample] = []
+        result_samples = data.Samples()
 
         for proc in _PROCS:
             if proc.exitcode is None:
@@ -152,14 +153,32 @@ def _main(
                 except Exception as exception:
                     logger.debug(f"Failed to terminate {proc.label}: {exception}")
 
-            runner_samples = proc.output.get_nowait()
-            completed_samples.extend(s for s in runner_samples if s.complete)
-            failed_samples.extend(s for s in runner_samples if not s.complete)
+            result_samples += proc.output.get()
+
+        failed_samples = {sample for sample in result_samples if not sample.complete}
+        complete_samples = {
+            sample
+            for sid in {s.id for s in result_samples}
+            for sample in result_samples
+            if sample.id == sid
+            if all(s.complete for s in result_samples if s.id == sid)
+        }
+        partial_samples = {
+            sample
+            for sample in result_samples
+            if sample.complete and sample.id not in [s.id for s in complete_samples]
+        }
 
         for hook in [h for h in _HOOKS if h.when == "post"]:
-            logger.debug(f"Running post-hook {hook.label}")
+
             hook(
-                samples=samples.__class__([*completed_samples, *failed_samples]),
+                samples=data.Samples(
+                    [
+                        *complete_samples,
+                        *(partial_samples if hook.condition != "complete" else []),
+                        *(failed_samples if hook.condition == "always" else []),
+                    ]
+                ),
                 config=config,
                 timestamp=_TIMESTAMP,
                 log_queue=_LOG_QUEUE,
@@ -171,14 +190,14 @@ def _main(
         for runner in _RUNNERS:
             n_completed = sum(
                 s.runner == runner.label and s.id in original_ids
-                for s in completed_samples
+                for s in [*complete_samples, *partial_samples]
             )
             n_failed = sum(
                 s.runner == runner.label and s.id in original_ids
                 for s in failed_samples
             )
             n_extra = sum(
-                s.id not in original_ids for s in [*completed_samples, *failed_samples]
+                s.id not in original_ids for s in [*complete_samples, *failed_samples]
             )
             if n_completed:
                 logger.info(f"Runner {runner.label} completed {n_completed} samples")
