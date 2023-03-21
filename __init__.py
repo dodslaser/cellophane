@@ -118,6 +118,7 @@ def _main(
         for invalid_sample in samples.validate():
             logger.warning(f"Removed invalid sample {invalid_sample.id}")
 
+        result_samples = data.Samples()
         if samples:
             for runner in _RUNNERS:
                 for _samples in (
@@ -136,8 +137,7 @@ def _main(
 
             for proc in _PROCS.values():
                 proc.start()
-            
-            result_samples = data.Samples()
+
             while not all(proc.done for proc in _PROCS.values()):
                 result, pid = _OUTPUT_QUEUE.get()
                 result_samples += result
