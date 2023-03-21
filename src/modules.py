@@ -10,6 +10,7 @@ from signal import SIGTERM, signal
 from typing import Callable, Optional, ClassVar, Literal
 from pathlib import Path
 from queue import Queue
+from uuid import uuid4
 
 import psutil
 
@@ -17,18 +18,13 @@ from . import cfg, data, logs
 
 
 def _cleanup(
-    logger: logging.LoggerAdapter,
-    output: mp.Queue,
-    samples: data.Samples,
+    logger: logging.LoggerAdapter
 ) -> Callable:
     def inner(*_):
         for proc in psutil.Process().children(recursive=True):
             logger.debug(f"Waiting for {proc.name()} ({proc.pid})")
             proc.terminate()
             proc.wait()
-        output.put(samples)
-        output.close()
-        output.join_thread()
         raise SystemExit(1)
 
     return inner
@@ -41,6 +37,8 @@ class Runner(mp.Process):
     name: ClassVar[str]
     individual_samples: ClassVar[bool]
     wait: ClassVar[bool]
+    id: str
+    done: bool = False
 
     def __init_subclass__(
         cls,
@@ -60,12 +58,14 @@ class Runner(mp.Process):
         timestamp: str,
         log_queue: Queue,
         log_level: int,
-        output: mp.Queue,
+        output_queue: mp.Queue,
         root: Path,
     ):
-        self.output = output
+        self.output_queue = output_queue
         self.log_queue = log_queue
         self.log_level = log_level
+        self.n_samples = len(samples)
+        self.id = uuid4()
         super().__init__(
             target=self._main,
             kwargs={
@@ -86,7 +86,6 @@ class Runner(mp.Process):
         for sample in samples:
             sample.complete = False
             sample.runner = self.label
-        original = deepcopy(samples)
 
         logger = logs.get_logger(
             label=self.label,
@@ -94,7 +93,7 @@ class Runner(mp.Process):
             queue=self.log_queue,
         )
 
-        signal(SIGTERM, _cleanup(logger, self.output, original))
+        signal(SIGTERM, _cleanup(logger))
         sys.stdout = open(os.devnull, "w", encoding="utf-8")
         sys.stderr = open(os.devnull, "w", encoding="utf-8")
 
@@ -102,6 +101,7 @@ class Runner(mp.Process):
         if self.individual_samples:
             outdir /= samples[0].id
 
+        logger.debug(f"Passing {self.n_samples} samples to {self.label}")
         try:
             returned = self.main(
                 samples=samples,
@@ -115,31 +115,22 @@ class Runner(mp.Process):
 
         except Exception as exception:
             logger.critical(exception, exc_info=config.log_level == "DEBUG")
-            self.output.put(original)
-            self.output.close()
-            self.output.join_thread()
-            raise SystemExit(1)
+            self.output_queue.put((samples, self.id))
 
         else:
             match returned:
                 case None:
-                    if returned is None and any(
-                        s.id not in [o.id for o in original] for s in samples
-                    ):
-                        logger.warning("Samples were modified but not returned")
-                    for sample in original:
+                    for sample in samples:
                         sample.complete = True
-                    self.output.put(original)
+                    self.output_queue.put((samples, self.id))
                 case returned if issubclass(type(returned), data.Samples):
                     for sample in returned:
                         sample.complete = sample.complete or True
-                    self.output.put(returned)
+                    self.output_queue.put((returned, self.id))
                 case _:
                     logger.warning(f"Unexpected return type {type(returned)}")
-                    self.output.put(original)
+                    self.output_queue.put((samples, self.id))
 
-            self.output.close()
-            self.output.join_thread()
 
     @staticmethod
     def main(**_) -> Optional[data.Samples[data.Sample]]:

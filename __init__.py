@@ -17,8 +17,9 @@ from .src import cfg, data, logs, modules, util, sge
 
 _MP_MANAGER = mp.Manager()
 _LOG_QUEUE = logs.get_log_queue(_MP_MANAGER)
+_OUTPUT_QUEUE: mp.Queue = mp.Queue()
 _RUNNERS: list[Type[modules.Runner]] = []
-_PROCS: list[modules.Runner] = []
+_PROCS: dict[str, modules.Runner] = {}
 _HOOKS: list[modules.Hook] = []
 _MIXINS: list[Type[data.Mixin]] = []
 _TIMESTAMP: str = time.strftime("%Y%m%d_%H%M%S")
@@ -26,6 +27,16 @@ CELLOPHANE_ROOT = Path(__file__).parent
 
 click.rich_click.DEFAULT_STRING = "[{}]"
 
+def _cleanup(logger):
+    for proc in _PROCS.values():
+        if proc.exitcode is None:
+            logger.debug(f"Terminating {proc.label}")
+            try:
+                proc.terminate()
+                proc.join()
+            # Handle weird edge cases when terminating processes
+            except Exception as exception:
+                logger.debug(f"Failed to terminate {proc.label}: {exception}")
 
 def _main(
     logger: logging.LoggerAdapter,
@@ -92,7 +103,6 @@ def _main(
                 data.Sample.__bases__ = (*data.Sample.__bases__, mixin.sample_mixin)
 
         for hook in [h for h in _HOOKS if h.when == "pre"]:
-            logger.debug(f"Running pre-hook {hook.label}")
             result = hook(
                 samples=deepcopy(samples),
                 config=config,
@@ -117,21 +127,27 @@ def _main(
                         samples=_samples,
                         config=config,
                         timestamp=_TIMESTAMP,
+                        output_queue=_OUTPUT_QUEUE,
                         log_queue=_LOG_QUEUE,
                         log_level=config.log_level,
-                        output=mp.Queue(),
                         root=root,
                     )
-                    _PROCS.append(proc)
+                    _PROCS[proc.id] = proc
 
-            for proc in _PROCS:
-                logger.debug(f"Starting {proc.label} for {len(samples)} samples")
+            for proc in _PROCS.values():
                 proc.start()
-            for proc in _PROCS:
-                proc.join()
+            
+            result_samples = data.Samples()
+            while not all(proc.done for proc in _PROCS.values()):
+                result, pid = _OUTPUT_QUEUE.get()
+                result_samples += result
+                logger.debug(f"Received result from {_PROCS[pid].name}")
+                _PROCS[pid].join()
+                _PROCS[pid].done = True
 
     except KeyboardInterrupt:
         logger.critical("Received SIGINT, shutting down...")
+        _cleanup(logger)
 
     except Exception as exception:
         logger.critical(
@@ -139,22 +155,9 @@ def _main(
             exc_info=config.log_level == "DEBUG",
             stacklevel=2,
         )
+        _cleanup(logger)
 
-    finally:
-        result_samples = data.Samples()
-
-        for proc in _PROCS:
-            if proc.exitcode is None:
-                logger.debug(f"Terminating {proc.label}")
-                try:
-                    proc.terminate()
-                    proc.join()
-                # Handle weird edge cases when terminating processes
-                except Exception as exception:
-                    logger.debug(f"Failed to terminate {proc.label}: {exception}")
-
-            result_samples += proc.output.get()
-
+    else:
         failed_samples = data.Samples(
             sample for sample in result_samples if not sample.complete
         )
