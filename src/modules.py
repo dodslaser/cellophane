@@ -97,7 +97,7 @@ class Runner(mp.Process):
         sys.stdout = open(os.devnull, "w", encoding="utf-8")
         sys.stderr = open(os.devnull, "w", encoding="utf-8")
 
-        outdir = config.outdir / timestamp / self.label
+        outdir = config.outdir / config.get("outprefix", timestamp) / self.label
         if self.individual_samples:
             outdir /= samples[0].id
 
