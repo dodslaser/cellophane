@@ -57,6 +57,12 @@ class Container(UserDict):
                 f"'{self.__class__.__name__}' object has no attribute '{key}'"
             )
 
+    def __setattr__(self, key: str, value: Any) -> None:
+        if key == "data":
+            super().__setattr__(key, value)
+        else:
+            self[key] = value
+
 
 class Sample(Container):
     """A basic sample container"""
