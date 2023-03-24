@@ -189,24 +189,24 @@ $ python -m my_awesome_wrapper
 
  Usage: my_awesome_wrapper [OPTIONS]
 
-╭─ Options ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ --outdir                                PATH                                 Output directory                                                                                        │
-│ --logdir                                PATH                                 Log directory                                                                                           │
-│ --log_level                             [DEBUG|INFO|WARNING|ERROR|CRITICAL]  Log level [INFO]                                                                                        │
+╭─ Options ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ --outdir                                PATH                                 Output directory                                                                                  │
+│ --logdir                                PATH                                 Log directory                                                                                     │
+│ --log_level                             [DEBUG|INFO|WARNING|ERROR|CRITICAL]  Log level [INFO]                                                                                  │
 │ --samples_file                          PATH                                 Path YAML file with sample names and paths to fastq files (eg. sample: {files: [fastq1, fastq2]}) │
-│ --foo_skip                                                                   Skip foo                                                                                                │
-│ --foo_baz                               [HELLO|WORLD]                        Some other parameter                                                                                    │
-│ --nextflow_cluster_options              TEXT                                 Nextflow cluster options                                                                                │
-│ --nextflow_workdir                      PATH                                 Nextflow work directory                                                                                 │
-│ --nextflow_resume                                                            Resume previous nextflow run                                                                            │
-│ --nextflow_profile                      TEXT                                 Nextflow profile                                                                                        │
-│ --nextflow_config                       PATH                                 Nextflow config file                                                                                    │
-│ --nextflow_sge_slots                    INTEGER                              SGE slots (threads) for nextflow manager                                                                │
-│ --nextflow_sge_pe                       TEXT                                 SGE parallel environment for nextflow manager                                                           │
-│ --nextflow_sge_queue                    TEXT                                 SGE queue for nextflow manager                                                                          │
-│ --config                                PATH                                 Path to config file                                                                                     │
-│ --help                                                                       Show this message and exit.                                                                             │
-╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+│ --foo_skip                                                                   Skip foo                                                                                          │
+│ --foo_baz                               [HELLO|WORLD]                        Some other parameter                                                                              │
+│ --nextflow_cluster_options              TEXT                                 Nextflow cluster options                                                                          │
+│ --nextflow_workdir                      PATH                                 Nextflow work directory                                                                           │
+│ --nextflow_resume                                                            Resume previous nextflow run                                                                      │
+│ --nextflow_profile                      TEXT                                 Nextflow profile                                                                                  │
+│ --nextflow_config                       PATH                                 Nextflow config file                                                                              │
+│ --nextflow_sge_slots                    INTEGER                              SGE slots (threads) for nextflow manager                                                          │
+│ --nextflow_sge_pe                       TEXT                                 SGE parallel environment for nextflow manager                                                     │
+│ --nextflow_sge_queue                    TEXT                                 SGE queue for nextflow manager                                                                    │
+│ --config                                PATH                                 Path to config file                                                                               │
+│ --help                                                                       Show this message and exit.                                                                       │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
 ![Magic](https://i.imgur.com/6KBoYgJ.gif)

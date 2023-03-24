@@ -3,7 +3,7 @@
 from copy import deepcopy
 from functools import reduce
 from pathlib import Path
-from typing import Iterable, Optional, Type, Iterator
+from typing import Sequence, Optional, Type, Iterator
 
 import rich_click as click
 from jsonschema import Draft7Validator, Validator, validators, ValidationError
@@ -23,15 +23,15 @@ def _set_options(cls: Type[Validator], validate: bool) -> Type[Validator]:
 
     def _is_array(_, instance):
         return cls.TYPE_CHECKER.is_type(instance, "array") or isinstance(
-            instance, Iterable
+            instance, Sequence
         )
 
     def _is_path(_, instance):
         return isinstance(instance, Optional[Path | click.Path])
 
     def _is_mapping(_, instance):
-        return cls.TYPE_CHECKER.is_type(instance, "mapping") or isinstance(
-            instance, dict
+        return cls.TYPE_CHECKER.is_type(instance, "array") or isinstance(
+            instance, Sequence
         )
 
     def _set(cls, properties, instance, schema):
@@ -50,6 +50,7 @@ def _set_options(cls: Type[Validator], validate: bool) -> Type[Validator]:
             "object": _is_object_or_container,
             "array": _is_array,
             "path": _is_path,
+            "mapping": _is_mapping,
         }
     )
     return validators.extend(cls, {"properties": _set}, type_checker=type_checker)
@@ -115,7 +116,7 @@ class Schema(data.Container):
     """Schema for validating configuration files"""
 
     @classmethod
-    def from_file(cls, path: Path | Iterable[Path]):
+    def from_file(cls, path: Path | Sequence[Path]):
         """Load schema from file"""
         path = [path] if isinstance(path, Path) else path
         schema: dict = {}

@@ -42,7 +42,7 @@ def _convert_mapping(ctx, param, value):
     if isinstance(value, dict):
         return value
     try:
-        return {k: v for k, v in "=".split(value)}
+        return {k: v for k, v in [kv.split("=") for kv in value]}
     except:
         raise click.BadParameter("format must be 'key=value'")
 
