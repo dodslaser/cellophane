@@ -68,12 +68,12 @@ class Sample(Container):
     """A basic sample container"""
 
     id: str
-    fastq_paths: list[Optional[str]]
+    files: list[Optional[str]]
     complete: Optional[bool] = None
     runner: Optional[str] = None
 
-    def __init__(self, /, id, fastq_paths=[None, None], **kwargs):
-        super().__init__(id=id, fastq_paths=fastq_paths, **kwargs)
+    def __init__(self, /, id, files=[None], **kwargs):
+        super().__init__(id=id, files=files, **kwargs)
 
 
 S = TypeVar("S", bound=Sample)
@@ -98,9 +98,9 @@ class Samples(UserList[S]):
 
     def validate(self):
         for sample in self:
-            if None in sample.fastq_paths or not isinstance(sample.id, str):
+            if None in sample.files or not isinstance(sample.id, str):
                 yield sample
-        self.data = [s for s in self if None not in s.fastq_paths]
+        self.data = [s for s in self if None not in s.files]
 
     def __reduce__(self) -> Callable | tuple:
         return self.__class__, (self.data,)

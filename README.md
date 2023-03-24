@@ -193,7 +193,7 @@ $ python -m my_awesome_wrapper
 │ --outdir                                PATH                                 Output directory                                                                                        │
 │ --logdir                                PATH                                 Log directory                                                                                           │
 │ --log_level                             [DEBUG|INFO|WARNING|ERROR|CRITICAL]  Log level [INFO]                                                                                        │
-│ --samples_file                          PATH                                 Path YAML file with sample names and paths to fastq files (eg. sample: {fastq_paths: [fastq1, fastq2]}) │
+│ --samples_file                          PATH                                 Path YAML file with sample names and paths to fastq files (eg. sample: {files: [fastq1, fastq2]}) │
 │ --foo_skip                                                                   Skip foo                                                                                                │
 │ --foo_baz                               [HELLO|WORLD]                        Some other parameter                                                                                    │
 │ --nextflow_cluster_options              TEXT                                 Nextflow cluster options                                                                                │
@@ -235,7 +235,7 @@ from cellophane import sge, modules
 
 @modules.pre_hook(priority=10)
 def filter_missing(samples, config, timestamp, logger, root):
-    _samples = [s for s in samples if all(Path(p).exists() for p in s.fastq_paths)]
+    _samples = [s for s in samples if all(Path(p).exists() for p in s.files)]
     return Samples(_samples)
 
 

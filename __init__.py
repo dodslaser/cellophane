@@ -38,6 +38,15 @@ def _cleanup(logger):
             except Exception as exception:
                 logger.debug(f"Failed to terminate {proc.label}: {exception}")
 
+def _convert_mapping(ctx, param, value):
+    if isinstance(value, dict):
+        return value
+    try:
+        return {k: v for k, v in "=".split(value)}
+    except:
+        raise click.BadParameter("format must be 'key=value'")
+
+
 def _main(
     logger: logging.LoggerAdapter,
     config: cfg.Config,
@@ -265,9 +274,10 @@ def cellophane(
     for flag, _, default, description, secret, _type in schema.flags:
         inner = click.option(
             f"--{flag}",
-            type=str if _type == list else _type,
+            type=str if _type in (list, dict) else _type,
+            callback=_convert_mapping if _type == dict else None,
             is_flag=_type == bool,
-            multiple=_type == list,
+            multiple=_type in (list, dict),
             default=default,
             help=description,
             show_default=not secret,

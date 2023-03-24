@@ -29,6 +29,11 @@ def _set_options(cls: Type[Validator], validate: bool) -> Type[Validator]:
     def _is_path(_, instance):
         return isinstance(instance, Optional[Path | click.Path])
 
+    def _is_mapping(_, instance):
+        return cls.TYPE_CHECKER.is_type(instance, "mapping") or isinstance(
+            instance, dict
+        )
+
     def _set(cls, properties, instance, schema):
         for prop, subschema in properties.items():
             if "default" in subschema:
@@ -93,6 +98,8 @@ def _get_options(cls: Type[Validator]) -> Type[Validator]:
                         instance[prop].append(float)
                     case {"type": "array"}:
                         instance[prop].append(list)
+                    case {"type": "mapping"}:
+                        instance[prop].append(dict)
                     case _:
                         instance[prop].append(None)
 
