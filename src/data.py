@@ -72,7 +72,7 @@ class Sample(Container):
     complete: Optional[bool] = None
     runner: Optional[str] = None
 
-    def __init__(self, /, id, files=[None], **kwargs):
+    def __init__(self, /, id, files=None, **kwargs):
         super().__init__(id=id, files=files, **kwargs)
 
 

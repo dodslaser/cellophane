@@ -3,7 +3,7 @@
 from copy import deepcopy
 from functools import reduce
 from pathlib import Path
-from typing import Sequence, Optional, Type, Iterator
+from typing import Sequence, Optional, Type, Iterator, Mapping
 
 import rich_click as click
 from jsonschema import Draft7Validator, Validator, validators, ValidationError
@@ -30,9 +30,7 @@ def _set_options(cls: Type[Validator], validate: bool) -> Type[Validator]:
         return isinstance(instance, Optional[Path | click.Path])
 
     def _is_mapping(_, instance):
-        return cls.TYPE_CHECKER.is_type(instance, "array") or isinstance(
-            instance, Sequence
-        )
+        return isinstance(instance, Mapping)
 
     def _set(cls, properties, instance, schema):
         for prop, subschema in properties.items():

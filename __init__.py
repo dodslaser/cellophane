@@ -38,6 +38,7 @@ def _cleanup(logger):
             except Exception as exception:
                 logger.debug(f"Failed to terminate {proc.label}: {exception}")
 
+
 def _convert_mapping(ctx, param, value):
     if isinstance(value, dict):
         return value
