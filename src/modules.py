@@ -124,8 +124,6 @@ class Runner(mp.Process):
                         sample.complete = True
                     self.output_queue.put((samples, self.id))
                 case returned if issubclass(type(returned), data.Samples):
-                    for sample in returned:
-                        sample.complete = sample.complete or True
                     self.output_queue.put((returned, self.id))
                 case _:
                     logger.warning(f"Unexpected return type {type(returned)}")
