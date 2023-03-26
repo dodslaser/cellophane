@@ -12,6 +12,7 @@ import time
 import rich_click as click
 import yaml
 from jsonschema.exceptions import ValidationError
+from humanfriendly import format_timespan
 
 from .src import cfg, data, logs, modules, util, sge
 
@@ -222,7 +223,7 @@ def _main(
             if n_failed:
                 logger.warning(f"Runner {runner.label} failed for {n_failed} samples")
 
-        logger.info(f"Execution complete in {time.time() - _STARTTIME} seconds")
+        logger.info(f"Execution complete in {format_timespan(time.time() - _STARTTIME)}")
 
 
 def cellophane(
