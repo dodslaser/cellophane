@@ -22,7 +22,8 @@ _RUNNERS: list[Type[modules.Runner]] = []
 _PROCS: dict[str, modules.Runner] = {}
 _HOOKS: list[modules.Hook] = []
 _MIXINS: list[Type[data.Mixin]] = []
-_TIMESTAMP: str = time.strftime("%Y%m%d_%H%M%S")
+_STARTTIME = time.time()
+_TIMESTAMP: str = time.strftime("%Y%m%d_%H%M%S", time.localtime(_STARTTIME))
 CELLOPHANE_ROOT = Path(__file__).parent
 
 click.rich_click.DEFAULT_STRING = "[{}]"
@@ -221,7 +222,7 @@ def _main(
             if n_failed:
                 logger.warning(f"Runner {runner.label} failed for {n_failed} samples")
 
-        logger.info(f"Execution complete in {time.time() - _TIMESTAMP:.2f} seconds")
+        logger.info(f"Execution complete in {time.time() - _STARTTIME} seconds")
 
 
 def cellophane(
