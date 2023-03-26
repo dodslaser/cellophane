@@ -221,6 +221,8 @@ def _main(
             if n_failed:
                 logger.warning(f"Runner {runner.label} failed for {n_failed} samples")
 
+        logger.info(f"Execution complete in {time.time() - _TIMESTAMP:.2f} seconds")
+
 
 def cellophane(
     label: str,
