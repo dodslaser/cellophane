@@ -68,12 +68,11 @@ class Sample(Container):
     """A basic sample container"""
 
     id: str
-    files: list[Optional[str]]
-    complete: Optional[bool] = None
-    runner: Optional[str] = None
+    files: Optional[list[str]]
+    complete: bool
 
-    def __init__(self, /, id, files=None, **kwargs):
-        super().__init__(id=id, files=files, **kwargs)
+    def __init__(self, /, id, files=None, complete=False, **kwargs):
+        super().__init__(id=id, files=files, complete=complete, **kwargs)
 
 
 S = TypeVar("S", bound=Sample)
