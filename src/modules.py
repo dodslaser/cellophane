@@ -190,7 +190,8 @@ class Hook:
 def pre_hook(
     label: Optional[str] = None,
     overwrite: bool = False,
-    priority: int | float = float("inf"),
+    before: list[str] = [],
+    after: list[str] = [],
 ):
     """Decorator for hooks that will run before all runners."""
 
@@ -202,7 +203,8 @@ def pre_hook(
             overwrite=overwrite,
             when="pre",
             condition="always",
-            priority=priority,
+            before=before,
+            after=after,
         )
 
     return wrapper
