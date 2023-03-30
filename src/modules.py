@@ -225,7 +225,6 @@ def post_hook(
             overwrite=overwrite,
             when="post",
             condition=condition,
-            priority=priority,
         )
 
     return wrapper
