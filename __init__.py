@@ -7,14 +7,13 @@ from copy import deepcopy
 from importlib.util import spec_from_file_location, module_from_spec
 from pathlib import Path
 from typing import Any, Optional, Type, Callable
-from graphlib import TopologicalSorter, CycleError
-from collections import OrderedDict
 import time
 
 import rich_click as click
 import yaml
 from jsonschema.exceptions import ValidationError
 from humanfriendly import format_timespan
+from graphlib import TopologicalSorter, CycleError
 
 from .src import cfg, data, logs, modules, util, sge
 
@@ -66,7 +65,6 @@ def _main(
         samples = data.Samples()
 
     _log_handlers = logging.root.handlers.copy()
-    _unsorted_hooks: OrderedDict[str, modules.Hook] = OrderedDict()
     for path in [*modules_path.glob("*.py"), *modules_path.glob("*/__init__.py")]:
         base = path.stem if path.stem != "__init__" else path.parent.name
         name = f"_cellophane_module_{base}"
@@ -89,7 +87,7 @@ def _main(
                     match obj:
                         case modules.Hook() as hook:
                             logger.debug(f"Found hook {hook.name} ({base})")
-                            _unsorted_hooks[hook.name] = hook
+                            _HOOKS.append(hook)
 
                         case type() as mixin if (
                             issubclass(mixin, data.Mixin)
@@ -108,14 +106,14 @@ def _main(
                         case _:
                             pass
 
-    try:
-        _hook_deps = {h.name: set(h.after + [b.name for b in _HOOKS.values() if h.name in b.before]) for h in _HOOKS.values()}
-        _hook_order = TopologicalSorter(_hook_deps).static_order()
-    except CycleError as exception:
-        logger.error(f"Circular dependency in hooks: {exception}")
-        raise SystemExit(1)
-    else:
-        _HOOKS = OrderedDict(sorted(_HOOKS.items(), key=lambda n, _: _hook_order.index(n)))
+        try:
+            _hook_deps = {h.name: set(h.after + [b.name for b in _HOOKS if h.name in b.before]) for h in _HOOKS}
+            _hook_order = TopologicalSorter(_hook_deps).static_order()
+        except CycleError as exception:
+            logger.error(f"Circular dependency in hooks: {exception}")
+            raise SystemExit(1)
+        else:
+            _HOOKS = [*sorted(_HOOKS.items(), key=lambda n, _: _hook_order.index(n))]
 
     try:
         for mixin in [m for m in _MIXINS]:
