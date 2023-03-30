@@ -20,10 +20,7 @@ from .src import cfg, data, logs, modules, util, sge
 _MP_MANAGER = mp.Manager()
 _LOG_QUEUE = logs.get_log_queue(_MP_MANAGER)
 _OUTPUT_QUEUE: mp.Queue = mp.Queue()
-_RUNNERS: list[Type[modules.Runner]] = []
 _PROCS: dict[str, modules.Runner] = {}
-_HOOKS: list[modules.Hook] = []
-_MIXINS: list[Type[data.Mixin]] = []
 _STARTTIME = time.time()
 _TIMESTAMP: str = time.strftime("%Y%m%d_%H%M%S", time.localtime(_STARTTIME))
 CELLOPHANE_ROOT = Path(__file__).parent
@@ -65,6 +62,11 @@ def _main(
         samples = data.Samples()
 
     _log_handlers = logging.root.handlers.copy()
+    
+    hooks: list[modules.Hook] = []
+    runners: list[Type[modules.Runner]] = []
+    mixins: list[Type[data.Mixin]] = []
+
     for path in [*modules_path.glob("*.py"), *modules_path.glob("*/__init__.py")]:
         base = path.stem if path.stem != "__init__" else path.parent.name
         name = f"_cellophane_module_{base}"
@@ -87,7 +89,7 @@ def _main(
                     match obj:
                         case modules.Hook() as hook:
                             logger.debug(f"Found hook {hook.name} ({base})")
-                            _HOOKS.append(hook)
+                            hooks.append(hook)
 
                         case type() as mixin if (
                             issubclass(mixin, data.Mixin)
@@ -95,26 +97,26 @@ def _main(
                             and mixin.__module__ == name
                         ):
                             logger.debug(f"Found mixin {mixin.__name__} ({base})")
-                            _MIXINS.append(mixin)
+                            mixins.append(mixin)
 
                         case type() as runner if (
                             issubclass(runner, modules.Runner)
                             and runner != modules.Runner
                         ):
                             logger.debug(f"Found runner {runner.name} ({base})")
-                            _RUNNERS.append(obj)
+                            runners.append(obj)
                         case _:
                             pass
     
     try:
         _hook_deps = {
             name: {
-                *[d for h in _HOOKS if h.name == name for d in h.after],
-                *[h.name for h in _HOOKS if name in h.before],
+                *[d for h in hooks if h.name == name for d in h.after],
+                *[h.name for h in hooks if name in h.before],
             }
             for name in {
-                *[n for h in _HOOKS for n in h.before + h.after],
-                *[h.name for h in _HOOKS],
+                *[n for h in hooks for n in h.before + h.after],
+                *[h.name for h in hooks],
             }
         }
 
@@ -123,17 +125,17 @@ def _main(
         logger.error(f"Circular dependency in hooks: {exception}")
         raise SystemExit(1)
     else:
-        _HOOKS = [*sorted(_HOOKS, key=lambda h: _hook_order.index(h.name))]
+        hooks = [*sorted(hooks, key=lambda h: _hook_order.index(h.name))]
                     
 
     try:
-        for mixin in [m for m in _MIXINS]:
+        for mixin in [m for m in mixins]:
             logger.debug(f"Adding {mixin.__name__} mixin to samples")
             data.Samples.__bases__ = (*data.Samples.__bases__, mixin)
             if mixin.sample_mixin is not None:
                 data.Sample.__bases__ = (*data.Sample.__bases__, mixin.sample_mixin)
 
-        for hook in [h for h in _HOOKS if h.when == "pre"]:
+        for hook in [h for h in hooks if h.when == "pre"]:
             result = hook(
                 samples=deepcopy(samples),
                 config=config,
@@ -151,7 +153,7 @@ def _main(
 
         result_samples = data.Samples()
         if samples:
-            for runner in _RUNNERS:
+            for runner in runners:
                 for _samples in (
                     samples.split() if runner.individual_samples else [samples]
                 ):
@@ -205,7 +207,7 @@ def _main(
             if sample.complete and sample.id not in [s.id for s in complete_samples]
         )
 
-        for hook in [h for h in _HOOKS if h.when == "post"]:
+        for hook in [h for h in hooks if h.when == "post"]:
 
             hook(
                 samples=data.Samples(
@@ -223,7 +225,7 @@ def _main(
             )
 
         original_ids = [s.id for s in samples]
-        for runner in _RUNNERS:
+        for runner in runners:
             n_completed = sum(
                 s.runner == runner.label and s.id in original_ids
                 for s in [*complete_samples, *partial_samples]
