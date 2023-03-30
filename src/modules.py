@@ -146,7 +146,19 @@ class Hook:
     overwrite: bool
     when: Literal["pre", "post"]
     condition: Literal["complete", "partial", "always"] = "always"
-    priority: int | float = float("inf")
+    before: list[str] = []
+    after: list[str] = []
+
+    def __post_init__(self) -> None:
+        if "all" in self.before:
+            self.before = ["before-all"]
+        if "all" in self.after:
+            self.after = ["after-all"]
+        if self.before or self.after:
+            self.before += ["after-all"]
+            self.after += ["before-all"]
+        else:
+            self.after = ["after-all"]
 
     def __call__(
         self,
