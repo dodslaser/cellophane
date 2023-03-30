@@ -3,8 +3,7 @@
 import multiprocessing as mp
 import os
 import sys
-from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import logging
 from signal import SIGTERM, signal
 from typing import Callable, Optional, ClassVar, Literal
@@ -146,8 +145,8 @@ class Hook:
     overwrite: bool
     when: Literal["pre", "post"]
     condition: Literal["complete", "partial", "always"] = "always"
-    before: list[str] = []
-    after: list[str] = []
+    before: list[str] = field(default_factory=list)
+    after: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if "all" in self.before:
