@@ -213,7 +213,6 @@ def pre_hook(
 def post_hook(
     label: Optional[str] = None,
     overwrite: bool = False,
-    priority: int | float = float("inf"),
     condition: Literal["complete", "partial", "always"] = "always",
 ):
     """Decorator for hooks that will run after all runners."""
