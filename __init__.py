@@ -105,15 +105,26 @@ def _main(
                             _RUNNERS.append(obj)
                         case _:
                             pass
+    
+    try:
+        _hook_deps = {
+            name: {
+                *[d for h in _HOOKS if h.name == name for d in h.after],
+                *[h.name for h in _HOOKS if name in h.before],
+            }
+            for name in {
+                *[n for h in _HOOKS for n in h.before + h.after],
+                *[h.name for h in _HOOKS],
+            }
+        }
 
-        try:
-            _hook_deps = {h.name: set(h.after + [b.name for b in _HOOKS if h.name in b.before]) for h in _HOOKS}
-            _hook_order = TopologicalSorter(_hook_deps).static_order()
-        except CycleError as exception:
-            logger.error(f"Circular dependency in hooks: {exception}")
-            raise SystemExit(1)
-        else:
-            _HOOKS = [*sorted(_HOOKS.items(), key=lambda n, _: _hook_order.index(n))]
+        _hook_order = [*TopologicalSorter(_hook_deps).static_order()]
+    except CycleError as exception:
+        logger.error(f"Circular dependency in hooks: {exception}")
+        raise SystemExit(1)
+    else:
+        _HOOKS = [*sorted(_HOOKS, key=lambda h: _hook_order.index(h.name))]
+                    
 
     try:
         for mixin in [m for m in _MIXINS]:

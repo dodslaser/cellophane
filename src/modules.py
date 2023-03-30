@@ -147,18 +147,7 @@ class Hook:
     condition: Literal["complete", "partial", "always"] = "always"
     before: list[str] = field(default_factory=list)
     after: list[str] = field(default_factory=list)
-
-    def __post_init__(self) -> None:
-        if "all" in self.before:
-            self.before = ["before-all"]
-        if "all" in self.after:
-            self.after = ["after-all"]
-        if self.before or self.after:
-            self.before += ["after-all"]
-            self.after += ["before-all"]
-        else:
-            self.after = ["after-all"]
-
+    
     def __call__(
         self,
         samples: data.Samples,
@@ -189,10 +178,22 @@ class Hook:
 def pre_hook(
     label: Optional[str] = None,
     overwrite: bool = False,
-    before: list[str] = [],
-    after: list[str] = [],
+    before: list[str] | Literal["all"] = [],
+    after: list[str] | Literal["all"]= []
 ):
+
     """Decorator for hooks that will run before all runners."""
+
+    match before, after:
+        case "all", list():
+            before = ["before_all"]
+        case list(), "all":
+            after = ["after_all"]
+        case list(before), list(after):
+            before=[*before, "after_all"]
+            after=[*after, "before_all"]
+        case _:
+            raise ValueError("Invalid dependencies: {before=}, {after=}")
 
     def wrapper(func):
         return Hook(
