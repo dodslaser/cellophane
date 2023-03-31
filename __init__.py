@@ -264,8 +264,8 @@ def cellophane(
         propagate_exceptions=False,
     )
     def inner(config_path, logger, **kwargs) -> Any:
+        _config = cfg.Config(config_path, schema, **kwargs)
         try:
-            _config = cfg.Config(config_path, schema, **kwargs)
             return _main(
                 config=_config,
                 logger=logger,
