@@ -72,8 +72,8 @@ def _load_modules(path: Path) -> Iterator[tuple[str, modules.Hook | modules.Runn
                     for obj in [getattr(module, a) for a in dir(module)]:
                         if (
                             isinstance(obj, modules.Hook) or
-                            issubclass(obj, data.Mixin) or
-                            issubclass(obj, modules.Runner) and
+                            (isinstance(obj, type) and issubclass(obj, data.Mixin)) or
+                            (isinstance(obj, type) and issubclass(obj, modules.Runner)) and
                             obj not in (modules.Runner, data.Mixin) and obj.__module__ == name
                         ):
                             yield base, obj
