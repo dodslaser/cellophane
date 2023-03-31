@@ -112,13 +112,13 @@ def _main(
     mixins: list[Type[data.Mixin]] = []
     for base, obj in _load_modules(modules_path):
         if isinstance(obj, modules.Hook):
-            logger.debug(f"Found hook {hook.name} ({base})")
+            logger.debug(f"Found hook {obj.name} ({base})")
             hooks.append(obj)
         elif issubclass(obj, data.Mixin):
-            logger.debug(f"Found mixin {mixin.__name__} ({base})")
+            logger.debug(f"Found mixin {obj.__name__} ({base})")
             mixins.append(obj)
         elif issubclass(obj, modules.Runner) and obj not in (modules.Runner, data.Mixin):
-            logger.debug(f"Found runner {runner.name} ({base})")
+            logger.debug(f"Found runner {obj.name} ({base})")
             runners.append(obj)
 
     hooks = _resolve_hook_dependencies(hooks)
