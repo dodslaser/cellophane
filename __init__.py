@@ -6,7 +6,7 @@ import multiprocessing as mp
 from copy import deepcopy
 from importlib.util import spec_from_file_location, module_from_spec
 from pathlib import Path
-from typing import Any, Optional, Type, Callable
+from typing import Any, Optional, Type, Callable, Iterator
 import time
 
 import rich_click as click
@@ -48,6 +48,52 @@ def _convert_mapping(ctx, param, value):
         raise click.BadParameter("format must be 'key=value'")
 
 
+def _load_modules(path: Path) -> Iterator[tuple[str, modules.Hook | modules.Runner |data.Mixin]]:
+    for file in [*path.glob("*.py"), *path.glob("*/__init__.py")]:
+        base = file.stem if file.stem != "__init__" else file.parent.name
+        name = f"_cellophane_module_{base}"
+        spec = spec_from_file_location(name, file)
+        original_handlers = logging.root.handlers.copy()
+        if spec is not None:
+            module = module_from_spec(spec)
+            if spec.loader is not None:
+                try:
+                    sys.modules[name] = module
+                    spec.loader.exec_module(module)
+                except ImportError:
+                    pass
+                else:
+                    # Reset logging handlers to avoid duplicate messages
+                    for handler in logging.root.handlers:
+                        if handler not in original_handlers:
+                            handler.close()
+                            logging.root.removeHandler(handler)
+                    
+                    for obj in [getattr(module, a) for a in dir(module)]:
+                        if (
+                            isinstance(obj, modules.Hook) or
+                            issubclass(obj, data.Mixin) or
+                            issubclass(obj, modules.Runner) and
+                            obj not in (modules.Runner, data.Mixin) and obj.__module__ == name
+                        ):
+                            yield base, obj
+
+def _resolve_hook_dependencies(hooks: list[modules.Hook]) -> list[modules.Hook]:
+    deps = {
+        name: {
+            *[d for h in hooks if h.name == name for d in h.after],
+            *[h.name for h in hooks if name in h.before],
+        }
+        for name in {
+            *[n for h in hooks for n in h.before + h.after],
+            *[h.name for h in hooks],
+        }
+    }
+
+    order = [*TopologicalSorter(deps).static_order()]
+    return [*sorted(hooks, key=lambda h: order.index(h.name))]
+
+
 def _main(
     logger: logging.LoggerAdapter,
     config: cfg.Config,
@@ -61,190 +107,125 @@ def _main(
     else:
         samples = data.Samples()
 
-    _log_handlers = logging.root.handlers.copy()
-    
     hooks: list[modules.Hook] = []
     runners: list[Type[modules.Runner]] = []
     mixins: list[Type[data.Mixin]] = []
+    for base, obj in _load_modules(modules_path):
+        if isinstance(obj, modules.Hook):
+            logger.debug(f"Found hook {hook.name} ({base})")
+            hooks.append(obj)
+        elif issubclass(obj, data.Mixin):
+            logger.debug(f"Found mixin {mixin.__name__} ({base})")
+            mixins.append(obj)
+        elif issubclass(obj, modules.Runner) and obj not in (modules.Runner, data.Mixin):
+            logger.debug(f"Found runner {runner.name} ({base})")
+            runners.append(obj)
 
-    for path in [*modules_path.glob("*.py"), *modules_path.glob("*/__init__.py")]:
-        base = path.stem if path.stem != "__init__" else path.parent.name
-        name = f"_cellophane_module_{base}"
-        spec = spec_from_file_location(name, path)
-        if spec is not None:
-            try:
-                module = module_from_spec(spec)
-                if spec.loader is not None:
-                    sys.modules[name] = module
-                    spec.loader.exec_module(module)
-                    # Reset logging handlers to avoid duplicate messages
-                    for handler in logging.root.handlers:
-                        if handler not in _log_handlers:
-                            handler.close()
-                            logging.root.removeHandler(handler)
-            except ImportError as exception:
-                logger.error(f"Failed to import module {name}: {exception}")
-            else:
-                for obj in [getattr(module, a) for a in dir(module)]:
-                    match obj:
-                        case modules.Hook() as hook:
-                            logger.debug(f"Found hook {hook.name} ({base})")
-                            hooks.append(hook)
+    hooks = _resolve_hook_dependencies(hooks)
 
-                        case type() as mixin if (
-                            issubclass(mixin, data.Mixin)
-                            and mixin != data.Mixin
-                            and mixin.__module__ == name
-                        ):
-                            logger.debug(f"Found mixin {mixin.__name__} ({base})")
-                            mixins.append(mixin)
+    for mixin in [m for m in mixins]:
+        logger.debug(f"Adding {mixin.__name__} mixin to samples")
+        data.Samples.__bases__ = (*data.Samples.__bases__, mixin)
+        if mixin.sample_mixin is not None:
+            data.Sample.__bases__ = (*data.Sample.__bases__, mixin.sample_mixin)
 
-                        case type() as runner if (
-                            issubclass(runner, modules.Runner)
-                            and runner != modules.Runner
-                        ):
-                            logger.debug(f"Found runner {runner.name} ({base})")
-                            runners.append(obj)
-                        case _:
-                            pass
-    
-    try:
-        _hook_deps = {
-            name: {
-                *[d for h in hooks if h.name == name for d in h.after],
-                *[h.name for h in hooks if name in h.before],
-            }
-            for name in {
-                *[n for h in hooks for n in h.before + h.after],
-                *[h.name for h in hooks],
-            }
-        }
-
-        _hook_order = [*TopologicalSorter(_hook_deps).static_order()]
-    except CycleError as exception:
-        logger.error(f"Circular dependency in hooks: {exception}")
-        raise SystemExit(1)
-    else:
-        hooks = [*sorted(hooks, key=lambda h: _hook_order.index(h.name))]
-                    
-
-    try:
-        for mixin in [m for m in mixins]:
-            logger.debug(f"Adding {mixin.__name__} mixin to samples")
-            data.Samples.__bases__ = (*data.Samples.__bases__, mixin)
-            if mixin.sample_mixin is not None:
-                data.Sample.__bases__ = (*data.Sample.__bases__, mixin.sample_mixin)
-
-        for hook in [h for h in hooks if h.when == "pre"]:
-            result = hook(
-                samples=deepcopy(samples),
-                config=config,
-                timestamp=_TIMESTAMP,
-                log_queue=_LOG_QUEUE,
-                log_level=config.log_level,
-                root=root,
-            )
-
-            if issubclass(type(result), data.Samples):
-                samples = result
-
-        for invalid_sample in samples.validate():
-            logger.warning(f"Removed invalid sample {invalid_sample.id}")
-
-        result_samples = data.Samples()
-        if samples:
-            for runner in runners:
-                for _samples in (
-                    samples.split() if runner.individual_samples else [samples]
-                ):
-                    proc = runner(
-                        samples=_samples,
-                        config=config,
-                        timestamp=_TIMESTAMP,
-                        output_queue=_OUTPUT_QUEUE,
-                        log_queue=_LOG_QUEUE,
-                        log_level=config.log_level,
-                        root=root,
-                    )
-                    _PROCS[proc.id] = proc
-
-            for proc in _PROCS.values():
-                proc.start()
-
-            while not all(proc.done for proc in _PROCS.values()):
-                result, pid = _OUTPUT_QUEUE.get()
-                result_samples += result
-                logger.debug(f"Received result from {_PROCS[pid].name}")
-                _PROCS[pid].join()
-                _PROCS[pid].done = True
-
-    except KeyboardInterrupt:
-        logger.critical("Received SIGINT, shutting down...")
-        _cleanup(logger)
-
-    except Exception as exception:
-        logger.critical(
-            f"Unhandled exception: {exception}",
-            exc_info=config.log_level == "DEBUG",
-            stacklevel=2,
-        )
-        _cleanup(logger)
-
-    else:
-        failed_samples = data.Samples(
-            sample for sample in result_samples if not sample.complete
-        )
-        complete_samples = data.Samples(
-            sample
-            for sid in {s.id for s in result_samples}
-            for sample in result_samples
-            if sample.id == sid
-            if all(s.complete for s in result_samples if s.id == sid)
-        )
-        partial_samples = data.Samples(
-            sample
-            for sample in result_samples
-            if sample.complete and sample.id not in [s.id for s in complete_samples]
+    for hook in [h for h in hooks if h.when == "pre"]:
+        result = hook(
+            samples=deepcopy(samples),
+            config=config,
+            timestamp=_TIMESTAMP,
+            log_queue=_LOG_QUEUE,
+            log_level=config.log_level,
+            root=root,
         )
 
-        for hook in [h for h in hooks if h.when == "post"]:
+        if issubclass(type(result), data.Samples):
+            samples = result
 
-            hook(
-                samples=data.Samples(
-                    [
-                        *complete_samples,
-                        *(partial_samples if hook.condition != "complete" else []),
-                        *(failed_samples if hook.condition == "always" else []),
-                    ]
-                ),
-                config=config,
-                timestamp=_TIMESTAMP,
-                log_queue=_LOG_QUEUE,
-                log_level=config.log_level,
-                root=root,
-            )
+    for invalid_sample in samples.validate():
+        logger.warning(f"Removed invalid sample {invalid_sample.id}")
 
-        original_ids = [s.id for s in samples]
+    result_samples = data.Samples()
+    if samples:
         for runner in runners:
-            n_completed = sum(
-                s.runner == runner.label and s.id in original_ids
-                for s in [*complete_samples, *partial_samples]
-            )
-            n_failed = sum(
-                s.runner == runner.label and s.id in original_ids
-                for s in failed_samples
-            )
-            n_extra = sum(
-                s.id not in original_ids for s in [*complete_samples, *failed_samples]
-            )
-            if n_completed:
-                logger.info(f"Runner {runner.label} completed {n_completed} samples")
-            if n_extra:
-                logger.info(f"Runner {runner.label} introduced {n_extra} extra samples")
-            if n_failed:
-                logger.warning(f"Runner {runner.label} failed for {n_failed} samples")
+            for _samples in (
+                samples.split() if runner.individual_samples else [samples]
+            ):
+                proc = runner(
+                    samples=_samples,
+                    config=config,
+                    timestamp=_TIMESTAMP,
+                    output_queue=_OUTPUT_QUEUE,
+                    log_queue=_LOG_QUEUE,
+                    log_level=config.log_level,
+                    root=root,
+                )
+                _PROCS[proc.id] = proc
 
-        logger.info(f"Execution complete in {format_timespan(time.time() - _STARTTIME)}")
+        for proc in _PROCS.values():
+            proc.start()
+
+        while not all(proc.done for proc in _PROCS.values()):
+            result, pid = _OUTPUT_QUEUE.get()
+            result_samples += result
+            logger.debug(f"Received result from {_PROCS[pid].name}")
+            _PROCS[pid].join()
+            _PROCS[pid].done = True
+
+    failed_samples = data.Samples(
+        sample for sample in result_samples if not sample.complete
+    )
+    complete_samples = data.Samples(
+        sample
+        for sid in {s.id for s in result_samples}
+        for sample in result_samples
+        if sample.id == sid
+        if all(s.complete for s in result_samples if s.id == sid)
+    )
+    partial_samples = data.Samples(
+        sample
+        for sample in result_samples
+        if sample.complete and sample.id not in [s.id for s in complete_samples]
+    )
+
+    for hook in [h for h in hooks if h.when == "post"]:
+
+        hook(
+            samples=data.Samples(
+                [
+                    *complete_samples,
+                    *(partial_samples if hook.condition != "complete" else []),
+                    *(failed_samples if hook.condition == "always" else []),
+                ]
+            ),
+            config=config,
+            timestamp=_TIMESTAMP,
+            log_queue=_LOG_QUEUE,
+            log_level=config.log_level,
+            root=root,
+        )
+
+    original_ids = [s.id for s in samples]
+    for runner in runners:
+        n_completed = sum(
+            s.runner == runner.label and s.id in original_ids
+            for s in [*complete_samples, *partial_samples]
+        )
+        n_failed = sum(
+            s.runner == runner.label and s.id in original_ids
+            for s in failed_samples
+        )
+        n_extra = sum(
+            s.id not in original_ids for s in [*complete_samples, *failed_samples]
+        )
+        if n_completed:
+            logger.info(f"Runner {runner.label} completed {n_completed} samples")
+        if n_extra:
+            logger.info(f"Runner {runner.label} introduced {n_extra} extra samples")
+        if n_failed:
+            logger.warning(f"Runner {runner.label} failed for {n_failed} samples")
+
+    logger.info(f"Execution complete in {format_timespan(time.time() - _STARTTIME)}")
 
 
 def cellophane(
@@ -285,17 +266,33 @@ def cellophane(
     def inner(config_path, logger, **kwargs) -> Any:
         try:
             _config = cfg.Config(config_path, schema, **kwargs)
+            return _main(
+                config=_config,
+                logger=logger,
+                modules_path=_modules_path,
+                root=root,
+            )
+        except CycleError as exception:
+            logger.error(f"Circular dependency in hooks: {exception}")
+            raise SystemExit(1)
+
+        except KeyboardInterrupt:
+            logger.critical("Received SIGINT, shutting down...")
+            _cleanup(logger)
+        
         except ValidationError as exception:
             _config = cfg.Config(config_path, schema, validate=False, **kwargs)
             for error in schema.iter_errors(_config):
                 logger.critical(f"Invalid configuration: {error.message}")
             raise SystemExit(1) from exception
-        return _main(
-            config=_config,
-            logger=logger,
-            modules_path=_modules_path,
-            root=root,
-        )
+
+        except Exception as exception:
+            logger.critical(
+                f"Unhandled exception: {exception}",
+                exc_info=_config.log_level == "DEBUG",
+                stacklevel=2,
+            )
+            _cleanup(logger)
 
     for flag, _, default, description, secret, _type in schema.flags:
         inner = click.option(
