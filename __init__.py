@@ -7,6 +7,7 @@ from copy import deepcopy
 from importlib.util import spec_from_file_location, module_from_spec
 from pathlib import Path
 from typing import Any, Optional, Type, Callable, Iterator
+from uuid import UUID
 import time
 
 import rich_click as click
@@ -20,7 +21,7 @@ from .src import cfg, data, logs, modules, util, sge
 _MP_MANAGER = mp.Manager()
 _LOG_QUEUE = logs.get_log_queue(_MP_MANAGER)
 _OUTPUT_QUEUE: mp.Queue = mp.Queue()
-_PROCS: dict[str, modules.Runner] = {}
+_PROCS: dict[UUID, modules.Runner] = {}
 _STARTTIME = time.time()
 _TIMESTAMP: str = time.strftime("%Y%m%d_%H%M%S", time.localtime(_STARTTIME))
 CELLOPHANE_ROOT = Path(__file__).parent
@@ -48,7 +49,7 @@ def _convert_mapping(ctx, param, value):
         raise click.BadParameter("format must be 'key=value'")
 
 
-def _load_modules(path: Path) -> Iterator[tuple[str, modules.Hook | modules.Runner |data.Mixin]]:
+def _load_modules(path: Path) -> Iterator[tuple[str, modules.Hook | Type[modules.Runner] | Type[data.Mixin]]]:
     for file in [*path.glob("*.py"), *path.glob("*/__init__.py")]:
         base = file.stem if file.stem != "__init__" else file.parent.name
         name = f"_cellophane_module_{base}"
@@ -73,25 +74,24 @@ def _load_modules(path: Path) -> Iterator[tuple[str, modules.Hook | modules.Runn
                         if (
                             isinstance(obj, modules.Hook) or
                             (isinstance(obj, type) and issubclass(obj, data.Mixin)) or
-                            (isinstance(obj, type) and issubclass(obj, modules.Runner)) and
-                            obj not in (modules.Runner, data.Mixin) and obj.__module__ == name
-                        ):
+                            (isinstance(obj, type) and issubclass(obj, modules.Runner))
+                        ) and inspect.getmodule(obj) == module:
                             yield base, obj
 
 def _resolve_hook_dependencies(hooks: list[modules.Hook]) -> list[modules.Hook]:
     deps = {
         name: {
-            *[d for h in hooks if h.name == name for d in h.after],
-            *[h.name for h in hooks if name in h.before],
+            *[d for h in hooks if h.__name__ == name for d in h.after],
+            *[h.__name__ for h in hooks if name in h.before],
         }
         for name in {
             *[n for h in hooks for n in h.before + h.after],
-            *[h.name for h in hooks],
+            *[h.__name__ for h in hooks],
         }
     }
 
     order = [*TopologicalSorter(deps).static_order()]
-    return [*sorted(hooks, key=lambda h: order.index(h.name))]
+    return [*sorted(hooks, key=lambda h: order.index(h.__name__))]
 
 
 def _main(
@@ -112,13 +112,13 @@ def _main(
     mixins: list[Type[data.Mixin]] = []
     for base, obj in _load_modules(modules_path):
         if isinstance(obj, modules.Hook):
-            logger.debug(f"Found hook {obj.name} ({base})")
+            logger.debug(f"Found hook {obj.__name__} ({base})")
             hooks.append(obj)
-        elif issubclass(obj, data.Mixin):
+        elif issubclass(obj, data.Mixin) and not obj == data.Mixin:
             logger.debug(f"Found mixin {obj.__name__} ({base})")
             mixins.append(obj)
-        elif issubclass(obj, modules.Runner) and obj not in (modules.Runner, data.Mixin):
-            logger.debug(f"Found runner {obj.name} ({base})")
+        elif issubclass(obj, modules.Runner) and not obj == modules.Runner:
+            logger.debug(f"Found runner {obj.__name__} ({base})")
             runners.append(obj)
 
     hooks = _resolve_hook_dependencies(hooks)
@@ -168,7 +168,7 @@ def _main(
         while not all(proc.done for proc in _PROCS.values()):
             result, pid = _OUTPUT_QUEUE.get()
             result_samples += result
-            logger.debug(f"Received result from {_PROCS[pid].name}")
+            logger.debug(f"Received result from {_PROCS[pid].__name__}")
             _PROCS[pid].join()
             _PROCS[pid].done = True
 

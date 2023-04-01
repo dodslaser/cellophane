@@ -9,7 +9,7 @@ from signal import SIGTERM, signal
 from typing import Callable, Optional, ClassVar, Literal
 from pathlib import Path
 from queue import Queue
-from uuid import uuid4
+from uuid import uuid4, UUID
 
 import psutil
 
@@ -33,20 +33,17 @@ class Runner(mp.Process):
     """Base class for cellophane runners."""
 
     label: ClassVar[str]
-    name: ClassVar[str]
     individual_samples: ClassVar[bool]
     wait: ClassVar[bool]
-    id: str
+    id: UUID
     done: bool = False
 
     def __init_subclass__(
         cls,
-        name: str,
         label: Optional[str] = None,
         individual_samples: bool = False,
     ) -> None:
-        cls.label = label or name
-        cls.name = name
+        cls.label = label or cls.__name__
         cls.individual_samples = individual_samples
         super().__init_subclass__()
 
@@ -117,6 +114,7 @@ class Runner(mp.Process):
             self.output_queue.put((samples, self.id))
 
         else:
+            logger.info(f"Finished {self.label} runner")
             match returned:
                 case None:
                     for sample in samples:
@@ -140,7 +138,6 @@ class Hook:
     """Base class for cellophane pre/post-hooks."""
 
     label: str
-    name: str
     func: Callable
     overwrite: bool
     when: Literal["pre", "post"]
@@ -148,6 +145,11 @@ class Hook:
     before: list[str] = field(default_factory=list)
     after: list[str] = field(default_factory=list)
     
+    def __post_init__(self):
+        self.__name__ = self.func.__name__
+        self.__qualname__ = self.func.__qualname__
+        self.__module__ = self.func.__module__
+
     def __call__(
         self,
         samples: data.Samples,
@@ -198,7 +200,6 @@ def pre_hook(
     def wrapper(func):
         return Hook(
             label=label or func.__name__,
-            name=func.__name__,
             func=func,
             overwrite=overwrite,
             when="pre",
@@ -220,7 +221,6 @@ def post_hook(
     def wrapper(func):
         return Hook(
             label=label or func.__name__,
-            name=func.__name__,
             func=func,
             overwrite=overwrite,
             when="post",
@@ -239,13 +239,17 @@ def runner(
     def wrapper(func):
         class _runner(
             Runner,
-            name=func.__name__,
             label=label,
             individual_samples=individual_samples,
         ):
+
             def __init__(self, *args, **kwargs):
                 self.main = staticmethod(func)
                 super().__init__(*args, **kwargs)
+
+        _runner.__name__ = func.__name__
+        _runner.__qualname__ = func.__qualname__
+        _runner.__module__ = func.__module__
 
         return _runner
 
