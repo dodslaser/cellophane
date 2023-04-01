@@ -40,7 +40,7 @@ class Runner(mp.Process):
 
     def __init_subclass__(
         cls,
-        label: Optional[str] = None,
+        label: str,
         individual_samples: bool = False,
     ) -> None:
         cls.label = label or cls.__name__
@@ -239,7 +239,7 @@ def runner(
     def wrapper(func):
         class _runner(
             Runner,
-            label=label,
+            label=label or func.__name__,
             individual_samples=individual_samples,
         ):
 
