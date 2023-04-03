@@ -134,12 +134,6 @@ class Runner(mp.Process):
                     self.output_queue.put((samples, self.id))
 
 
-    @staticmethod
-    def main(**_) -> Optional[data.Samples[data.Sample]]:
-        """Main function for the runner."""
-        raise NotImplementedError
-
-
 class Hook:
     """Base class for cellophane pre/post-hooks."""
 
