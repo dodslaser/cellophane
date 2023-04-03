@@ -45,7 +45,13 @@ def _convert_mapping(ctx, param, value):
     if isinstance(value, dict):
         return value
     try:
-        return {k: v for k, v in [kv.split("=") for kv in value]}
+        mapping: dict[str, str] = {}
+        for k, v in [kv.split("=") for kv in value]:
+            identifier = k.strip("{}")
+            if not identifier.isidentifier():
+                raise ValueError(f"{identifier} is not a valid identifier")
+            else:
+                mapping[identifier] = v
     except:
         raise click.BadParameter("format must be 'key=value'")
 
