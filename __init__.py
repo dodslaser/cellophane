@@ -1,22 +1,22 @@
 """Cellophane: A library for writing modular wrappers"""
-import sys
 import inspect
 import logging
 import multiprocessing as mp
-from copy import deepcopy
-from importlib.util import spec_from_file_location, module_from_spec
-from pathlib import Path
-from typing import Any, Optional, Type, Callable, Iterator
-from uuid import UUID
+import sys
 import time
+from copy import deepcopy
+from graphlib import CycleError, TopologicalSorter
+from importlib.util import module_from_spec, spec_from_file_location
+from pathlib import Path
+from typing import Any, Callable, Iterator, Optional, Type
+from uuid import UUID
 
 import rich_click as click
 import yaml
-from jsonschema.exceptions import ValidationError
 from humanfriendly import format_timespan
-from graphlib import TopologicalSorter, CycleError
+from jsonschema.exceptions import ValidationError
 
-from .src import cfg, data, logs, modules, util, sge
+from .src import cfg, data, logs, modules, sge, util
 
 _MP_MANAGER = mp.Manager()
 _LOG_QUEUE = logs.get_log_queue(_MP_MANAGER)
@@ -27,6 +27,7 @@ _TIMESTAMP: str = time.strftime("%Y%m%d_%H%M%S", time.localtime(_STARTTIME))
 CELLOPHANE_ROOT = Path(__file__).parent
 
 click.rich_click.DEFAULT_STRING = "[{}]"
+
 
 def _cleanup(logger):
     for proc in _PROCS.values():
@@ -49,7 +50,9 @@ def _convert_mapping(ctx, param, value):
         raise click.BadParameter("format must be 'key=value'")
 
 
-def _load_modules(path: Path) -> Iterator[tuple[str, modules.Hook | Type[modules.Runner] | Type[data.Mixin]]]:
+def _load_modules(
+    path: Path,
+) -> Iterator[tuple[str, Type[modules.Hook] | Type[modules.Runner] | Type[data.Mixin]]]:
     for file in [*path.glob("*.py"), *path.glob("*/__init__.py")]:
         base = file.stem if file.stem != "__init__" else file.parent.name
         name = f"_cellophane_module_{base}"
@@ -69,16 +72,19 @@ def _load_modules(path: Path) -> Iterator[tuple[str, modules.Hook | Type[modules
                         if handler not in original_handlers:
                             handler.close()
                             logging.root.removeHandler(handler)
-                    
+
                     for obj in [getattr(module, a) for a in dir(module)]:
                         if (
-                            isinstance(obj, modules.Hook) or
-                            (isinstance(obj, type) and issubclass(obj, data.Mixin)) or
-                            (isinstance(obj, type) and issubclass(obj, modules.Runner))
+                            issubclass(obj, modules.Hook)
+                            or issubclass(obj, data.Mixin)
+                            or issubclass(obj, modules.Runner)
                         ) and inspect.getmodule(obj) == module:
                             yield base, obj
 
-def _resolve_hook_dependencies(hooks: list[modules.Hook]) -> list[modules.Hook]:
+
+def _resolve_hook_dependencies(
+    hooks: list[Type[modules.Hook]],
+) -> list[Type[modules.Hook]]:
     deps = {
         name: {
             *[d for h in hooks if h.__name__ == name for d in h.after],
@@ -107,7 +113,7 @@ def _main(
     else:
         samples = data.Samples()
 
-    hooks: list[modules.Hook] = []
+    hooks: list[Type[modules.Hook]] = []
     runners: list[Type[modules.Runner]] = []
     mixins: list[Type[data.Mixin]] = []
     for base, obj in _load_modules(modules_path):
@@ -129,7 +135,7 @@ def _main(
         if mixin.sample_mixin is not None:
             data.Sample.__bases__ = (*data.Sample.__bases__, mixin.sample_mixin)
 
-    for hook in [h for h in hooks if h.when == "pre"]:
+    for hook in [h() for h in hooks if h.when == "pre"]:
         result = hook(
             samples=deepcopy(samples),
             config=config,
@@ -148,9 +154,7 @@ def _main(
     result_samples = data.Samples()
     if samples:
         for runner in runners:
-            for _samples in (
-                samples.split() if runner.individual_samples else [samples]
-            ):
+            for _samples in samples.split() if runner.individual_samples else [samples]:
                 proc = runner(
                     samples=_samples,
                     config=config,
@@ -188,7 +192,7 @@ def _main(
         if sample.complete and sample.id not in [s.id for s in complete_samples]
     )
 
-    for hook in [h for h in hooks if h.when == "post"]:
+    for hook in [h() for h in hooks if h.when == "post"]:
 
         hook(
             samples=data.Samples(
@@ -212,8 +216,7 @@ def _main(
             for s in [*complete_samples, *partial_samples]
         )
         n_failed = sum(
-            s.runner == runner.label and s.id in original_ids
-            for s in failed_samples
+            s.runner == runner.label and s.id in original_ids for s in failed_samples
         )
         n_extra = sum(
             s.id not in original_ids for s in [*complete_samples, *failed_samples]
@@ -279,7 +282,7 @@ def cellophane(
         except KeyboardInterrupt:
             logger.critical("Received SIGINT, shutting down...")
             _cleanup(logger)
-        
+
         except ValidationError as exception:
             _config = cfg.Config(config_path, schema, validate=False, **kwargs)
             for error in schema.iter_errors(_config):

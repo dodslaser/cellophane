@@ -3,7 +3,6 @@
 import multiprocessing as mp
 import os
 import sys
-from dataclasses import dataclass, field
 import logging
 from signal import SIGTERM, signal
 from typing import Callable, Optional, ClassVar, Literal
@@ -34,15 +33,23 @@ class Runner(mp.Process):
 
     label: ClassVar[str]
     individual_samples: ClassVar[bool]
+    func: ClassVar[Callable]
     wait: ClassVar[bool]
     id: UUID
     done: bool = False
 
     def __init_subclass__(
         cls,
-        label: str,
+        func: Callable,
+        label: Optional[str],
         individual_samples: bool = False,
     ) -> None:
+        cls.__name__ = func.__name__
+        cls.__qualname__ = func.__qualname__
+        cls.__module__ = func.__module__
+        cls.name = func.__name__
+        cls.label = label or func.__name__
+        cls.func = staticmethod(func)
         cls.label = label or cls.__name__
         cls.individual_samples = individual_samples
         super().__init_subclass__()
@@ -133,22 +140,38 @@ class Runner(mp.Process):
         raise NotImplementedError
 
 
-@dataclass
 class Hook:
     """Base class for cellophane pre/post-hooks."""
 
-    label: str
-    func: Callable
-    overwrite: bool
-    when: Literal["pre", "post"]
-    condition: Literal["complete", "partial", "always"] = "always"
-    before: list[str] = field(default_factory=list)
-    after: list[str] = field(default_factory=list)
-    
-    def __post_init__(self):
-        self.__name__ = self.func.__name__
-        self.__qualname__ = self.func.__qualname__
-        self.__module__ = self.func.__module__
+    name: ClassVar[str]
+    label: ClassVar[str]
+    func: ClassVar[Callable]
+    when: ClassVar[Literal["pre", "post"]]
+    condition: ClassVar[Literal["complete", "partial", "always"]]
+    before: ClassVar[list[str]]
+    after: ClassVar[list[str]]
+
+    def __init_subclass__(
+        cls,
+        func: Callable,
+        when: Literal["pre", "post"],
+        label: str | None = None,
+        condition: Literal["complete", "partial", "always"] = "always",
+        before: list[str] = [],
+        after: list[str] = [],
+    ) -> None:
+        
+        cls.__name__ = func.__name__
+        cls.__qualname__ = func.__qualname__
+        cls.__module__ = func.__module__
+        cls.name = func.__name__
+        cls.label = label or func.__name__
+        cls.condition = condition
+        cls.before = before
+        cls.after = after
+        cls.func = staticmethod(func)
+        cls.when = when
+        super().__init_subclass__()
 
     def __call__(
         self,
@@ -179,7 +202,6 @@ class Hook:
 
 def pre_hook(
     label: Optional[str] = None,
-    overwrite: bool = False,
     before: list[str] | Literal["all"] = [],
     after: list[str] | Literal["all"]= []
 ):
@@ -198,35 +220,37 @@ def pre_hook(
             raise ValueError("Invalid dependencies: {before=}, {after=}")
 
     def wrapper(func):
-        return Hook(
-            label=label or func.__name__,
-            func=func,
-            overwrite=overwrite,
-            when="pre",
-            condition="always",
-            before=before,
-            after=after,
-        )
-
+        class _hook(
+                Hook,
+                label=label,
+                func=func,
+                when="pre",
+                condition="always",
+                # FIXME: Figure out if this is a bug in mypy
+                before=before,  # type: ignore
+                after=after,  # type: ignore
+            ):
+                pass
+        return _hook
     return wrapper
 
 
 def post_hook(
     label: Optional[str] = None,
-    overwrite: bool = False,
     condition: Literal["complete", "partial", "always"] = "always",
 ):
     """Decorator for hooks that will run after all runners."""
 
     def wrapper(func):
-        return Hook(
-            label=label or func.__name__,
+        class _hook(
+            Hook,
+            label=label,
             func=func,
-            overwrite=overwrite,
             when="post",
             condition=condition,
-        )
-
+        ):
+            pass
+        return _hook
     return wrapper
 
 
@@ -239,18 +263,10 @@ def runner(
     def wrapper(func):
         class _runner(
             Runner,
-            label=label or func.__name__,
+            label=label,
+            func=func,
             individual_samples=individual_samples,
         ):
-
-            def __init__(self, *args, **kwargs):
-                self.main = staticmethod(func)
-                super().__init__(*args, **kwargs)
-
-        _runner.__name__ = func.__name__
-        _runner.__qualname__ = func.__qualname__
-        _runner.__module__ = func.__module__
-
+            pass
         return _runner
-
     return wrapper
