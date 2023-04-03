@@ -172,7 +172,7 @@ def _main(
         while not all(proc.done for proc in _PROCS.values()):
             result, pid = _OUTPUT_QUEUE.get()
             result_samples += result
-            logger.debug(f"Received result from {_PROCS[pid].__name__}")
+            logger.debug(f"Received result from {_PROCS[pid].name}")
             _PROCS[pid].join()
             _PROCS[pid].done = True
 
