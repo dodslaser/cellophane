@@ -8,7 +8,7 @@ from copy import deepcopy
 from graphlib import CycleError, TopologicalSorter
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
-from typing import Any, Callable, Iterator, Optional, Type
+from typing import Any, Callable, Iterator, Optional
 from uuid import UUID
 
 import rich_click as click
@@ -52,7 +52,7 @@ def _convert_mapping(ctx, param, value):
 
 def _load_modules(
     path: Path,
-) -> Iterator[tuple[str, Type[modules.Hook] | Type[modules.Runner] | Type[data.Mixin]]]:
+) -> Iterator[tuple[str, type[modules.Hook] | type[modules.Runner] | type[data.Mixin]]]:
     for file in [*path.glob("*.py"), *path.glob("*/__init__.py")]:
         base = file.stem if file.stem != "__init__" else file.parent.name
         name = f"_cellophane_module_{base}"
@@ -74,7 +74,7 @@ def _load_modules(
                             logging.root.removeHandler(handler)
 
                     for obj in [getattr(module, a) for a in dir(module)]:
-                        if (
+                        if isinstance(obj, type) and (
                             issubclass(obj, modules.Hook)
                             or issubclass(obj, data.Mixin)
                             or issubclass(obj, modules.Runner)
@@ -83,8 +83,8 @@ def _load_modules(
 
 
 def _resolve_hook_dependencies(
-    hooks: list[Type[modules.Hook]],
-) -> list[Type[modules.Hook]]:
+    hooks: list[type[modules.Hook]],
+) -> list[type[modules.Hook]]:
     deps = {
         name: {
             *[d for h in hooks if h.__name__ == name for d in h.after],
@@ -113,11 +113,11 @@ def _main(
     else:
         samples = data.Samples()
 
-    hooks: list[Type[modules.Hook]] = []
-    runners: list[Type[modules.Runner]] = []
-    mixins: list[Type[data.Mixin]] = []
+    hooks: list[type[modules.Hook]] = []
+    runners: list[type[modules.Runner]] = []
+    mixins: list[type[data.Mixin]] = []
     for base, obj in _load_modules(modules_path):
-        if isinstance(obj, modules.Hook):
+        if issubclass(obj, modules.Hook) and not obj == modules.Hook:
             logger.debug(f"Found hook {obj.__name__} ({base})")
             hooks.append(obj)
         elif issubclass(obj, data.Mixin) and not obj == data.Mixin:
