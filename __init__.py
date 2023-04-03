@@ -54,6 +54,8 @@ def _convert_mapping(ctx, param, value):
                 mapping[identifier] = v
     except:
         raise click.BadParameter("format must be 'key=value'")
+    else:
+        return mapping
 
 
 def _load_modules(
