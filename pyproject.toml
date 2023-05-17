@@ -7,16 +7,15 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.10"
-slims-python-api = "^6.8.0"
+slims-python-api = {version = "^6.8.0", source = "pypi"}
 click = "^8.1.3"
 psutil = "^5.9.4"
-rich-click = "^1.6.0"
-drmaa = "^0.7.9"
+rich-click = {version = "^1.6.0", source = "pypi"}
+uge-drmaa2 = {git = "https://github.com/gridengine/drmaa2-python.git", branch = "v8.7.4"}
 humanfriendly = "^10.0"
 jsonschema = "^4.17.3"
-ngpiris = "^4.2.0"
 pyaml = "^21.10.1"
-xxhash = "^3.2.0"
+attrs = "^23.1.0"
 
 
 [tool.poetry.group.dev.dependencies]

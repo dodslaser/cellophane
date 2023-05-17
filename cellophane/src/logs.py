@@ -2,7 +2,6 @@
 
 import atexit
 import logging
-import multiprocessing as mp
 from functools import wraps
 from logging.handlers import QueueHandler, QueueListener
 from pathlib import Path
@@ -12,7 +11,7 @@ from queue import Queue
 from rich.logging import RichHandler
 
 
-def get_log_queue(manager) -> mp.Queue:
+def get_log_queue(manager) -> Queue:
     """Create a queue for logging and a listener to handle it."""
     console_handler = RichHandler(show_path=True)
     console_handler.setFormatter(
@@ -53,7 +52,7 @@ def get_logger(
 
 def handle_logging(
     label: str,
-    queue: mp.Queue,
+    queue: Queue,
     path: Optional[Path | str] = None,
     level: int = logging.INFO,
     propagate_exceptions: bool = True,
@@ -70,7 +69,7 @@ def handle_logging(
         def inner(*args, **kwargs) -> None:
             try:
                 func(*args, logger=logger, **kwargs)
-            except Exception as exception:  # pylint: disable=broad-except
+            except Exception as exception:
                 logger.critical(
                     "Caught an unhandeled exception",
                     exc_info=True,
