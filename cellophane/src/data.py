@@ -2,6 +2,7 @@
 
 from attrs import define, field, fields_dict
 from collections import UserDict, UserList
+from collections.abc import KeysView, ValuesView, ItemsView
 from functools import reduce, partial
 from copy import deepcopy
 from pathlib import Path
@@ -65,6 +66,16 @@ class Container(UserDict):
     def _container_attributes(self):
         return [*dir(self), *fields_dict(self.__class__)]
 
+    def keys(self):
+        _fields = {k: None for k in fields_dict(self.__class__) if k != "data"}
+        return KeysView({**self.data, **_fields})
+
+    def values(self):
+        return ValuesView({k: self[k] for k in self.keys()})
+
+    def items(self):
+        return ItemsView({k: self[k] for k in self.keys()})
+
     def __contains__(self, key: Hashable | Sequence[Hashable]) -> bool:
         try:
             self[key]
@@ -79,7 +90,7 @@ class Container(UserDict):
 
         match key:
             case str(k) if k in self._container_attributes:
-                self.__setattr__(k, item)
+                object.__setattr__(self, k, item)
             case *k,:
                 reduce(lambda d, k: d.setdefault(k, Container()), k[:-1], self.data)[
                     k[-1]
