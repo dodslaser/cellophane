@@ -226,12 +226,16 @@ class Hook:
                 queue=log_queue,
             )
             _logger.debug(f"Running {self.label} hook")
+
+            outdir = config.outdir / config.get("outprefix", timestamp)
+
             return self.func(
                 samples=samples,
                 config=config,
                 timestamp=timestamp,
                 logger=_logger,
                 root=root,
+                outdir=outdir,
             )
         else:
             return samples
