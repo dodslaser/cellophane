@@ -15,13 +15,15 @@ from . import util
 drmaa2 = util.lazy_import("drmaa2")
 
 
-def _cleanup(job):
+def _cleanup(job, session):
     """Clean up after a job."""
 
     # FIXME: Nextflow doesn't kill chlid processes when a job is killed.
     def inner(*_):
         job.terminate()
         job.wait_terminated()
+        session.close()
+        session.destroy()
         raise SystemExit(1)
 
     return inner
@@ -67,7 +69,7 @@ def _run(
             "working_directory": str(cwd),
         }
     )
-    signal(SIGTERM, _cleanup(job))
+    signal(SIGTERM, _cleanup(job, session))
     try:
         state = None
         while state not in (
@@ -77,10 +79,12 @@ def _run(
             time.sleep(1)
             state, _ = job.get_state()
     except KeyboardInterrupt:
-        _cleanup(job)()
+        _cleanup(job, session)()
         raise SystemExit(1)
     finally:
         job_info = job.get_info()
+        session.close()
+        session.destroy()
         if job_info.exit_status != 0 and error_callback is not None:
             error_callback(job_info.exit_status)
         elif callback is not None:
