@@ -9,8 +9,7 @@ from pathlib import Path
 from signal import SIGTERM, signal
 from typing import Optional, Callable
 
-
-from . import util
+from . import util, cfg
 
 drmaa2 = util.lazy_import("drmaa2")
 
@@ -95,10 +94,11 @@ def _run(
 def submit(
     script: str,
     *args,
-    queue: str,
-    pe: str = "mpi",
-    slots: int = 1,
     name: str = __name__,
+    config: cfg.Config,
+    queue: Optional[str] = None,
+    pe: Optional[str] = None,
+    slots: Optional[int] = None,
     env: Optional[dict] = None,
     cwd: Path = Path.cwd(),
     os_env: bool = True,
@@ -113,9 +113,9 @@ def submit(
         target=_run,
         args=(script, *args),
         kwargs={
-            "queue": queue,
-            "slots": slots,
-            "pe": pe,
+            "queue": queue or config.sge.queue,
+            "slots": slots or config.sge.slots,
+            "pe": pe or config.sge.pe,
             "name": name,
             "env": (env or {}),
             "cwd": cwd,
