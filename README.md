@@ -69,25 +69,6 @@ A wrapper directory structure should look something like this:
 └── my_awesome_wrapper.py
 ```
 
-If for some reason you need to change this structure you can change `__main__.py` as such:
-
-```python
-import sys
-from cellophane import cellophane
-from pathlib import Path
-
-if __name__ == "__main__":
-    _root = Path(__file__).parent
-    sys.path.append(str(_root))
-    _main = cellophane(
-        "My Awesome Wrapper" # Will be used for logging
-        root=_root,
-        modules_path=Path(__file__) / "my_modules"
-        schema_path=Path(__file__) / "schema.yaml"
-    )
-    _main(prog_name="my_awesome_wrapper")  # Will be used in help messages
-```
-
 Pre-made modules can also be added from git
 
 ```shell
