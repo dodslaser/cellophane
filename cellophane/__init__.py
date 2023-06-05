@@ -4,12 +4,12 @@ import multiprocessing as mp
 import time
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 from uuid import UUID
 from queue import Queue
+from functools import partial
 
 import rich_click as click
-import yaml
 from attrs import define
 from humanfriendly import format_timespan
 from jsonschema.exceptions import ValidationError
@@ -51,22 +51,19 @@ def _click_mapping(ctx, param, value):
 def _main(
     logger: logging.LoggerAdapter,
     config: cfg.Config,
-    modules_path: Path,
     log_queue: Queue,
     output_queue: mp.Queue,
     root: Path,
+    timestamp: str,
 ) -> None:
     """Run cellophane"""
-    logger.setLevel(config.log_level)
-    start_time = time.time()
-    timestamp: str = time.strftime("%Y%m%d_%H%M%S", time.localtime(start_time))
 
     # Load modules
     hooks: list[type[modules.Hook]] = []
     runners: list[type[modules.Runner]] = []
     sample_mixins: list[type[data.Sample]] = []
     samples_mixins: list[type[data.Samples]] = []
-    for base, obj in modules.load_modules(modules_path):
+    for base, obj in modules.load_modules(root / "modules"):
         if issubclass(obj, modules.Hook) and not obj == modules.Hook:
             logger.debug(f"Found hook {obj.__name__} ({base})")
             hooks.append(obj)
@@ -90,10 +87,14 @@ def _main(
     # Add mixins to data classes
     global _SAMPLES
     global _SAMPLE
-    _SAMPLES.__bases__ = (*samples_mixins,)
+    if samples_mixins:
+        _SAMPLES.__bases__ = (*samples_mixins,)
     _SAMPLES = define(_SAMPLES, init=False, slots=False)  # type: ignore[misc]
-    _SAMPLE.__bases__ = (*sample_mixins,)
+
+    if sample_mixins:
+        _SAMPLE.__bases__ = (*sample_mixins,)
     _SAMPLE = define(_SAMPLE, init=False, slots=False)  # type: ignore[misc]
+
     _SAMPLES.sample_class = _SAMPLE
 
     # Load samples from file, or create empty samples object
@@ -185,74 +186,110 @@ def _main(
                     root=root,
                 )
 
-        logger.info(
-            f"Execution complete in {format_timespan(time.time() - start_time)}"
+
+def _add_config_flags(
+    ctx: click.Context,
+    config_path: Path | None,
+    schema: cfg.Schema,
+) -> Path | None:
+    if config_path is not None:
+        _config = cfg.Config.from_file(
+            schema=schema,
+            path=config_path,
+            validate=False,
         )
+
+        ctx.default_map = {}
+        for flag, key, required, default, *_ in _config.flags:
+            ctx.default_map[flag] = default
+            idx = next(i for i, p in enumerate(ctx.command.params) if p.name == flag)
+            ctx.command.params[idx].required = required
+
+    return config_path
 
 
 def cellophane(
     label: str,
     root: Path,
-    wrapper_log: Optional[Path] = None,
-    schema_path: Optional[Path] = None,
-    modules_path: Optional[Path] = None,
 ) -> Callable:
     """Generate a cellophane CLI from a schema file"""
     click.rich_click.DEFAULT_STRING = "[{}]"
 
-    _wrapper_log = wrapper_log or root / "pipeline.log"
-    _schema_path = schema_path or root / "schema.yaml"
-    _modules_path = modules_path or root / "modules"
+    # _schema_path = schema_path or root / "schema.yaml"
     _manager = mp.Manager()
     _log_queue = logs.get_log_queue(_manager)
     _output_queue: mp.Queue = mp.Queue()
 
-    with (
-        open(CELLOPHANE_ROOT / "schema.base.yaml", encoding="utf-8") as base_handle,
-        open(_schema_path, "r", encoding="utf-8") as custom_handle,
-    ):
-        base = yaml.safe_load(base_handle)
-        custom = yaml.safe_load(custom_handle)
+    schema = cfg.Schema.from_file(
+        path=[
+            CELLOPHANE_ROOT / "schema.base.yaml",
+            root / "schema.yaml",
+            *(root / "modules").glob("*/schema.yaml"),
+        ],
+    )
 
-    for module_schema_path in _modules_path.glob("*/schema.yaml"):
-        with open(module_schema_path, "r", encoding="utf-8") as module_handle:
-            module = yaml.safe_load(module_handle)
-            custom = util.merge_mappings(custom, module)
-
-    merged = util.merge_mappings(custom, base)
-    schema = cfg.Schema(merged)
-
-    @click.command()
-    @logs.handle_logging(
+    logger = logs.get_logger(
         label=label,
         level=logging.INFO,
-        path=_wrapper_log,
         queue=_log_queue,
-        propagate_exceptions=False,
     )
-    def inner(config_path, logger, **kwargs) -> Any:
 
+    @click.command()
+    @click.option(
+        "config_path",
+        "--config",
+        type=click.Path(exists=True),
+        help="Path to config file",
+        is_eager=True,
+        callback=lambda ctx, _, value: _add_config_flags(ctx, value, schema),
+    )
+    @click.option(
+        "--log_level",
+        type=click.Choice(
+            ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+            case_sensitive=False,
+        ),
+        default="INFO",
+        help="Log level",
+        show_default=True,
+    )
+    @logs.log_exceptions(
+        logger=logger,
+        exit=False,
+        cleanup_fn=partial(_cleanup, logger),
+    )
+    def inner(config_path, log_level, logger, **kwargs) -> Any:
+        """Run cellophane"""
         try:
-            _config = cfg.Config.parse(
+            start_time = time.time()
+            timestamp: str = time.strftime("%Y%m%d_%H%M%S", time.localtime(start_time))
+            config = cfg.Config(
                 schema=schema,
-                path=config_path,
+                validate=True,
                 **kwargs,
             )
-            _config.analysis = label
+            config["analysis"] = label
+            outprefix = config.get("outprefix", timestamp)
 
-            return _main(
-                config=_config,
+            logger.setLevel(config.log_level)
+            logs.add_file_handler(
+                logger=logger.logger,
+                path=config.logdir / f"{label}.{outprefix}.log",
+            )
+
+            _main(
+                config=config,
                 logger=logger,
-                modules_path=_modules_path,
                 log_queue=_log_queue,
                 output_queue=_output_queue,
                 root=root,
+                timestamp=timestamp,
             )
         except KeyboardInterrupt:
             logger.critical("Received SIGINT, telling active processes to shut down...")
             _cleanup(logger)
         except ValidationError as exception:
-            _config = cfg.Config.parse(
+            _config = cfg.Config(
                 schema=schema,
                 path=config_path,
                 validate=False,
@@ -262,14 +299,20 @@ def cellophane(
                 logger.critical(f"Invalid configuration: {error.message}")
             raise SystemExit(1) from exception
 
-        except Exception as exception:
-            logger.critical(
-                f"Unhandled exception: {exception}",
-                stacklevel=2,
-            )
-            _cleanup(logger)
+        finally:
+            time_elapsed = format_timespan(time.time() - start_time)
+            logger.info(f"Execution complete in {time_elapsed}")
 
-    for flag, _, default, description, secret, _type in schema.flags:
+    for (
+        flag,
+        _,
+        required,
+        default,
+        description,
+        secret,
+        _type,
+        *_,
+    ) in schema.flags:
         inner = click.option(
             f"--{flag}",
             type=str if _type in (list, dict) else _type,
@@ -279,15 +322,7 @@ def cellophane(
             default=default,
             help=description,
             show_default=not secret,
+            required=required,
         )(inner)
-
-    inner = click.option(
-        "config_path",
-        "--config",
-        type=click.Path(exists=True),
-        help="Path to config file",
-        is_eager=True,
-        callback=lambda ctx, _, value: cfg.set_defaults(ctx, value, schema),
-    )(inner)
 
     return inner
