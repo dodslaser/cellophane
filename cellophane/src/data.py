@@ -63,6 +63,14 @@ class Container(UserDict):
         return instance
 
     @property
+    def as_dict(self):
+        ret = dict(self)
+        for k, v in ret.items():
+            if isinstance(v, Container):
+                ret[k] = v.as_dict
+        return ret
+
+    @property
     def _container_attributes(self):
         return [*dir(self), *fields_dict(self.__class__)]
 
@@ -109,7 +117,7 @@ class Container(UserDict):
             case k if isinstance(k, Hashable):
                 return self.data[k]
             case k:
-                raise TypeError("Key {k} is not hashble or a sequence of hashables")
+                raise TypeError(f"Key {k} is not hashble or a sequence of hashables")
 
     def __getattr__(self, key: str) -> Any:
         if key in self._container_attributes:
