@@ -175,6 +175,7 @@ def main(ctx: click.Context, path: Path, log_level: str):
     ctx.obj["log_level"] = log_level
     ctx.obj["logger"] = logger
 
+
 @main.group()
 @click.option(
     "--repo",
@@ -187,6 +188,12 @@ def module(ctx: click.Context, repo: str):
     """Manage modules"""
     ctx.ensure_object(dict)
     ctx.obj["modules_repo"] = ModulesRepo(repo)
+    ctx.obj["logger"].debug(f"Using module repository {repo}")
+    if Repo(".").is_dirty():
+        ctx.obj["logger"].critical(
+            "Repository is dirty, please commit or stash changes before continuing"
+        )
+        raise SystemExit(1)
 
 
 @module.command()
@@ -224,41 +231,50 @@ def add(
         logger.critical(f"Path is not a git repository: {path}")
         raise SystemExit(1)
 
+    added = []
     for result in modules_repo.get_module_branch(
         action="add",
         module=module_name,
         branch=branch,
         valid_modules=[*{sm.name for sm in repo.submodules} ^ {*modules_repo.modules}],
     ):
-        try:
-            if result is None:
-                logger.error(f"Could not find branch {branch} for module {module_name}")
-                continue
-            else:
-                mod, branch, module_branch = result
+        if result is None:
+            logger.error(f"Could not find branch {branch} for module {module_name}")
+            continue
+        else:
+            mod, branch, module_branch = result
 
-                logger.info(f"Adding module {mod} ({branch})")
-
+            logger.info(f"Adding module {mod} ({branch})")
+            try:
                 repo.create_submodule(
                     name=mod,
                     path=path / "modules" / mod,
                     url=modules_repo.url,
                     branch=module_branch,
                 )
-                _update_example_config(path)
+
                 repo.index.add(
                     [
                         path / ".gitmodules",
                         path / "modules" / mod,
-                        path / "config.example.yaml",
                     ]
                 )
                 repo.index.write()
-                repo.index.commit(f"cellophane: Add module {mod} at {branch}")
+            except Exception as e:
+                logger.error(e, exc_info=log_level == "DEBUG")
+                continue
+            else:
+                added.append(mod)
+
+    if added:
+        try:
+            _update_example_config(path)
+            repo.index.add("config.example.yaml")
+            repo.index.commit(f"cellophane: Add module(s) {', '.join(added)}")
 
         except Exception as e:
             logger.error(e, exc_info=log_level == "DEBUG")
-            continue
+            raise SystemExit(1)
 
 
 @module.command()
@@ -297,22 +313,22 @@ def update(
         raise SystemExit(1)
 
     local_modules = [sm.name for sm in repo.submodules]
+    updated = []
     for result in modules_repo.get_module_branch(
         action="update",
         module=module_name,
         branch=branch,
         valid_modules=local_modules,
     ):
-        try:
-            if result is None:
-                logger.error(f"Could not find branch {branch} for module {module_name}")
-                continue
-            else:
-                mod, branch, module_branch = result
+        if result is None:
+            logger.error(f"Could not find branch {branch} for module {module_name}")
+            continue
+        else:
+            mod, branch, module_branch = result
 
-                logger.info(f"Updating module {mod} ({branch})")
+            logger.info(f"Updating module {mod} ({branch})")
+            try:
                 sm = repo.submodule(mod)
-
                 module_url, module_path = sm.url, sm.path
                 sm.remove(force=True)
                 repo.index.remove([str(path / "modules" / sm.name)], r=True, f=True)
@@ -322,7 +338,6 @@ def update(
                     url=module_url,
                     branch=module_branch,
                 )
-                _update_example_config(path)
                 repo.index.add(
                     [
                         path / ".gitmodules",
@@ -330,11 +345,23 @@ def update(
                         path / "config.example.yaml",
                     ]
                 )
-                repo.index.commit(f"cellophane: Updated module {sm.name} to {branch}")
+                repo.index.write()
+            except Exception as e:
+                logger.error(e, exc_info=log_level == "DEBUG")
+                continue
+            else:
+                updated.append(mod)
 
+    if updated:
+        try:
+            _update_example_config(path)
+            repo.index.add("config.example.yaml")
+            repo.index.commit(
+                f"cellophane: Updated module(s) {', '.join(updated)}"
+            )
         except Exception as e:
-            logger.error(e, exc_info=log_level == "DEBUG")
-            continue
+            logger.critical(e, exc_info=log_level == "DEBUG")
+            raise SystemExit(1)
 
 
 @module.command()
@@ -369,12 +396,12 @@ def rm(
     else:
         modules = [module_name]
 
+    removed = []
     for mod in modules:
         try:
             sm = repo.submodule(mod)
             logger.info(f"Removing module {mod}")
             sm.remove()
-            _update_example_config(path)
             repo.index.add(
                 [
                     path / ".gitmodules",
@@ -382,8 +409,17 @@ def rm(
                 ]
             )
             repo.index.remove([str(path / "modules" / mod)], r=True)
-            repo.index.commit(f"cellophane: Removed module {mod}")
+        except Exception as e:
+            logger.error(e)
+            continue
+        else:
+            removed.append(mod)
 
+    if removed:
+        try:
+            _update_example_config(path)
+            repo.index.add("config.example.yaml")
+            repo.index.commit(f"cellophane: Removed module(s) {', '.join(removed)}")
         except Exception as e:
             logger.critical(e)
             raise SystemExit(1)
