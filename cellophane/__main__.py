@@ -246,20 +246,13 @@ def add(
 
             logger.info(f"Adding module {mod} ({branch})")
             try:
-                repo.create_submodule(
+                sm = repo.create_submodule(
                     name=mod,
                     path=path / "modules" / mod,
                     url=modules_repo.url,
                     branch=module_branch,
                 )
-
-                repo.index.add(
-                    [
-                        path / ".gitmodules",
-                        path / "modules" / mod,
-                    ]
-                )
-                repo.index.write()
+                repo.index.add([sm])
             except Exception as e:
                 logger.error(e, exc_info=log_level == "DEBUG")
                 continue
@@ -270,6 +263,7 @@ def add(
         try:
             _update_example_config(path)
             repo.index.add("config.example.yaml")
+            repo.index.write()
             repo.index.commit(f"feat(cellophane): Add module(s) {', '.join(added)}")
 
         except Exception as e:
@@ -328,24 +322,16 @@ def update(
 
             logger.info(f"Updating module {mod} ({branch})")
             try:
-                sm = repo.submodule(mod)
-                module_url, module_path = sm.url, sm.path
-                sm.remove(force=True)
-                repo.index.remove([str(path / "modules" / sm.name)], r=True, f=True)
-                repo.create_submodule(
-                    name=sm.name,
+                sm_prev = repo.submodule(mod)
+                module_url, module_path = sm_prev.url, sm_prev.path
+                sm_prev.remove(force=True, module=True)
+                sm = repo.create_submodule(
+                    name=sm_prev.name,
                     path=module_path,
                     url=module_url,
                     branch=module_branch,
                 )
-                repo.index.add(
-                    [
-                        path / ".gitmodules",
-                        path / "modules" / sm.name,
-                        path / "config.example.yaml",
-                    ]
-                )
-                repo.index.write()
+                repo.index.add([sm])
             except Exception as e:
                 logger.error(e, exc_info=log_level == "DEBUG")
                 continue
@@ -355,7 +341,13 @@ def update(
     if updated:
         try:
             _update_example_config(path)
-            repo.index.add("config.example.yaml")
+            repo.index.add(
+                [
+                    path / ".gitmodules",
+                    path / "config.example.yaml",
+                ]
+            )
+            repo.index.write()
             repo.index.commit(
                 f"chore(cellophane): Updated module(s) {', '.join(updated)}"
             )
@@ -402,13 +394,6 @@ def rm(
             sm = repo.submodule(mod)
             logger.info(f"Removing module {mod}")
             sm.remove()
-            repo.index.add(
-                [
-                    path / ".gitmodules",
-                    path / "config.example.yaml",
-                ]
-            )
-            repo.index.remove([str(path / "modules" / mod)], r=True)
         except Exception as e:
             logger.error(e)
             continue
@@ -418,7 +403,13 @@ def rm(
     if removed:
         try:
             _update_example_config(path)
-            repo.index.add("config.example.yaml")
+            repo.index.add(
+                [
+                    path / ".gitmodules",
+                    path / "config.example.yaml",
+                ]
+            )
+            repo.index.write()
             repo.index.commit(
                 f"feat(cellophane): Removed module(s) {', '.join(removed)}"
             )
@@ -499,6 +490,7 @@ def init(ctx: click.Context, name: str):
                 path / f"{_prog_name}.py",
             ]
         )
+        repo.index.write()
         repo.index.commit("feat(cellophane): Initial commit from cellophane 🎉")
 
 
