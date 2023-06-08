@@ -8,9 +8,9 @@ import time
 from pathlib import Path
 from signal import SIGTERM, signal
 from typing import Optional, Callable
+from uuid import uuid4, UUID
 
-
-from . import util
+from . import util, cfg
 
 drmaa2 = util.lazy_import("drmaa2")
 
@@ -32,6 +32,8 @@ def _cleanup(job, session):
 def _run(
     script: str,
     *args,
+    logdir: Path,
+    uuid: UUID,
     queue: Optional[str],
     pe: Optional[str],
     slots: Optional[int],
@@ -39,8 +41,6 @@ def _run(
     env: dict,
     cwd: Path,
     os_env: bool = True,
-    stdout: Path,
-    stderr: Path,
     callback: Callable,
     error_callback: Callable
 ) -> None:
@@ -48,11 +48,10 @@ def _run(
     _impl_args = f"-l excl=1 -S /bin/bash -notify -q {queue} {'-V' if os_env else ''}"
     _env = {k: str(v) for k, v in env.items()}
 
-    null = open(os.devnull, 'w')
-    sys.stdout = null
-    sys.stderr = null
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+    sys.stderr = open(os.devnull, "w", encoding="utf-8")
 
-    session = drmaa2.JobSession()
+    session = drmaa2.JobSession(f"{name}_{uuid.hex}")
     job = session.run_job(
         {
             "remote_command": str(script),
@@ -62,10 +61,10 @@ def _run(
                 "uge_jt_pe": pe,
                 "uge_jt_native": _impl_args
             },
-            "job_name": name,
+            "job_name": f"{name}_{uuid.hex[:8]}",
             "job_environment": _env,
-            "output_path": str(stdout),
-            "error_path": str(stderr),
+            "output_path": str(logdir / "sge" / f"{name}.{uuid.hex}.out"),
+            "error_path": str(logdir / "sge" / f"{name}.{uuid.hex}.err"),
             "working_directory": str(cwd),
         }
     )
@@ -95,33 +94,35 @@ def _run(
 def submit(
     script: str,
     *args,
-    queue: str,
-    pe: str = "mpi",
-    slots: int = 1,
     name: str = __name__,
+    config: cfg.Config,
+    uuid: UUID = uuid4(),
+    queue: Optional[str] = None,
+    pe: Optional[str] = None,
+    slots: Optional[int] = None,
     env: Optional[dict] = None,
     cwd: Path = Path.cwd(),
     os_env: bool = True,
-    stdout: Path = Path("/dev/null"),
-    stderr: Path = Path("/dev/null"),
     check: bool = True,
     callback: Optional[Callable] = None,
     error_callback: Optional[Callable] = None,
 ):
     """Submit a job to SGE using DRMAA."""
+    (config.logdir / "sge").mkdir(exist_ok=True)
+
     proc = mp.Process(
         target=_run,
         args=(script, *args),
         kwargs={
-            "queue": queue,
-            "slots": slots,
-            "pe": pe,
+            "logdir": config.logdir,
+            "queue": queue or config.sge.queue,
+            "slots": slots or config.sge.slots,
+            "pe": pe or config.sge.pe,
             "name": name,
+            "uuid": uuid,
             "env": (env or {}),
             "cwd": cwd,
             "os_env": os_env,
-            "stdout": stdout,
-            "stderr": stderr,
             "callback": callback,
             "error_callback": error_callback,
         },

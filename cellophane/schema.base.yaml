@@ -29,3 +29,19 @@ properties:
   samples_file:
     description: "Path YAML file with sample names and paths to fastq files (eg. sample: {files: [fastq1, fastq2]})"
     type: path
+  
+  sge:
+    type: object
+    properties:
+      queue:
+        description: SGE queue
+        type: string
+        default: all.q
+      pe:
+        description: SGE parallel environment
+        type: string
+        default: mpi
+      slots:
+        description: Default number of slots
+        type: integer
+        default: 1

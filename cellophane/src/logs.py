@@ -2,11 +2,11 @@
 
 import atexit
 import logging
-from functools import wraps
 from logging.handlers import QueueHandler, QueueListener
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable
 from queue import Queue
+from functools import wraps
 
 from rich.logging import RichHandler
 
@@ -25,11 +25,21 @@ def get_log_queue(manager) -> Queue:
     return queue
 
 
+def add_file_handler(logger, path: Path) -> None:
+    """Add a file handler to a logger."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    file_handler = logging.FileHandler(path)
+    file_handler.setFormatter(
+        logging.Formatter("%(asctime)s : %(label)s : %(message)s")
+    )
+    logger.addHandler(file_handler)
+
+
 def get_logger(
     label: str,
     level: int,
     queue: Queue,
-    path: Optional[Path] = None,
+    path: Path | None = None,
 ) -> logging.LoggerAdapter:
     """Create a logger with a queue handler and a file handler if specified."""
     logger = logging.getLogger(label)
@@ -38,45 +48,30 @@ def get_logger(
     logger.addHandler(queue_handler)
 
     if path is not None:
-        file_handler = logging.FileHandler(path)
-        file_handler.setFormatter(
-            logging.Formatter("%(asctime)s : %(label)s : %(message)s")
-        )
-
-        logger.addHandler(file_handler)
+        add_file_handler(logger, path)
 
     adapter = logging.LoggerAdapter(logger, {"label": label})
 
     return adapter
 
 
-def handle_logging(
-    label: str,
-    queue: Queue,
-    path: Optional[Path | str] = None,
-    level: int = logging.INFO,
-    propagate_exceptions: bool = True,
-) -> Callable:
-    """Decorator to handle logging for a function."""
-    if path is not None:
-        path = Path(path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-
-    logger = get_logger(label, level, queue, path=path)
+def log_exceptions(
+    logger: logging.LoggerAdapter,
+    exit: bool = True,
+    cleanup_fn: Callable | None = lambda: None,
+):
+    """Decorator to log exceptions."""
 
     def wrapper(func):
         @wraps(func)
-        def inner(*args, **kwargs) -> None:
+        def inner(*args, **kwargs):
             try:
-                func(*args, logger=logger, **kwargs)
-            except Exception as exception:
-                logger.critical(
-                    "Caught an unhandeled exception",
-                    exc_info=True,
-                    stacklevel=2,
-                )
-                if propagate_exceptions:
-                    raise Exception from exception
+                return func(*args, logger=logger, **kwargs)
+            except Exception as e:
+                logger.critical(f"Unhandled exception: {e}", exc_info=True)
+                cleanup_fn()
+                if exit:
+                    raise SystemExit(1)
 
         return inner
 
