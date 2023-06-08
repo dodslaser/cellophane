@@ -360,10 +360,10 @@ class Config(data.Container):
 
         for flag, key, *_ in schema.flags:
             if flag not in _c_data:
-                if kwargs.get(flag, None):
-                    _c_data[key] = kwargs[flag]
+                if (value := kwargs.get(flag, None)) is not None:
+                    _c_data[key] = value
                 elif allow_empty and not validate:
-                    _c_data[key] = None
+                    _c_data[key] = value
 
         if validate:
             schema.validate(_c_data)
