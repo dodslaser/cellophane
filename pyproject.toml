@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "cellophane"
-version = "0.0.2"
+version = "0.1.0"
 description = "Library for wrappers integrating with SLIMS"
 authors = ["Erik Demitz-Helin <erik.demitz-helin@gu.se>"]
 readme = "README.md"
