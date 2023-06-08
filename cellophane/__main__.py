@@ -270,7 +270,7 @@ def add(
         try:
             _update_example_config(path)
             repo.index.add("config.example.yaml")
-            repo.index.commit(f"cellophane: Add module(s) {', '.join(added)}")
+            repo.index.commit(f"feat(cellophane): Add module(s) {', '.join(added)}")
 
         except Exception as e:
             logger.error(e, exc_info=log_level == "DEBUG")
@@ -357,7 +357,7 @@ def update(
             _update_example_config(path)
             repo.index.add("config.example.yaml")
             repo.index.commit(
-                f"cellophane: Updated module(s) {', '.join(updated)}"
+                f"chore(cellophane): Updated module(s) {', '.join(updated)}"
             )
         except Exception as e:
             logger.critical(e, exc_info=log_level == "DEBUG")
@@ -419,7 +419,9 @@ def rm(
         try:
             _update_example_config(path)
             repo.index.add("config.example.yaml")
-            repo.index.commit(f"cellophane: Removed module(s) {', '.join(removed)}")
+            repo.index.commit(
+                f"feat(cellophane): Removed module(s) {', '.join(removed)}"
+            )
         except Exception as e:
             logger.critical(e)
             raise SystemExit(1)
@@ -497,7 +499,7 @@ def init(ctx: click.Context, name: str):
                 path / f"{_prog_name}.py",
             ]
         )
-        repo.index.commit("cellophane: Initial commit from cellophane 🎉")
+        repo.index.commit("feat(cellophane): Initial commit from cellophane 🎉")
 
 
 if __name__ == "__main__":
