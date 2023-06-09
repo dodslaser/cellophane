@@ -41,6 +41,8 @@ def _set_type(cls, properties, instance, schema):
             match subschema["type"] if "type" in subschema else None:
                 case "boolean":
                     instance[property] = bool(instance[property])
+                case "skip":
+                    instance[property] = bool(instance[property])
                 case "path":
                     instance[property] = Path(instance[property])
                 case "string":
@@ -111,6 +113,8 @@ def _get_schema_properties(cls, properties, instance, schema, flag_mapping):
             case {"enum": enum}:
                 flag_mapping[*_key].append(click.Choice(enum, case_sensitive=False))
             case {"type": "boolean"}:
+                flag_mapping[*_key].append(bool)
+            case {"type": "skip"}:
                 flag_mapping[*_key].append(bool)
             case {"type": "skip"}:
                 flag_mapping[*_key].append(bool)
