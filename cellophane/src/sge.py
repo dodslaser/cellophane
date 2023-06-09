@@ -96,7 +96,7 @@ def submit(
     *args,
     name: str = __name__,
     config: cfg.Config,
-    uuid: UUID = uuid4(),
+    uuid: Optional[UUID] = None,
     queue: Optional[str] = None,
     pe: Optional[str] = None,
     slots: Optional[int] = None,
@@ -109,6 +109,8 @@ def submit(
 ):
     """Submit a job to SGE using DRMAA."""
     (config.logdir / "sge").mkdir(exist_ok=True)
+    if uuid is None:
+        uuid = uuid4()
 
     proc = mp.Process(
         target=_run,
