@@ -300,7 +300,7 @@ class Schema(data.Container):
                     )
                     config.append(example)
                 case "mapping":
-                    config.append(f"{indent}{key[-1]}")
+                    config.append(f"{indent}{key[-1]}:")
                     example = f"{indent}# - key=value\n{indent}#   ...=..."
                     config.append(example)
                 case "boolean":
