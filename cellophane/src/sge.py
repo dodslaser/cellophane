@@ -50,26 +50,34 @@ def _run(
 
     sys.stdout = open(os.devnull, "w", encoding="utf-8")
     sys.stderr = open(os.devnull, "w", encoding="utf-8")
-
-    session = drmaa2.JobSession(f"{name}_{uuid.hex}")
-    job = session.run_job(
-        {
-            "remote_command": str(script),
-            "args": _args,
-            "min_slots": slots,
-            "implementation_specific": {
-                "uge_jt_pe": pe,
-                "uge_jt_native": _impl_args
-            },
-            "job_name": f"{name}_{uuid.hex[:8]}",
-            "job_environment": _env,
-            "output_path": str(logdir / "sge" / f"{name}.{uuid.hex}.out"),
-            "error_path": str(logdir / "sge" / f"{name}.{uuid.hex}.err"),
-            "working_directory": str(cwd),
-        }
-    )
-    signal(SIGTERM, _cleanup(job, session))
     try:
+        session = drmaa2.JobSession(f"{name}_{uuid.hex}")
+        # FIXME: Improve error logging when DRMAA2 fails to submit a job.
+        job = session.run_job(
+            {
+                "remote_command": str(script),
+                "args": _args,
+                "min_slots": slots,
+                "implementation_specific": {
+                    "uge_jt_pe": pe,
+                    "uge_jt_native": _impl_args
+                },
+                "job_name": f"{name}_{uuid.hex[:8]}",
+                "job_environment": _env,
+                "output_path": str(logdir / "sge" / f"{name}.{uuid.hex}.out"),
+                "error_path": str(logdir / "sge" / f"{name}.{uuid.hex}.err"),
+                "working_directory": str(cwd),
+            }
+        )
+    except Exception as e:
+        with open(logdir / "sge" / f"{name}.{uuid.hex}.sge_err", "w") as f:
+            f.write(str(e))
+        if error_callback is not None:
+            error_callback(e)
+        raise SystemExit(1) from e
+
+    try:
+        signal(SIGTERM, _cleanup(job, session))
         state = None
         while state not in (
             drmaa2.JobState.DONE,
@@ -85,7 +93,7 @@ def _run(
         session.close()
         session.destroy()
         if job_info.exit_status != 0 and error_callback is not None:
-            error_callback(job_info.exit_status)
+            error_callback(RuntimeError(job_info.exit_status))
         elif callback is not None:
             callback()
         raise SystemExit(job_info.exit_status)
