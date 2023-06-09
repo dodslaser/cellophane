@@ -324,7 +324,7 @@ def update(
             try:
                 sm_prev = repo.submodule(mod)
                 module_url, module_path = sm_prev.url, sm_prev.path
-                sm_prev.remove(force=True, module=True)
+                sm_prev.remove(force=True)
                 sm = repo.create_submodule(
                     name=sm_prev.name,
                     path=module_path,
@@ -393,7 +393,7 @@ def rm(
         try:
             sm = repo.submodule(mod)
             logger.info(f"Removing module {mod}")
-            sm.remove()
+            sm.remove(force=True)
         except Exception as e:
             logger.error(e)
             continue

@@ -269,6 +269,7 @@ def cellophane(
                 **kwargs,
             )
             config["analysis"] = label
+            config["log_level"] = log_level
             outprefix = config.get("outprefix", timestamp)
 
             logger.setLevel(config.log_level)
