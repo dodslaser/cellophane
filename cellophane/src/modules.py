@@ -1,32 +1,26 @@
 """Base classes and functions for cellophane modules."""
-
-import multiprocessing as mp
+import inspect
+import logging
 import os
 import sys
-import logging
-from signal import SIGTERM, signal
-from typing import Callable, Optional, ClassVar, Literal, Iterator
-from pathlib import Path
-from queue import Queue
-from uuid import uuid4, UUID
 from copy import deepcopy
 from graphlib import TopologicalSorter
 from importlib.util import module_from_spec, spec_from_file_location
+from pathlib import Path
+from signal import SIGTERM, signal
+from typing import Callable, Literal, Optional
 
-import inspect
 import psutil
 
 from . import cfg, data, logs
 
 
-def _cleanup(
-    logger: logging.LoggerAdapter
-) -> Callable:
+def _cleanup(logger: logging.LoggerAdapter) -> Callable:
     def inner(*_):
         for proc in psutil.Process().children(recursive=True):
-            logger.debug(f"Waiting for {proc.name()} ({proc.pid})")
-            proc.terminate()
             try:
+                logger.debug(f"Waiting for {proc.name()} ({proc.pid})")
+                proc.terminate()
                 proc.wait(10)
             except psutil.TimeoutExpired:
                 logger.warning(
@@ -39,146 +33,104 @@ def _cleanup(
     return inner
 
 
-class Runner(mp.Process):
+def _is_instance_or_subclass(obj, cls):
+    if isinstance(obj, type):
+        return issubclass(obj, cls) and obj != cls
+    else:
+        return isinstance(obj, cls)
+
+
+class Runner:
     """Base class for cellophane runners."""
 
-    label: ClassVar[str]
-    individual_samples: ClassVar[bool]
-    link_by: ClassVar[Optional[str]]
-    func: ClassVar[Callable]
-    wait: ClassVar[bool]
-    main: ClassVar[Callable]
-    id: UUID
+    label: str
+    individual_samples: bool
+    link_by: Optional[str]
+    func: Callable
+    wait: bool
+    main: Callable
     done: bool = False
-
-    def __init_subclass__(
-        cls,
-        func: Callable,
-        label: Optional[str],
-        individual_samples: bool = False,
-        link_by: Optional[str] = None,
-    ) -> None:
-        cls.__name__ = func.__name__
-        cls.__qualname__ = func.__qualname__
-        cls.__module__ = func.__module__
-        cls.name = func.__name__
-        cls.label = label or func.__name__
-        cls.main = staticmethod(func)
-        cls.label = label or cls.__name__
-        cls.individual_samples = individual_samples
-        cls.link_by = link_by
-        super().__init_subclass__()
 
     def __init__(
         self,
-        config: cfg.Config,
-        samples: data.Samples,
-        timestamp: str,
-        log_queue: Queue,
-        log_level: int,
-        output_queue: mp.Queue,
-        root: Path,
-    ):
-        self.output_queue = output_queue
-        self.log_queue = log_queue
-        self.log_level = log_level
-        self.n_samples = len(samples)
-        self.id = uuid4()
+        func: Callable,
+        label: Optional[str] = None,
+        individual_samples: bool = False,
+        link_by: Optional[str] = None,
+    ) -> None:
+        self.__name__ = func.__name__
+        self.__qualname__ = func.__qualname__
+        self.__module__ = func.__module__
+        self.name = func.__name__
+        self.label = label or func.__name__
+        self.main = staticmethod(func)
+        self.label = label or self.__name__
+        self.individual_samples = individual_samples
+        self.link_by = link_by
+        super().__init_subclass__()
 
-        super().__init__(
-            target=self._main,
-            kwargs={
-                "config": config,
-                "samples": deepcopy(samples),
-                "timestamp": timestamp,
-                "root": root,
-            },
-        )
-
-    def _main(
+    def __call__(
         self,
+        worker_state: dict,
         config: cfg.Config,
-        samples: data.Samples[data.Sample],
-        timestamp: str,
         root: Path,
     ) -> None:
-        for sample in samples:
-            sample.done = None
-            sample.runner = self.label  # type: ignore[attr-defined]
-
-        logger = logs.get_logger(
-            label=self.label,
-            level=self.log_level,
-            queue=self.log_queue,
-        )
+        logger = logs.get_labeled_adapter(self.label)
 
         signal(SIGTERM, _cleanup(logger))
         sys.stdout = open(os.devnull, "w", encoding="utf-8")
         sys.stderr = open(os.devnull, "w", encoding="utf-8")
 
-        outdir = config.outdir / config.get("outprefix", timestamp) / self.label
+        outdir = config.outdir / config.get("outprefix", config.timestamp) / self.label
         if self.individual_samples:
-            outdir /= samples[0].id
+            outdir /= worker_state["samples"][0].id
 
         try:
-            returned: data.Samples = self.main(
-                samples=samples,
+            match self.main(
+                samples=deepcopy(worker_state["samples"]),
                 config=config,
-                timestamp=timestamp,
+                timestamp=config.timestamp,
                 label=self.label,
                 logger=logger,
                 root=root,
                 outdir=outdir,
-            )
-
-        except Exception as exception:
-            logger.critical(exception, exc_info=config.log_level == "DEBUG")
-            self.output_queue.put((samples, self.id))
-            self.output_queue.close()
-            raise SystemExit(1)
-
-        else:
-            match returned:
+            ):
                 case None:
                     logger.debug(f"Runner {self.label} did not return any samples")
-                    for sample in samples:
+                    for sample in worker_state["samples"]:
                         sample.done = True
-                    self.output_queue.put((samples, self.id))
 
-                case returned if issubclass(type(returned), data.Samples):
-                    for sample in returned:
+                case returned if isinstance(returned, data.Samples):
+                    worker_state["samples"] = returned
+                    for sample in worker_state["samples"]:
                         sample.done = True if sample.done is None else sample.done
-                    if n_complete := len(returned.complete):
-                        logger.info(
-                            f"Runner {self.label} completed {n_complete} samples"
-                        )
-                    if n_failed := len(returned.failed):
-                        logger.warning(
-                            f"Runner {self.label} failed for {n_failed} samples"
-                        )
-                    self.output_queue.put((returned, self.id))
 
-                case _:
+                case returned:
                     logger.warning(f"Unexpected return type {type(returned)}")
-                    self.output_queue.put((samples, self.id))
 
-            self.output_queue.close()
-            raise SystemExit(0)
+        except Exception as exc:
+            logger.critical(exc, exc_info=config.log_level == "DEBUG")
+
+        finally:
+            if n_complete := len(worker_state["samples"].complete):
+                logger.debug(f"Completed {n_complete} samples")
+            if n_failed := len(worker_state["samples"].failed):
+                logger.warning(f"Failed for {n_failed} samples")
 
 
 class Hook:
     """Base class for cellophane pre/post-hooks."""
 
-    name: ClassVar[str]
-    label: ClassVar[str]
-    func: ClassVar[Callable]
-    when: ClassVar[Literal["pre", "post"]]
-    condition: ClassVar[Literal["always", "complete", "failed"]]
-    before: ClassVar[list[str]]
-    after: ClassVar[list[str]]
+    name: str
+    label: str
+    func: Callable
+    when: Literal["pre", "post"]
+    condition: Literal["always", "complete", "failed"]
+    before: list[str]
+    after: list[str]
 
-    def __init_subclass__(
-        cls,
+    def __init__(
+        self,
         func: Callable,
         when: Literal["pre", "post"],
         label: str | None = None,
@@ -190,60 +142,54 @@ class Hook:
         after = after or []
         match before, after:
             case "all", list(after):
-                cls.before = ["before_all"]
-                cls.after = after
+                self.before = ["before_all"]
+                self.after = after
             case list(before), "all":
-                cls.before = before
-                cls.after = ["after_all"]
+                self.before = before
+                self.after = ["after_all"]
             case list(before), list(after):
-                cls.before = [*before, "after_all"]
-                cls.after = [*after, "before_all"]
+                self.before = [*before, "after_all"]
+                self.after = [*after, "before_all"]
             case _:
                 raise ValueError(f"{func.__name__}: {before=}, {after=}")
-        cls.__name__ = func.__name__
-        cls.__qualname__ = func.__qualname__
-        cls.__module__ = func.__module__
-        cls.name = func.__name__
-        cls.label = label or func.__name__
-        cls.condition = condition
-        cls.func = staticmethod(func)
-        cls.when = when
-        super().__init_subclass__()
+        self.__name__ = func.__name__
+        self.__qualname__ = func.__qualname__
+        self.__module__ = func.__module__
+        self.name = func.__name__
+        self.label = label or func.__name__
+        self.condition = condition
+        self.func = staticmethod(func)
+        self.when = when
 
     def __call__(
         self,
         samples: data.Samples,
         config: cfg.Config,
-        timestamp: str,
-        log_queue: Queue,
-        log_level: int,
         root: Path,
     ) -> data.Samples:
-        if self.when == "pre" or self.condition == "always" or samples:
-            _logger = logs.get_logger(
-                label=self.label,
-                level=log_level,
-                queue=log_queue,
-            )
-            _logger.debug(f"Running {self.label} hook")
+        logger = logs.get_labeled_adapter(self.label)
+        logger.debug(f"Running {self.label} hook")
 
-            outdir = config.outdir / config.get("outprefix", timestamp)
+        match self.func(
+            samples=samples,
+            config=config,
+            timestamp=config.timestamp,
+            logger=logger,
+            root=root,
+            outdir=config.outdir / config.get("outprefix", config.timestamp),
+        ):
+            case returned if isinstance(returned, data.Samples):
+                _ret = returned
+            case _:
+                logger.warning(f"Unexpected return type {type(returned)}")
+                _ret = samples
 
-            return self.func(
-                samples=samples,
-                config=config,
-                timestamp=timestamp,
-                logger=_logger,
-                root=root,
-                outdir=outdir,
-            )
-        else:
-            return samples
+        return _ret
 
 
 def resolve_hook_dependencies(
-    hooks: list[type[Hook]],
-) -> list[type[Hook]]:
+    hooks: list[Hook],
+) -> list[Hook]:
     deps = {
         name: {
             *[d for h in hooks if h.__name__ == name for d in h.after],
@@ -259,63 +205,75 @@ def resolve_hook_dependencies(
     return [*sorted(hooks, key=lambda h: order.index(h.__name__))]
 
 
-def load_modules(
+def load(
     path: Path,
-) -> Iterator[tuple[str, type[Hook] | type[Runner] | type[data.Sample | data.Samples]]]:
+) -> tuple[
+    list[Hook],
+    list[Runner],
+    list[type[data.Sample]],
+    list[type[data.Samples]],
+]:
+    hooks: list[Hook] = []
+    runners: list[Runner] = []
+    sample_mixins: list[type[data.Sample]] = []
+    samples_mixins: list[type[data.Samples]] = []
+
     for file in [*path.glob("*.py"), *path.glob("*/__init__.py")]:
         base = file.stem if file.stem != "__init__" else file.parent.name
         name = f"_cellophane_module_{base}"
         spec = spec_from_file_location(name, file)
         original_handlers = logging.root.handlers.copy()
-        if spec is not None:
-            module = module_from_spec(spec)
-            if spec.loader is not None:
-                try:
-                    sys.modules[name] = module
-                    spec.loader.exec_module(module)
-                except ImportError:
-                    pass
-                else:
-                    # Reset logging handlers to avoid duplicate messages
-                    for handler in logging.root.handlers:
-                        if handler not in original_handlers:
-                            handler.close()
-                            logging.root.removeHandler(handler)
 
-                    for obj in [getattr(module, a) for a in dir(module)]:
-                        if (
-                            isinstance(obj, type)
-                            and (
-                                issubclass(obj, Hook)
-                                or issubclass(obj, data.Sample)
-                                or issubclass(obj, data.Samples)
-                                or issubclass(obj, Runner)
-                            )
-                            and inspect.getmodule(obj) == module
-                        ):
-                            yield base, obj
+        # FIXME: Does removing this check break anything?
+        # It fixes Mypy errors, but it is never reached in tests
+        # if spec is None or spec.loader is None:
+        #     continue
+
+        try:
+            module = module_from_spec(spec)  # type: ignore[arg-type]
+            sys.modules[name] = module
+            spec.loader.exec_module(module)  # type: ignore[union-attr]
+        except ImportError:
+            continue
+
+        # Reset logging handlers to avoid duplicate messages
+        for handler in {*logging.root.handlers} ^ {*original_handlers}:
+            handler.close()
+            logging.root.removeHandler(handler)
+
+        for obj in [getattr(module, a) for a in dir(module)]:
+            if inspect.getmodule(obj) != module:
+                continue
+            elif _is_instance_or_subclass(obj, Hook):
+                hooks.append(obj)
+            elif _is_instance_or_subclass(obj, data.Sample):
+                sample_mixins.append(obj)
+            elif _is_instance_or_subclass(obj, data.Samples):
+                samples_mixins.append(obj)
+            elif _is_instance_or_subclass(obj, Runner):
+                runners.append(obj)
+
+    return hooks, runners, sample_mixins, samples_mixins
 
 
 def pre_hook(
     label: Optional[str] = None,
     before: list[str] | Literal["all"] = [],
-    after: list[str] | Literal["all"] = []
-):
+    after: list[str] | Literal["all"] = [],
+) -> Callable:
 
     """Decorator for hooks that will run before all runners."""
 
     def wrapper(func):
-        class _hook(
-            Hook,
+        return Hook(
             label=label,
             func=func,
             when="pre",
             condition="always",
             before=before,
             after=after,
-        ):
-            pass
-        return _hook
+        )
+
     return wrapper
 
 
@@ -323,22 +281,22 @@ def post_hook(
     label: Optional[str] = None,
     condition: Literal["always", "complete", "failed"] = "always",
     before: list[str] | Literal["all"] = [],
-    after: list[str] | Literal["all"] = []
+    after: list[str] | Literal["all"] = [],
 ):
     """Decorator for hooks that will run after all runners."""
+    if condition not in ["always", "complete", "failed"]:
+        raise ValueError(f"{condition=} must be one of 'always', 'complete', 'failed'")
 
     def wrapper(func):
-        class _hook(
-            Hook,
+        return Hook(
             label=label,
             func=func,
             when="post",
             condition=condition,
             before=before,
             after=after,
-        ):
-            pass
-        return _hook
+        )
+
     return wrapper
 
 
@@ -350,13 +308,11 @@ def runner(
     """Decorator for runners."""
 
     def wrapper(func):
-        class _runner(
-            Runner,
+        return Runner(
             label=label,
             func=func,
             individual_samples=individual_samples,
             link_by=link_by,
-        ):
-            pass
-        return _runner
+        )
+
     return wrapper
