@@ -1,31 +1,68 @@
 import logging
-import multiprocessing as mp
 import re
 from functools import cached_property, lru_cache
 from pathlib import Path
 from tempfile import mkdtemp
-from typing import Iterator
+from typing import Literal, Sequence
 
 import rich_click as click
 from git.exc import InvalidGitRepositoryError
-from git.refs import TagReference
 from git.repo import Repo
-from questionary import checkbox, select
+from questionary import checkbox, select, Choice
 
 from . import CELLOPHANE_ROOT, cfg, logs
 
 
-class ModulesRepo:
-    def __init__(self, url: str):
-        self.url = url
-        self.path = mkdtemp()
-        self.repo = Repo.clone_from(url, self.path, no_checkout=True)
+class InvalidModuleError(Exception):
+    def __init__(self, module: str, msg=None):
+        self.module = module
+        super().__init__(msg or f"Module '{module}' is not valid")
+
+
+class InvalidBranchError(Exception):
+    def __init__(self, module: str, branch: str, msg=None):
+        self.module = module
+        self.branch = branch
+        super().__init__(msg or f"Branch '{branch}' is not valid for module '{module}'")
+
+
+class NoModulesError(Exception):
+    def __init__(self):
+        super().__init__("No modules to select from")
+
+
+class InvalidModulesRepoError(InvalidGitRepositoryError):
+    def __init__(self, url, *args, msg=None, **kwargs):
+        super().__init__(
+            msg or f"Invalid modules repository ({url})",
+            *args,
+            **kwargs,
+        )
+
+
+class InvalidCellophaneRepoError(InvalidGitRepositoryError):
+    def __init__(self, path, *args, msg=None, **kwargs):
+        super().__init__(
+            msg or f"Invalid cellophane repository ({path})",
+            *args,
+            **kwargs,
+        )
+
+
+class ModulesRepo(Repo):
+    @classmethod
+    def from_url(cls, url):
+        _path = mkdtemp(prefix="cellophane_modules_")
+        try:
+            return cls.clone_from(url, _path, checkout=False)
+        except Exception as e:
+            raise InvalidModulesRepoError(url) from e
 
     @cached_property
-    def branches(self) -> list[str]:
+    def _branches(self) -> list[str]:
         return [
             r.name.split("/")[-1]
-            for r in self.repo.remote("origin").refs
+            for r in self.remote("origin").refs
             if r.name != "origin/HEAD"
         ]
 
@@ -33,7 +70,7 @@ class ModulesRepo:
     def modules(self) -> list[str]:
         return [
             m
-            for m in self.repo.git.ls_tree(
+            for m in self.git.ls_tree(
                 "HEAD",
                 r=True,
                 d=True,
@@ -47,15 +84,11 @@ class ModulesRepo:
             )
         ]
 
-    @cached_property
-    def tags(self) -> list[TagReference]:
-        return [*self.repo.tags]
-
     @lru_cache
     def module_branches(self, module: str):
         return [
             b.removeprefix(module).lstrip("_")
-            for b in self.branches
+            for b in self._branches
             if all(
                 (
                     b.startswith(module),
@@ -66,83 +99,144 @@ class ModulesRepo:
 
     @lru_cache
     def latest_module_tag(self, module: str):
-        tags = [t for t in self.tags if t.name in self.module_branches(module)]
-        if tags:
+        if tags := [t for t in self.tags if t.name in self.module_branches(module)]:
             # FIXME: This assumes that the most recent release is the latest version
             return sorted(tags, key=lambda t: t.object.committed_date)[-1].name
         else:
-            raise Exception(f"Could not find any releases for {module}")
+            raise AttributeError(f"Could not find any releases for {module}")
 
-    def get_module_branch(
-        self,
-        *,
-        action: str,
-        module: str | None,
-        branch: str | None,
-        valid_modules: list[str] | None = None,
-        valid_branches: list[str] | None = None,
-    ) -> Iterator[tuple[str, str, str] | None]:
-        if module is None:
-            modules: list[str] = checkbox(
-                f"Select module(s) to {action}",
-                choices=valid_modules or self.modules,
-                erase_when_done=True,
-            ).ask()
-            if modules is None:
-                logger.warning("No module(s) selected")
-                raise SystemExit(0)
-        elif module in self.modules:
-            modules = [module]
-        else:
-            raise Exception(f"Could not find module {module}")
+    @property
+    def url(self):
+        return self.remote("origin").url
 
-        for mod in modules:
-            if branch is None:
-                _branch: str = select(
-                    f"Select branch for {mod}",
-                    choices=[
-                        "latest",
-                        "main",
-                        *(valid_branches or self.module_branches(mod)),
-                    ],
-                    erase_when_done=True,
-                ).ask()
-                if _branch is None:
-                    logger.warning("No branch selected")
-                    raise SystemExit(0)
-            else:
-                _branch = branch
 
-            if _branch == "latest":
-                _branch = self.latest_module_tag(mod)
+class CellophaneRepo(Repo):
+    external: ModulesRepo
 
-            if _branch == "main":
-                yield (mod, "main", mod)
-            elif _branch in [*self.module_branches(mod), "main"]:
-                yield (mod, _branch, f"{mod}_{_branch}")
-            else:
-                yield None
+    def __init__(self, path: Path, modules_repo_url: str | None = None, **kwargs):
+        try:
+            super().__init__(str(path), **kwargs)
+        except InvalidGitRepositoryError as e:
+            raise InvalidCellophaneRepoError(path) from e
+
+        self.external = ModulesRepo.from_url(modules_repo_url)
+
+    @classmethod
+    def initialize(cls, name, path: Path, modules_repo_url: str, force=False):
+        _prog_name = re.sub("\\W", "_", name)
+
+        if [*path.glob("*")] and not force:
+            raise FileExistsError(path)
+
+        for subdir in (
+            path / "modules",
+            path / "scripts",
+        ):
+            subdir.mkdir(parents=True, exist_ok=force)
+
+        for file in (
+            path / "modules" / "__init__.py",
+            path / "schema.yaml",
+        ):
+            file.touch(exist_ok=force)
+
+        with (
+            open(CELLOPHANE_ROOT / "template" / "__main__.py", "r") as main_handle,
+            open(CELLOPHANE_ROOT / "template" / "entrypoint.py", "r") as entry_handle,
+            open(path / f"{_prog_name}.py", "w") as entry_dest_handle,
+            open(path / "__main__.py", "w") as main_dest_handle,
+        ):
+            base = main_handle.read()
+            main_dest_handle.write(base.format(label=name, prog_name=_prog_name))
+            entry_dest_handle.write(entry_handle.read())
+
+        _update_example_config(path)
+
+        repo = Repo.init(str(path))
+
+        repo.index.add(
+            [
+                path / "modules" / "__init__.py",
+                path / "schema.yaml",
+                path / "config.example.yaml",
+                path / "__main__.py",
+                path / f"{_prog_name}.py",
+            ]
+        )
+        repo.index.write()
+        repo.index.commit("feat(cellophane): Initial commit from cellophane 🎉")
+
+        return cls(path, modules_repo_url)
+
+    @property
+    def modules(self) -> list[str]:
+        return [sm.name for sm in self.submodules]
+
+    @property
+    def absent_modules(self) -> list[str]:
+        return [*{*self.external.modules} - {*self.modules}]
+
+    @property
+    def present_modules(self) -> list[str]:
+        return [*{*self.modules} & {*self.external.modules}]
 
 
 def _update_example_config(path: Path):
-    examples = []
-    schema_paths = []
-    for module_path in Path("modules").glob("*"):
-        if (module_example := module_path / "config.example.yaml").exists():
-            examples.append(module_example.read_text())
-        elif (module_schema := module_path / "schema.yaml").exists():
-            schema_paths.append(module_schema)
-
+    # FIXME: Add support for manually defined examples
     schema = cfg.Schema.from_file(
         path=[
             CELLOPHANE_ROOT / "schema.base.yaml",
-            Path(".") / "schema.yaml",
-            *schema_paths,
+            path / "schema.yaml",
+            *(path / "modules").glob("**/schema.yaml"),
         ],
     )
 
     with open(path / "config.example.yaml", "w") as handle:
-        handle.write(schema.example_config(extra="\n\n".join(examples)))
+        handle.write(schema.example_config)
+
+
+def _ask_modules(valid_modules: Sequence[str]):
+    if not valid_modules:
+        raise NoModulesError
+    return checkbox(
+        "Select module(s)",
+        choices=[Choice(title=m, value=(m, None)) for m in valid_modules],
+        erase_when_done=True,
+        validate=lambda x: len(x) > 0 or "Select at least one module",
+    ).ask()
+
+
+def _ask_branch(module: str, modules_repo: ModulesRepo):
+    _branch = select(
+        f"Select branch for {module}",
+        # FIXME: Should the number of branches be limited?
+        choices=["latest", *modules_repo.module_branches(module)],
+        default="latest",
+        erase_when_done=True,
+    ).ask()
+    if _branch == "latest":
+        _branch = modules_repo.latest_module_tag(module)
+
+    return _branch
+
+
+def _validate_modules(modules, repo, valid_modules, ignore_branch=False):
+    for idx, (module, branch) in enumerate(modules):
+        if module not in valid_modules:
+            raise InvalidModuleError(module)
+
+        if not ignore_branch and branch is None:
+            branch = _ask_branch(module, repo.external)
+
+        if branch == "latest":
+            branch = repo.external.latest_module_tag(module)
+
+        modules[idx] = (module, branch)
+
+        if not ignore_branch and branch not in repo.external.module_branches(module):
+            raise InvalidBranchError(module, branch)
+
+    return modules
 
 
 @click.group(
@@ -152,8 +246,15 @@ def _update_example_config(path: Path):
     ),
 )
 @click.option(
+    "--modules-repo",
+    "modules_repo_url",
+    type=str,
+    help="URL to the module repository",
+    default="https://github.com/ClinicalGenomicsGBG/cellophane_modules",
+)
+@click.option(
     "--path",
-    type=Path,
+    type=click.Path(path_type=Path),
     help="Path to the cellophane project",
     default=Path("."),
 )
@@ -165,99 +266,124 @@ def _update_example_config(path: Path):
     callback=lambda ctx, param, value: value.upper(),
 )
 @click.pass_context
-def main(ctx: click.Context, path: Path, log_level: str):
+def main(ctx: click.Context, path: Path, log_level: str, modules_repo_url: str):
     """Cellophane
 
     A library for writing modular wrappers
     """
+    ctx.ensure_object(dict)
+
+    ctx.obj["logger"] = logs.get_labeled_adapter("cellophane")
     ctx.obj["logger"].setLevel(log_level)
     ctx.obj["path"] = path
     ctx.obj["log_level"] = log_level
-    ctx.obj["logger"] = logger
+    ctx.obj["modules_repo_url"] = modules_repo_url
 
 
-@main.group()
-@click.option(
-    "--repo",
-    type=str,
-    help="URL to the module repository",
-    default="https://github.com/ClinicalGenomicsGBG/cellophane_modules",
-)
-@click.pass_context
-def module(ctx: click.Context, repo: str):
-    """Manage modules"""
-    ctx.ensure_object(dict)
-    ctx.obj["modules_repo"] = ModulesRepo(repo)
-    ctx.obj["logger"].debug(f"Using module repository {repo}")
-    if Repo(".").is_dirty():
-        ctx.obj["logger"].critical(
-            "Repository is dirty, please commit or stash changes before continuing"
-        )
-        raise SystemExit(1)
-
-
-@module.command()
+@main.command()
 @click.argument(
-    "module_name",
-    type=str,
-    metavar="MODULE",
-    required=False,
+    "command",
+    metavar="COMMAND",
+    type=click.Choice(["add", "rm", "update"]),
+    required=True,
 )
-@click.option(
-    "-b",
-    "--branch",
-    type=str,
-    required=False,
+@click.argument(
+    "modules",
+    metavar="MODULE[@BRANCH] ...",
+    callback=lambda ctx, param, module_strings: [
+        tuple(m.split("@")) if "@" in m else (m, None) for m in module_strings
+    ],
+    nargs=-1,
 )
 @click.pass_context
-def add(
+def module(
     ctx: click.Context,
-    module_name: str | None,
-    branch: str | None,
+    command: Literal["add", "update", "rm"],
+    modules: list[tuple[str, str]] | None,
 ):
-    """Add module
+    """Manage modules
 
-    If "latest" is specified as the branch, the latest tagged release
-    will be used for all modules.
+    COMMAND: add|update|rm
     """
-    path: Path = ctx.obj["path"]
-    logger: logging.LoggerAdapter = ctx.obj["logger"]
-    modules_repo: ModulesRepo = ctx.obj["modules_repo"]
-    log_level: str = ctx.obj["log_level"]
+    ctx.ensure_object(dict)
+    _logger: logging.LoggerAdapter = ctx.obj["logger"]
+    _path: Path = ctx.obj["path"]
 
     try:
-        repo = Repo(str(path))
-    except InvalidGitRepositoryError:
-        logger.critical(f"Path is not a git repository: {path}")
-        raise SystemExit(1)
+        _repo = CellophaneRepo(_path, ctx.obj["modules_repo_url"])
+    except InvalidGitRepositoryError as e:
+        _logger.critical(e, exc_info=ctx.obj["log_level"] == "DEBUG")
+        raise SystemExit(1) from e
+    else:
+        if _repo.is_dirty():
+            _logger.critical("Repository has uncommited changes")
+            raise SystemExit(1)
+
+    try:
+        match command:
+            case "add":
+                _command = add
+                _modules = modules or _ask_modules(_repo.absent_modules)
+            case "rm":
+                _command = rm
+                _modules = modules or _ask_modules(_repo.present_modules)
+            case "update":
+                _command = update
+                _modules = modules or _ask_modules(_repo.present_modules)
+
+        _modules = _validate_modules(
+            modules=_modules,
+            repo=_repo,
+            ignore_branch=command == "rm",
+            valid_modules=(
+                _repo.absent_modules if command == "add" else _repo.present_modules
+            ),
+        )
+
+    except NoModulesError as e:
+        _logger.warning(e)
+        raise SystemExit(1) from e
+    except (InvalidModuleError, InvalidBranchError) as e:
+        _logger.critical(e)
+        raise SystemExit(1) from e
+    except Exception as e:
+        _logger.critical(e, exc_info=ctx.obj["log_level"] == "DEBUG")
+        raise SystemExit(1) from e
+
+    _command(
+        path=_path,
+        repo=_repo,
+        modules=_modules,
+        logger=_logger,
+        log_level=ctx.obj["log_level"],
+    )
+
+
+def add(
+    path: Path,
+    repo: CellophaneRepo,
+    logger: logging.LoggerAdapter,
+    log_level: str,
+    modules: list[tuple[str, str]],
+):
+    """Add module(s)"""
 
     added = []
-    for result in modules_repo.get_module_branch(
-        action="add",
-        module=module_name,
-        branch=branch,
-        valid_modules=[*{sm.name for sm in repo.submodules} ^ {*modules_repo.modules}],
-    ):
-        if result is None:
-            logger.error(f"Could not find branch {branch} for module {module_name}")
+    for module, branch in modules:
+        logger.info(f"Adding module {module} ({branch})")
+        try:
+            sm = repo.create_submodule(
+                name=module,
+                path=path / "modules" / module,
+                url=repo.external.url,
+                branch=f"{module}_{branch}",
+            )
+            repo.index.add([sm])
+        except Exception as e:
+            logger.error(e, exc_info=log_level == "DEBUG")
             continue
         else:
-            mod, branch, module_branch = result
-
-            logger.info(f"Adding module {mod} ({branch})")
-            try:
-                sm = repo.create_submodule(
-                    name=mod,
-                    path=path / "modules" / mod,
-                    url=modules_repo.url,
-                    branch=module_branch,
-                )
-                repo.index.add([sm])
-            except Exception as e:
-                logger.error(e, exc_info=log_level == "DEBUG")
-                continue
-            else:
-                added.append(mod)
+            added.append(module)
 
     if added:
         try:
@@ -267,76 +393,38 @@ def add(
             repo.index.commit(f"feat(cellophane): Add module(s) {', '.join(added)}")
 
         except Exception as e:
-            logger.error(e, exc_info=log_level == "DEBUG")
-            raise SystemExit(1)
+            logger.critical(e, exc_info=log_level == "DEBUG")
+            raise SystemExit(1) from e
 
 
-@module.command()
-@click.argument(
-    "module_name",
-    type=str,
-    metavar="MODULE",
-    required=False,
-)
-@click.option(
-    "-b",
-    "--branch",
-    help="Branch to update to (use 'latest' for latest release)",
-    type=str,
-    required=False,
-)
-@click.pass_context
 def update(
-    ctx: click.Context,
-    module_name: str,
-    branch: str,
+    path: Path,
+    repo: Repo,
+    logger: logging.LoggerAdapter,
+    log_level: str,
+    modules: list[tuple[str, str]],
+    **_,
 ):
-    """Update module(s)
-
-    If "all" is specified as the module name, all modules will be updated.
-    """
-    path: Path = ctx.obj["path"]
-    logger: logging.LoggerAdapter = ctx.obj["logger"]
-    modules_repo: ModulesRepo = ctx.obj["modules_repo"]
-    log_level: str = ctx.obj["log_level"]
-
-    try:
-        repo = Repo(str(path))
-    except InvalidGitRepositoryError:
-        logger.critical(f"Path is not a git repository: {path}")
-        raise SystemExit(1)
-
-    local_modules = [sm.name for sm in repo.submodules]
+    """Update module(s)"""
     updated = []
-    for result in modules_repo.get_module_branch(
-        action="update",
-        module=module_name,
-        branch=branch,
-        valid_modules=local_modules,
-    ):
-        if result is None:
-            logger.error(f"Could not find branch {branch} for module {module_name}")
+    for module, branch in modules:
+        logger.info(f"Updating module {module} ({branch})")
+        try:
+            sm_prev = repo.submodule(module)
+            module_url, module_path = sm_prev.url, sm_prev.path
+            sm_prev.remove(force=True)
+            sm = repo.create_submodule(
+                name=sm_prev.name,
+                path=module_path,
+                url=module_url,
+                branch=f"{module}_{branch}",
+            )
+            repo.index.add([sm])
+        except Exception as e:
+            logger.error(e, exc_info=log_level == "DEBUG")
             continue
         else:
-            mod, branch, module_branch = result
-
-            logger.info(f"Updating module {mod} ({branch})")
-            try:
-                sm_prev = repo.submodule(mod)
-                module_url, module_path = sm_prev.url, sm_prev.path
-                sm_prev.remove(force=True)
-                sm = repo.create_submodule(
-                    name=sm_prev.name,
-                    path=module_path,
-                    url=module_url,
-                    branch=module_branch,
-                )
-                repo.index.add([sm])
-            except Exception as e:
-                logger.error(e, exc_info=log_level == "DEBUG")
-                continue
-            else:
-                updated.append(mod)
+            updated.append(module)
 
     if updated:
         try:
@@ -353,52 +441,30 @@ def update(
             )
         except Exception as e:
             logger.critical(e, exc_info=log_level == "DEBUG")
-            raise SystemExit(1)
+            raise SystemExit(1) from e
 
 
-@module.command()
-@click.argument(
-    "module_name",
-    metavar="MODULE",
-    type=str,
-    required=False,
-)
-@click.pass_context
 def rm(
-    ctx: click.Context,
-    module_name: str | None,
+    path: Path,
+    repo: CellophaneRepo,
+    logger: logging.LoggerAdapter,
+    log_level: str,
+    modules: list[tuple[str, str]],
+    **_,
 ):
     """Remove module"""
 
-    path: Path = ctx.obj["path"]
-    logger: logging.LoggerAdapter = ctx.obj["logger"]
-
-    try:
-        repo = Repo(str(path))
-    except InvalidGitRepositoryError:
-        logger.critical(f"Path is not a git repository: {path}")
-        raise SystemExit(1)
-
-    if module_name is None:
-        modules = checkbox(
-            "Select module(s) to remove",
-            choices=[sm.name for sm in repo.submodules],
-            erase_when_done=True,
-        ).ask()
-    else:
-        modules = [module_name]
-
     removed = []
-    for mod in modules:
+    for module, _ in modules:
         try:
-            sm = repo.submodule(mod)
-            logger.info(f"Removing module {mod}")
-            sm.remove(force=True)
+            sm = repo.submodule(module)
+            logger.info(f"Removing module {module}")
+            sm.remove()
         except Exception as e:
             logger.error(e)
             continue
         else:
-            removed.append(mod)
+            removed.append(module)
 
     if removed:
         try:
@@ -414,17 +480,23 @@ def rm(
                 f"feat(cellophane): Removed module(s) {', '.join(removed)}"
             )
         except Exception as e:
-            logger.critical(e)
-            raise SystemExit(1)
+            logger.critical(e, exc_info=log_level == "DEBUG")
+            raise SystemExit(1) from e
 
 
 @main.command()
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Force initialization of non-empty directory",
+    default=False,
+)
 @click.argument(
     "name",
     type=str,
 )
 @click.pass_context
-def init(ctx: click.Context, name: str):
+def init(ctx: click.Context, name: str, force: str):
     """Initialize a new cellophane project
 
     If no path is specified, the current directory will be used.
@@ -432,78 +504,24 @@ def init(ctx: click.Context, name: str):
     """
     path: Path = ctx.obj["path"]
     logger: logging.LoggerAdapter = ctx.obj["logger"]
-
-    _prog_name = re.sub("\\W", "_", name)
-
     logger.info(f"Initializing new cellophane project at {path}")
 
     try:
-        for subdir in (
-            path / "modules",
-            path / "scripts",
-        ):
-            subdir.mkdir(parents=True, exist_ok=False)
-
-        for file in (
-            path / "modules" / "__init__.py",
-            path / "schema.yaml",
-        ):
-            file.touch(exist_ok=False)
-
-        for file in [
-            path / "__main__.py",
-            path / f"{_prog_name}.py",
-            path / "config.example.yaml",
-        ]:
-            if file.exists():
-                raise FileExistsError(file)
-
-        with (
-            open(CELLOPHANE_ROOT / "template" / "__main__.py", "r") as main_handle,
-            open(CELLOPHANE_ROOT / "template" / "entrypoint.py", "r") as entry_handle,
-            open(path / f"{_prog_name}.py", "w") as entry_dest_handle,
-            open(path / "__main__.py", "w") as main_dest_handle,
-        ):
-            base = main_handle.read()
-            main_dest_handle.write(base.format(label=name, prog_name=_prog_name))
-            entry_dest_handle.write(entry_handle.read())
-
-        logger.info(f"Generating example config file at {path / 'config.example.yaml'}")
-        _update_example_config(path)
-
-    except FileExistsError as e:
-        logger.critical(e)
-        raise SystemExit(1)
-
-    try:
-        repo = Repo(str(path))
-    except InvalidGitRepositoryError:
-        logger.info("Initializing git repository")
-        repo = Repo.init(str(path))
-    finally:
-        repo.index.add(
-            [
-                path / "modules" / "__init__.py",
-                path / "schema.yaml",
-                path / "config.example.yaml",
-                path / "__main__.py",
-                path / f"{_prog_name}.py",
-            ]
+        CellophaneRepo.initialize(
+            name=name,
+            path=path,
+            force=force,
+            modules_repo_url=ctx.obj["modules_repo_url"]
         )
-        repo.index.write()
-        repo.index.commit("feat(cellophane): Initial commit from cellophane 🎉")
-
-
-if __name__ == "__main__":
-    click.rich_click.DEFAULT_STRING = "[{}]"
-    logger = logs.get_logger(
-        label="cellophane",
-        level=logging.INFO,
-        queue=logs.get_log_queue(mp.Manager()),
-    )
-    try:
-        obj = {"logger": logger}
-        main(obj=obj)
+    except FileExistsError as e:
+        logger.critical("Project path is not empty (--force to ignore)")
+        raise SystemExit(1) from e
     except Exception as e:
-        logger.critical(e, exc_info=True)
-        raise SystemExit(1)
+        logger.critical(e, exc_info=ctx.obj["log_level"] == "DEBUG")
+        raise SystemExit(1) from e
+
+
+if __name__ == "__main__":  # pragma: no cover
+    click.rich_click.DEFAULT_STRING = "[{}]"
+    logs.setup_logging()
+    main()
