@@ -1,217 +1,290 @@
-"""Configuration file handling"""
-
-from attrs import define
-from copy import deepcopy, copy
-from functools import reduce, cached_property, partial
+from copy import deepcopy
+from functools import cached_property, partial, wraps
 from pathlib import Path
-from typing import Sequence, Optional, Iterator, Mapping, Any
+from typing import (
+    Any,
+    Callable,
+    Iterator,
+    Literal,
+    Mapping,
+    MutableMapping,
+    Sequence,
+)
 
+import re
 import rich_click as click
-from jsonschema import Draft7Validator, validators, ValidationError
-from yaml import safe_load
+from attrs import define, field
+from jsonschema.exceptions import ValidationError
+from jsonschema.protocols import Validator
+from jsonschema.validators import Draft7Validator, extend
+from ruamel.yaml import CommentedMap, YAML
+from ruamel.yaml.compat import StringIO
 
 from . import data, util
 
+_YAML = YAML()
+
+
+class StringMapping(click.ParamType):
+    name = "mapping"
+    scanner = re.Scanner(  # type: ignore[attr-defined]
+        [
+            (r'"[^"]*"', lambda _, token: token[1:-1]),
+            (r"'[^']*'", lambda _, token: token[1:-1]),
+            (r"\w+(?==)", lambda _, token: token.strip()),
+            (r"(?<==)[^,]+", lambda _, token: token.strip()),
+            (r"\s*[=,]\s*", lambda *_: None),
+        ]
+    )
+
+    def convert(
+        self,
+        value: str | Mapping,
+        param: click.Parameter | None,
+        ctx: click.Context | None,
+    ) -> Mapping | None:
+        _extra = []
+        if isinstance(value, str):
+            _tokens, _extra = self.scanner.scan(value)
+            if len(_tokens) % 2 == 0:
+                value = dict(zip(_tokens[::2], _tokens[1::2]))
+
+        if isinstance(value, Mapping) and not _extra:
+            return value
+        else:
+            self.fail("Expected a comma separated mapping (a=b,x=y)", param, ctx)
+
+
+@define(slots=False)
+class Flag:
+    key = field(type=tuple)
+    type: Literal[
+        "string",
+        "number",
+        "integer",
+        "boolean",
+        "mapping",
+        "array",
+        "path",
+    ] | None = field(default=None)
+    description: str | None = field(default=None)
+    required: bool = field(default=False)
+    default: Any = field(default=None)
+    secret: bool = field(default=False)
+
+    @type.validator
+    def _type(self, _, value: str | None):
+        if value not in [
+            "string",
+            "number",
+            "integer",
+            "boolean",
+            "mapping",
+            "array",
+            "path",
+            None,
+        ]:
+            raise ValueError(f"Invalid type: {value}")
+
+    @property
+    def pytype(self):
+        match self.type:
+            case "string":
+                return str
+            case "number":
+                return float
+            case "integer":
+                return int
+            case "boolean":
+                return bool
+            case "mapping":
+                return StringMapping()
+            case "array":
+                return list
+            case "path":
+                return click.Path(path_type=Path)
+
+    @property
+    def flag(self) -> str:
+        return "_".join(self.key)
+
+    @property
+    def click_option(self) -> Callable:
+        return click.option(
+            f"--{self.flag}/--no-{self.flag}"
+            if self.type == "boolean"
+            else f"--{self.flag}",
+            type=self.pytype,
+            default=self.default,
+            required=self.required,
+            help=self.description,
+            show_default=not self.secret,
+        )
+
+
+def _set_key(
+    schema: MutableMapping,
+    flags: dict[tuple, Flag],
+    parent: tuple | None = None,
+):
+    if parent:
+        schema["#key"] = parent
+
+    for ikey, item in schema.items():
+        if ikey == "properties":
+            for pkey, prop in item.items():
+                _key = (*(parent or []), pkey)
+                if "properties" not in prop:
+                    flags[_key] = Flag(
+                        key=_key,
+                        default=prop.get("default", None),
+                        secret=prop.get("secret", False),
+                        description=prop.get("description", None),
+                        type=prop.get("type", None),
+                    )
+                prop = _set_key(prop, flags, _key)
+
+    return schema
+
+
+def _set_required(flags, required_keys, instance_keys):
+    for key, flag in flags.items():
+        _required_paths = required_keys | (instance_keys - {key})
+
+        flag.required = key not in instance_keys and all(
+            key[:i] in _required_paths for i in range(1, len(key) + 1)
+        )
+
+
+def _validator(fn: Callable):
+    @wraps(fn)
+    def inner(
+        validator: Validator,
+        property: Any,
+        instance: MutableMapping,
+        schema: Mapping,
+        **kwargs,
+    ):
+        return fn(
+            property,
+            validator=validator,
+            instance=instance,
+            schema=schema,
+            **kwargs,
+        )
+
+    return inner
+
+
+@_validator
+def _properties(
+    properties: Mapping,
+    *,
+    validator: Validator,
+    instance: MutableMapping,
+    schema: Mapping,
+    store: dict,
+    flags: dict[tuple, Flag],
+    **_,
+):
+    """Store the properties in the validator instance"""
+    for property, subschema in properties.items():
+        _key = (*schema.get("#key", []), property)
+        if property in instance:
+            for k in range(1, len(_key) + 1):
+                store["present"] |= {_key[:k]}
+            if _key in flags:
+                flags[_key].default = instance[property]
+        else:
+            instance[property] = {}
+
+        yield from validator.descend(
+            instance[property],
+            subschema,
+            path=property,
+            schema_path=property,
+        )
+
+
+@_validator
+def _required(
+    required: list[str],
+    schema: Mapping,
+    store: dict,
+    **_,
+):
+    for prop in required:
+        store["required"] |= {(*schema.get("#key", []), prop)}
+
+
+@_validator
+def _root(
+    subschema: MutableMapping,
+    instance: MutableMapping,
+    validator: Validator,
+    flags: dict[tuple, Flag],
+    **_,
+):
+    _subschema = _set_key(deepcopy(subschema), flags)
+    _instance = deepcopy(instance)
+    _store: dict[str, set] = {"required": set(), "present": set()}
+
+    _validator = extend(
+        validator.__class__,
+        validators={
+            "type": None,
+            "enum": None,
+            "properties": partial(_properties, store=_store, flags=flags),
+            "required": partial(_required, store=_store, flags=flags),
+        },
+    )(schema=_subschema)
+
+    yield from _validator.descend(_instance, _subschema)
+    _set_required(flags, _store["required"], _store["present"])
+
 
 def _is_object_or_container(_, instance):
-    return Draft7Validator.TYPE_CHECKER.is_type(instance, "object") or isinstance(
-        instance, data.Container
+    return any(
+        (
+            Draft7Validator.TYPE_CHECKER.is_type(instance, "object"),
+            isinstance(instance, data.Container),
+        )
     )
 
 
 def _is_array(_, instance):
-    return Draft7Validator.TYPE_CHECKER.is_type(instance, "array") or isinstance(
-        instance, Sequence
+    return (
+        Draft7Validator.TYPE_CHECKER.is_type(instance, "array")
+        or isinstance(instance, Sequence)
+        and not isinstance(instance, str | bytes)
     )
 
 
 def _is_path(_, instance):
-    return isinstance(instance, Optional[Path | click.Path])
+    return isinstance(instance, Path | click.Path | None)
 
 
-def _is_mapping(_, instance):
-    return isinstance(instance, Sequence) and all(
-        isinstance(i, Mapping) for i in instance
-    )
+# def _required_not_none(validator, required, instance, schema):
+#     for property in required:
+#         if (
+#             validator.is_type(instance, "object")
+#             and instance.get(property, None) is None
+#         ):
+#             yield ValidationError(f"{property!r} is a required property")
 
 
-def _set_type(cls, properties, instance, schema):
-    for property, subschema in properties.items():
-        if "type" in subschema and property in instance:
-            match subschema["type"] if "type" in subschema else None:
-                case "boolean":
-                    instance[property] = bool(instance[property])
-                case "skip":
-                    instance[property] = bool(instance[property])
-                case "path":
-                    instance[property] = Path(instance[property])
-                case "string":
-                    instance[property] = str(instance[property])
-                case "integer":
-                    instance[property] = int(instance[property])
-                case "number":
-                    instance[property] = float(instance[property])
-                case "array":
-                    instance[property] = list(instance[property])
-                case "mapping":
-                    instance[property] = list(dict(d) for d in instance[property])
-                case _:
-                    pass
-
-    for error in Draft7Validator.VALIDATORS["properties"](
-        cls,
-        properties,
-        instance,
-        schema,
-    ):
-        yield error
-
-
-def _get_schema_properties(cls, properties, instance, schema, flag_mapping):
-    for key, prop in schema["properties"].items():
-        _parent = prop.get("_parent", [])
-        for subprop in prop.get("properties", {}).values():
-            subprop["_parent"] = [*_parent, key]
-
-    for prop, subschema in properties.items():
-
-        _key = [*subschema.get("_parent", []), prop]
-
-        if "properties" in subschema:
-            if prop not in instance:
-                instance[prop] = {}
-                flag_mapping[*_key] = {}
-            continue
-
-        flag_mapping[*_key] = []
-
-        match subschema:
-            case {"_required": required}:
-                flag_mapping[*_key].append(required)
-            case _:
-                flag_mapping[*_key].append(False)
-
-        match subschema:
-            case {"default": default}:
-                flag_mapping[*_key].append(instance.get(prop, default))
-            case _:
-                flag_mapping[*_key].append(instance.get(prop, None))
-
-        match subschema:
-            case {"description": description}:
-                flag_mapping[*_key].append(description)
-            case _:
-                flag_mapping[*_key].append("")
-
-        match subschema:
-            case {"secret": True}:
-                flag_mapping[*_key].append(True)
-            case _:
-                flag_mapping[*_key].append(False)
-
-        match subschema:
-            case {"enum": enum}:
-                flag_mapping[*_key].append(click.Choice(enum, case_sensitive=False))
-            case {"type": "boolean"}:
-                flag_mapping[*_key].append(bool)
-            case {"type": "skip"}:
-                flag_mapping[*_key].append(bool)
-            case {"type": "skip"}:
-                flag_mapping[*_key].append(bool)
-            case {"type": "path"}:
-                flag_mapping[*_key].append(click.Path())
-            case {"type": "string"}:
-                flag_mapping[*_key].append(str)
-            case {"type": "integer"}:
-                flag_mapping[*_key].append(int)
-            case {"type": "number"}:
-                flag_mapping[*_key].append(float)
-            case {"type": "array"}:
-                flag_mapping[*_key].append(list)
-            case {"type": "mapping"}:
-                flag_mapping[*_key].append(dict)
-            case _:
-                flag_mapping[*_key].append(None)
-
-        flag_mapping[*_key].append(subschema.get("type", None))
-
-    for error in Draft7Validator.VALIDATORS["properties"](
-        cls,
-        properties,
-        instance,
-        schema,
-    ):
-        yield error
-
-
-def _get_schema_required(cls, properties: list[str], instance: dict, schema: dict):
-    """Get required properties from schema"""
-    if any(
-        instance.get(k, False)
-        for k, p in schema["properties"].items()
-        if p.type == "skip"
-    ):
-        for key, prop in schema["properties"].items():
-            prop["_skip"] = True
-
-    for key in properties:
-        match prop := schema["properties"].get(key, {}):
-            case {"_skip": True} | {"default": _}:
-                prop["_required"] = False
-            case {"_parent_required": True} | {"_parent_present": True}:
-                prop["_required"] = key not in instance
-            case _ if "_parent_required" not in prop:
-                prop["_required"] = key not in instance
-            case _:
-                prop["_required"] = False
-
-    for key, prop in schema["properties"].items():
-        if "properties" in prop:
-            # Add empty requirements to enforce validation
-            prop.setdefault("required", [])
-            # Set _parent_required if prop has children
-            for subprop in prop["properties"].values():
-                subprop["_parent_required"] = prop.get("_required", False)
-                subprop["_parent_present"] = key in instance
-                subprop["_skip"] = prop.get("_skip", False)
-
-
-BaseValidator = validators.extend(
+CellophaneValidator: Validator = extend(
     Draft7Validator,
+    # validators=Draft7Validator.VALIDATORS | {"required": _required_not_none},
     type_checker=Draft7Validator.TYPE_CHECKER.redefine_many(
         {
             "object": _is_object_or_container,
+            "mapping": _is_object_or_container,
             "array": _is_array,
             "path": _is_path,
-            "mapping": _is_mapping,
         }
     ),
 )
-
-CellophaneValidator = validators.extend(
-    BaseValidator,
-    validators={"properties": _set_type},
-)
-
-
-def parse_mapping(string_mapping: dict | Sequence[str] | str) -> list[dict[str, Any]]:
-    match string_mapping:
-        case dict(mapping):
-            return [mapping]
-        case [*strings]:
-            return [m for s in strings for m in parse_mapping(s)]
-        case str(string):
-            _mapping: dict[str, Any] = {}
-            for kv in string.split():
-                for k, v in [kv.split("=")]:
-                    identifier = k.strip("{}")
-                    if not identifier.isidentifier():
-                        raise ValueError(f"{identifier} is not a valid identifier")
-                    else:
-                        _mapping[identifier] = v
-            return [_mapping]
-        case _:
-            raise ValueError("format must be 'key=value ...'")
 
 
 @define(slots=False, init=False, frozen=True)
@@ -223,113 +296,66 @@ class Schema(data.Container):
         """Load schema from file"""
         if isinstance(path, Path):
             with open(path, "r", encoding="utf-8") as handle:
-                return cls(safe_load(handle) or {})
+                return cls(_YAML.load(handle) or {})
         elif isinstance(path, Sequence):
             schema: dict = {}
-            for file in path:
-                with open(file, "r", encoding="utf-8") as handle:
-                    schema = util.merge_mappings(
-                        safe_load(handle) or {},
-                        deepcopy(schema),
-                    )
+            for p in path:
+                schema = util.merge_mappings(schema, cls.from_file(p))
             return cls(schema)
 
-    @cached_property
-    def schema_properties(self) -> dict:
-        """Get properties from schema"""
-        _flag_mapping = data.Container()
-        _validator = validators.extend(
-            BaseValidator,
-            {k: None for k in Draft7Validator.VALIDATORS}
-            | {
-                "properties": partial(
-                    _get_schema_properties,
-                    flag_mapping=_flag_mapping,
-                ),
-                "required": _get_schema_required,
-            },
-        )
-
-        _validator({**self.data}).validate({})
-        return _flag_mapping.as_dict
-
-    @cached_property
-    def key_map(self) -> list[list[str]]:
-        """Get key map from schema"""
-        return util.map_nested_keys(self.schema_properties)
-
     @property
+    def add_options(self) -> Callable:
+        def wrapper(func):
+            for flag in self.flags:
+                func = flag.click_option(func)
+            return func
+
+        return wrapper
+
+    @cached_property
     def flags(
         self,
-    ) -> Iterator[tuple[str, list[str], bool, Any, str, bool, type, str]]:
+    ) -> list[Flag]:
         """Get flags from schema"""
-        for key in self.key_map:  # pylint: disable=not-an-iterable
-            flag = "_".join(key)
-            required, default, description, secret, _type, json_type = reduce(
-                lambda x, y: x[y], key, self.schema_properties
+        _flags: dict[tuple, Flag] = {}
+        _validator = extend(
+            Draft7Validator,
+            validators={"#ROOT": partial(_root, flags=_flags)},
+        )({"#ROOT": deepcopy(self.as_dict)})
+
+        _validator.validate({})
+
+        return [*_flags.values()]
+
+    @cached_property
+    def example_config(self) -> str:
+        _map = CommentedMap()
+        for flag in self.flags:
+            if flag.description:
+                _comment = f"{flag.description} ({flag.type})"
+            else:
+                _comment = f"({flag.type})"
+
+            _node = _map
+            for k in flag.key[:-1]:
+                _node.setdefault(k, CommentedMap())
+                _node = _node[k]
+
+            _node.insert(1, flag.key[-1], flag.default, comment=_comment)
+
+        with StringIO() as handle:
+            _YAML.representer.add_representer(
+                type(None),
+                lambda dumper, *_: dumper.represent_scalar(
+                    "tag:yaml.org,2002:null", "~"
+                ),
             )
-            yield flag, key, required, default, description, secret, _type, json_type
-
-    def example_config(self, extra: str) -> str:
-        """Create an example configuration file"""
-        config: list[str] = []
-        visited = []
-        for _, key, required, default, description, _, _, json_type in self.flags:
-            # Print parent keys
-            cur: list[str] = []
-            config.append("")
-            for k in key[:-1]:
-                indent = "  " * len(cur)
-                cur.append(k)
-                if cur not in visited:
-                    config.append(f"{indent}{k}:")
-                    visited.append(copy(cur))
-
-            # Print current key, value, and comment
-            comment = (
-                (f"{description} " if description else "")
-                + f"({json_type}"
-                + (" REQUIRED)" if required else ")")
-            )
-
-            indent = "  " * (len(key) - 1)
-
-            config.append(f"{indent}# {comment}")
-            match json_type:
-                case "array":
-                    config.append(f"{indent}{key[-1]}:")
-                    example = (
-                        f"{indent}# - value\n{indent}# - ..."
-                        or f"{indent}- " f"\n{indent}- ".join(default.split(" "))
-                    )
-                    config.append(example)
-                case "mapping":
-                    config.append(f"{indent}{key[-1]}:")
-                    example = f"{indent}# - key=value\n{indent}#   ...=..."
-                    config.append(example)
-                case "boolean":
-                    example = f" {default}".lower() if default else ""
-                    config.append(f"{indent}{key[-1]}:{example}")
-                case "string":
-                    lines = (default or "").split("\n")
-                    example = ("\n" + indent + "  ").join(f"{li}" for li in lines)
-                    if len(lines) > 1:
-                        config.append(f"{indent}{key[-1]}: |")
-                        config.append(f"{indent}  {example}")
-                    elif example:
-                        config.append(f'{indent}{key[-1]}: "{example}"')
-                    else:
-                        config.append(f"{indent}{key[-1]}:")
-                case _:
-                    example = f" {default}" if default else ""
-                    config.append(f"{indent}{key[-1]}:{example}")
-
-        config.append("\n" + extra)
-        return "\n".join(config)
+            _YAML.dump(_map, handle)
+            return handle.getvalue()
 
     def validate(self, config: data.Container):
         """Iterate over validation errors"""
-        _validator = CellophaneValidator({**self.data})
+        _validator: Draft7Validator = CellophaneValidator(self.as_dict)
         _validator.validate(config)
 
     def iter_errors(
@@ -356,35 +382,42 @@ class Config(data.Container):
         _data: dict | None = None,
         **kwargs,
     ):
-        self.schema = schema
-        if _data is None:
-            _c_data = data.Container()
-        else:
-            _c_data = data.Container(_data)
+        if not _data and not kwargs and not allow_empty:
+            raise ValueError("Empty configuration")
 
-        for flag, key, *_ in schema.flags:
-            if flag not in _c_data:
-                if (value := kwargs.get(flag, None)) is not None:
-                    _c_data[key] = value
-                elif allow_empty and not validate:
-                    _c_data[key] = value
+        self.schema = schema
+
+        _data_container = data.Container(_data or {})
+        for flag in [f for f in schema.flags if f.key not in _data_container]:
+            if flag.flag in kwargs:
+                _data_container[flag.key] = kwargs[flag.flag]
+            elif flag.default:
+                _data_container[flag.key] = flag.default
 
         if validate:
-            schema.validate(_c_data)
+            schema.validate(_data_container)
 
-        self.data = _c_data.data
+        self.data = _data_container.data
+
+    @property
+    def as_dict(self):
+        return {
+            k: v.as_dict if isinstance(v, data.Container) else v
+            for k, v in self.data.items()
+            if k != "schema"
+        }
 
     @classmethod
     def from_file(
         cls,
-        path: Path,
+        path: str,
         schema: Schema,
         validate: bool = True,
         allow_empty: bool = False,
         **kwargs,
     ):
-        with open(path, "r", encoding="utf-8") as handle:
-            _data = safe_load(handle)
+        _path = Path(path)
+        _data = _YAML.load(_path.read_bytes())
 
         return cls(
             schema=schema,
@@ -394,31 +427,14 @@ class Config(data.Container):
             **kwargs,
         )
 
-    @cached_property
-    def properties(self) -> dict:
-        """Get properties from schema that depend on configuration"""
-        _flag_mapping = data.Container()
-        _validator = validators.extend(
-            BaseValidator,
-            {k: None for k in Draft7Validator.VALIDATORS}
-            | {
-                "properties": partial(
-                    _get_schema_properties,
-                    flag_mapping=_flag_mapping,
-                ),
-                "required": _get_schema_required,
-            },
-        )
-
-        _validator({**self.schema.data}).validate(deepcopy(self.data))
-        return _flag_mapping.as_dict
-
-    @cached_property
-    def flags(self) -> Iterator[tuple[str, list[str], bool, Any, str, bool, type, str]]:
+    @property
+    def flags(self) -> list[Flag]:
         """Get flags from schema that depend on configuration"""
-        for key in self.schema.key_map:
-            flag = "_".join(key)
-            required, default, description, secret, _type, json_type = reduce(
-                lambda x, y: x[y], key, self.properties
-            )
-            yield flag, key, required, default, description, secret, _type, json_type
+        _flags: dict[tuple, Flag] = {}
+        _validator = extend(
+            Draft7Validator,
+            validators={"#ROOT": partial(_root, flags=_flags)},
+        )({"#ROOT": deepcopy(self.schema.as_dict)})
+        _validator.validate(deepcopy(self.as_dict))
+
+        return [*_flags.values()]
