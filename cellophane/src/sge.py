@@ -10,9 +10,9 @@ from signal import SIGTERM, signal
 from typing import Optional, Callable
 from uuid import uuid4, UUID
 
-from . import util, cfg
+from . import cfg
 
-drmaa2 = util.lazy_import("drmaa2")
+import drmaa2
 
 
 def _cleanup(job, session):
@@ -44,6 +44,8 @@ def _run(
     callback: Callable,
     error_callback: Callable
 ) -> None:
+    (logdir / "sge").mkdir(exist_ok=True)
+
     _args = [word for arg in args for word in shlex.split(arg)]
     _impl_args = f"-l excl=1 -S /bin/bash -notify -q {queue} {'-V' if os_env else ''}"
     _env = {k: str(v) for k, v in env.items()}
@@ -55,12 +57,12 @@ def _run(
         # FIXME: Improve error logging when DRMAA2 fails to submit a job.
         job = session.run_job(
             {
-                "remote_command": str(script),
+                "remote_command": script,
                 "args": _args,
                 "min_slots": slots,
                 "implementation_specific": {
                     "uge_jt_pe": pe,
-                    "uge_jt_native": _impl_args
+                    "uge_jt_native": _impl_args,
                 },
                 "job_name": f"{name}_{uuid.hex[:8]}",
                 "job_environment": _env,
@@ -83,12 +85,12 @@ def _run(
             drmaa2.JobState.DONE,
             drmaa2.JobState.FAILED,
         ):
-            time.sleep(1)
             state, _ = job.get_state()
+            time.sleep(1)
     except KeyboardInterrupt:
+        error_callback(RuntimeError("Job killed by user"))
         _cleanup(job, session)()
-        raise SystemExit(1)
-    finally:
+    else:
         job_info = job.get_info()
         session.close()
         session.destroy()
@@ -96,7 +98,7 @@ def _run(
             error_callback(RuntimeError(job_info.exit_status))
         elif callback is not None:
             callback()
-        raise SystemExit(job_info.exit_status)
+        raise SystemExit(job.get_info().exit_status)
 
 
 def submit(
@@ -116,7 +118,6 @@ def submit(
     error_callback: Optional[Callable] = None,
 ):
     """Submit a job to SGE using DRMAA."""
-    (config.logdir / "sge").mkdir(exist_ok=True)
     if uuid is None:
         uuid = uuid4()
 
