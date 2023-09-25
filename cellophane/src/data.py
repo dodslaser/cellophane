@@ -1,6 +1,6 @@
 """Utilities for interacting with SLIMS"""
 
-from attrs import define, field, fields_dict
+from attrs import define, field, fields_dict, has, make_class
 from collections import UserDict, UserList
 from collections.abc import KeysView, ValuesView, ItemsView
 from functools import reduce, partial
@@ -8,28 +8,15 @@ from copy import deepcopy
 from pathlib import Path
 from typing import (
     Any,
-    Hashable,
     Optional,
     Sequence,
     TypeVar,
     Iterable,
-    Callable,
 )
 
-from yaml import safe_load
+from ruamel.yaml import YAML
 
-
-def _use_setitem(setattr_fn: Callable) -> Callable:
-    """Use __setitem__ instead of __setattr__ if attribute is not defined on class"""
-    def inner(instance, key: Hashable, value: Any) -> None:
-        if key in (*fields_dict(instance.__class__), *dir(instance)):
-            setattr_fn(key, value)
-        elif key == "data":
-            setattr_fn(key, value)
-        else:
-            instance[key] = value
-
-    return inner
+_YAML = YAML(typ="safe")
 
 
 @define(slots=False)
@@ -56,12 +43,9 @@ class Container(UserDict):
     def __new__(cls, *args, **kwargs):
         instance = super().__new__(cls)
         object.__setattr__(instance, "data", {})
-        # Monkey-patch __setattr__ to use __setitem__ if attribute is not defined
-        # I wish there was a cleaner way to do this (eg. hooking class creation)
-        # Current solution is a bit cursed, but it works
-        object.__setattr__(instance, "__setattr__", _use_setitem(cls.__setattr__))
         return instance
 
+    # FIXME: This is pretty slow, and should probably be implemented by each subclass
     @property
     def as_dict(self):
         ret = dict(self)
@@ -76,7 +60,7 @@ class Container(UserDict):
 
     def keys(self):
         _fields = {k: None for k in fields_dict(self.__class__) if k != "data"}
-        return KeysView({**self.data, **_fields})
+        return KeysView({**_fields, **self.data})
 
     def values(self):
         return ValuesView({k: self[k] for k in self.keys()})
@@ -84,7 +68,7 @@ class Container(UserDict):
     def items(self):
         return ItemsView({k: self[k] for k in self.keys()})
 
-    def __contains__(self, key: Hashable | Sequence[Hashable]) -> bool:
+    def __contains__(self, key) -> bool:
         try:
             self[key]
         except (KeyError, TypeError):
@@ -92,37 +76,41 @@ class Container(UserDict):
         else:
             return True
 
-    def __setitem__(self, key: Hashable | Sequence[Hashable], item: Any) -> None:
+    def __setattr__(self, name, value) -> None:
+        if name not in self._container_attributes:
+            self[name] = value
+        else:
+            super().__setattr__(name, value)
+
+    def __setitem__(self, key: str | Sequence[str], item: Any) -> None:
         if isinstance(item, dict) and not isinstance(item, Container):
             item = Container(item)
 
         match key:
-            case str(k) if k in self._container_attributes:
-                object.__setattr__(self, k, item)
-            case *k,:
+            case k if k in self._container_attributes:
+                self.__setattr__(k, item)
+            case str(k) if k.isidentifier():
+                self.data[k] = item
+            case *k, if all(isinstance(k_, str) for k_ in k):
                 reduce(lambda d, k: d.setdefault(k, Container()), k[:-1], self.data)[
                     k[-1]
                 ] = item
-            case k if isinstance(k, Hashable):
-                self.data[k] = item
             case _:
-                raise TypeError("Key must be a string or a sequence of strings")
+                raise TypeError(f"Key {k} is not an string or a sequence of strings")
 
-    def __getitem__(self, key: Hashable | Sequence[Hashable]) -> Any:
+    def __getitem__(self, key: str | Sequence[str]) -> Any:
         match key:
             case str(k) if k in self._container_attributes:
                 return super().__getattribute__(k)
-            case *k,:
-                return reduce(lambda d, k: d[k], k, self.data)
-            case k if isinstance(k, Hashable):
+            case str(k):
                 return self.data[k]
+            case *k, :
+                return reduce(lambda d, k: d[k], k, self.data)
             case k:
-                raise TypeError(f"Key {k} is not hashble or a sequence of hashables")
+                raise TypeError(f"Key {k} is not a string or a sequence of strings")
 
     def __getattr__(self, key: str) -> Any:
-        if key in self._container_attributes:
-            super().__getattribute__(key)
-        elif key in self.data:
+        if key in self.data:
             return self.data[key]
         else:
             raise AttributeError(
@@ -148,9 +136,9 @@ class Output:
     def __attrs_post_init__(self):
         object.__setattr__(self, "dest_dir", Path(self.dest_dir))
         if not isinstance(self.src, Iterable):
-            object.__setattr__(self, "src", set([Path(self.src)]))
+            object.__setattr__(self, "src", {Path(self.src)})
         else:
-            object.__setattr__(self, "src", set([Path(s) for s in self.src]))
+            object.__setattr__(self, "src", {Path(s) for s in self.src})
 
     def set_parent_id(self, value: str):
         object.__setattr__(self, "parent_id", value)
@@ -160,6 +148,15 @@ class Output:
 
     def __len__(self):
         return len(self.src)
+
+
+def _apply_mixins(cls, base, mixins):
+    for m in mixins:
+        m.__bases__ = (base,)
+        if not has(m):
+            define(m, init=False, slots=False)
+
+    return make_class(cls.__name__, (), (*mixins, cls), init=False, slots=False)
 
 
 @define(slots=False, init=False)
@@ -186,6 +183,10 @@ class Sample(Container):
         builder = partial(self.__class__, state.pop("data"), **state)
         return (builder, ())
 
+    @classmethod
+    def with_mixins(cls, mixins):
+        return _apply_mixins(cls, UserDict, mixins)
+
 
 S = TypeVar("S", bound=Sample)
 
@@ -208,16 +209,19 @@ class Samples(UserList[S]):
     @classmethod
     def from_file(cls, path: Path):
         """Get samples from a YAML file"""
-        with open(path, "r", encoding="utf-8") as handle:
-            samples = []
-            for sample in safe_load(handle):
-                id = sample.pop("id")
-                samples.append(
-                    cls.sample_class(id=str(id), **sample)  # type: ignore[call-arg]
-                )
+        samples = []
+        for sample in _YAML.load(path):
+            _id = sample.pop("id")
+            samples.append(
+                cls().sample_class(id=str(_id), **sample)  # type: ignore[call-arg]
+            )
         return cls(samples)
 
-    def split(self, link_by: Optional[str]):
+    @classmethod
+    def with_mixins(cls, mixins):
+        return _apply_mixins(cls, UserList, mixins)
+
+    def split(self, link_by: Optional[str] = None):
         if link_by is not None:
             linked = {
                 sample[link_by]: [li for li in self if li[link_by] == sample[link_by]]
@@ -229,23 +233,19 @@ class Samples(UserList[S]):
             for sample in self:
                 yield self.__class__([sample])
 
-    def validate(self):
-        for sample in self:
-            if (
-                sample.files is None
-                or None in sample.files
-                or not isinstance(sample.id, str)
-            ):
-                yield sample
+    def remove_invalid(self):
         self.data = [
             sample
             for sample in self
-            if sample.files is not None and None not in sample.files
+            if sample.files is not None
+            and None not in sample.files
+            and all(Path(f).exists() for f in sample.files)
+            and isinstance(sample.id, str)
         ]
 
     @property
     def unique_ids(self):
-        return set(s.id for s in self)
+        return {s.id for s in self}
 
     @property
     def complete(self):
