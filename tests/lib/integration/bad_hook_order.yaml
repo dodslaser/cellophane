@@ -1,0 +1,25 @@
+structure:
+  modules:
+    a.py: |
+      from cellophane import modules
+
+      @modules.pre_hook(after=["pre_hook_a"])
+      def pre_hook_a(**_):
+          ...
+      
+      @modules.pre_hook(after=["pre_hook_b"])
+      def pre_hook_b(**_):
+          ...
+  schema.yaml: ""
+  samples.yaml: |
+    - id: a
+      meta: x
+      files:
+      - a 
+args:
+  --samples_file: samples.yaml
+  --logdir: logs
+  --outdir: out
+  --log_level: DEBUG
+logs:
+  - "Failed to resolve hook dependencies"

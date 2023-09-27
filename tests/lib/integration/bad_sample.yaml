@@ -1,0 +1,24 @@
+structure:
+  modules:
+    a.py: |
+      from cellophane import modules
+
+      @modules.pre_hook(after="all")
+      def invalidate_sample(samples, **_):
+          samples[0].files = ["INVALID"]
+          return samples
+  schema.yaml: ""
+  samples.yaml: |
+    - id: a
+      files:
+      - a 
+args:
+  --samples_file: samples.yaml
+  --logdir: logs
+  --outdir: out
+  --log_level: DEBUG
+logs:
+  - |
+    Running invalidate_sample hook
+    Removed invalid sample a
+    No samples to process

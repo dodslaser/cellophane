@@ -1,0 +1,26 @@
+properties:
+  string:
+    type: string
+  integer:
+    type: integer
+  number:
+    type: number
+  boolean:
+    type: boolean
+  array:
+    type: array
+    items:
+      type: string
+  mapping:
+    type: mapping
+  nested:
+    type: object
+    properties:
+      a:
+        type: object
+        properties:
+          b:
+            type: object
+            properties:
+              c:
+                type: string

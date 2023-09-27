@@ -1,0 +1,4 @@
+properties:
+    failed_samples:
+        type: array
+        default: []

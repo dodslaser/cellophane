@@ -1,0 +1,12 @@
+structure:
+  schema.yaml: |
+    properties:
+      a:
+        allOf:
+          - type: number
+args:
+  --a: "INVALID"
+  --logdir: logs
+  --outdir: out
+logs:
+  - "Invalid configuration: a: 'INVALID' is not of type 'number'"

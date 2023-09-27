@@ -1,0 +1,11 @@
+structure:
+  modules:
+    a.py: |
+      INVALID
+  schema.yaml: ""
+args:
+  --logdir: logs
+  --outdir: out
+  --log_level: DEBUG
+logs:
+  - "Unhandled exception: name 'INVALID' is not defined"

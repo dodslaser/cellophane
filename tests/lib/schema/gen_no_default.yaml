@@ -1,0 +1,4 @@
+type: object
+properties:
+  no_default:
+    type: string

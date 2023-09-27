@@ -1,0 +1,7 @@
+type: object
+properties:
+  basic:
+    type: string
+    default: BASIC
+    description: |
+      DESCRIPTION

@@ -1,0 +1,9 @@
+type: object
+properties:
+  array:
+    type: array
+    description: "ARRAY"
+    default:
+      - "A"
+      - "B"
+      - "C"

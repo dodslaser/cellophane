@@ -1,0 +1,6 @@
+properties:
+  a:
+    properties:
+      c:
+        type: string
+        default: MERGE_C

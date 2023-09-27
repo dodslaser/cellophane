@@ -1,0 +1,18 @@
+properties:
+  a:
+    type: object
+    properties:
+      x:
+        type: string
+      y:
+        type: string
+    required: [x]
+  b:
+    type: object
+    properties:
+      x:
+        type: string
+      y:
+        type: string
+    required: [x]
+required: [a]
