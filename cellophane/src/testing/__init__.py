@@ -6,6 +6,7 @@ from shutil import copy, copytree
 
 from click.testing import CliRunner
 from pytest import FixtureRequest, LogCaptureFixture, fixture
+from pytest_mock import MockerFixture
 from ruamel.yaml import YAML
 
 import cellophane
@@ -44,7 +45,12 @@ def _create_structure(
 
 
 @fixture
-def run_definition(tmp_path: Path, caplog: LogCaptureFixture, request: FixtureRequest):
+def run_definition(
+    tmp_path: Path,
+    caplog: LogCaptureFixture,
+    request: FixtureRequest,
+    mocker: MockerFixture,
+):
     """Run a cellophane wrapper from a definition YAML file."""
     # FIXME: Check output
     _runner = CliRunner()
@@ -55,7 +61,12 @@ def run_definition(tmp_path: Path, caplog: LogCaptureFixture, request: FixtureRe
     def inner(definition: Path):
         _definition = _YAML.load(definition)
         _args = [i for p in _definition["args"].items() for i in p if i is not None]
-
+        for target, mock in _definition.get("mocks", {}).items():
+            mocker.patch(
+                target=target,
+                side_effect=Exception if mock.get("raise_exception", False) else None,
+                **mock.get("kwargs", {}),
+            )
         try:
             with _runner.isolated_filesystem(tmp_path) as td:
                 _create_structure(
