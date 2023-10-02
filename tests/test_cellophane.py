@@ -1,7 +1,7 @@
 import logging
 import sys
 from pathlib import Path
-from shutil import copytree
+from typing import Literal
 from unittest.mock import MagicMock
 from uuid import UUID, uuid4
 
@@ -9,10 +9,9 @@ import rich_click as click
 from click.testing import CliRunner
 from pytest import LogCaptureFixture, mark, param
 from ruamel.yaml import YAML
-from typing import Literal
-import cellophane
-from cellophane.src import cfg, data, modules
 
+import cellophane
+from cellophane import cfg, data, modules
 
 LIB = Path(__file__).parent / "lib"
 _YAML = YAML(typ="safe", pure=True)
@@ -263,9 +262,8 @@ class Test__add_config_defaults:
 
         _result = _runner.invoke(_cli, ["--config", LIB / "config" / "simple.yaml"])
 
-        assert type(_result.exception) == SystemExit
+        assert isinstance(_result.exception, SystemExit)
         assert _result.exit_code == 1
-
 
 class Test_cellophane:
     """
@@ -275,22 +273,7 @@ class Test_cellophane:
     basic functionality works as expected from the command line interface.
     """
 
-    def _create_structure(self, structure: dict, root: Path):
-        for path, content in structure.items():
-            (root / "modules").mkdir(parents=True, exist_ok=True)
-            (root / "schema.yaml").touch(exist_ok=True)
-            copytree(
-                LIB / "integration" / "instrumentation",
-                root / "modules" / "instrumentation",
-                dirs_exist_ok=True,
-            )
-
-            if isinstance(content, dict):
-                (root / path).mkdir(parents=True, exist_ok=True)
-                self._create_structure(content, root / path)
-            else:
-                (root / path).write_text(content)
-
+    @staticmethod
     @mark.parametrize(
         "definition",
         [
@@ -303,29 +286,7 @@ class Test_cellophane:
         ],
     )
     def test_cellophane(
-        self,
-        caplog: LogCaptureFixture,
-        tmp_path: Path,
         definition: Path,
-        mocker,
+        run_definition,
     ):
-        # FIXME: Check output
-
-        mocker.patch("cellophane.logs.setup_logging")
-
-        _definition = _YAML.load(definition)
-        _runner = CliRunner()
-        _args = [i for p in _definition["args"].items() for i in p if i is not None]
-
-        try:
-            with _runner.isolated_filesystem(tmp_path) as td, caplog.at_level(
-                "DEBUG", logger="cellophane"
-            ):
-                self._create_structure(_definition["structure"], Path(td))
-                _main = cellophane.cellophane("DUMMY", root=Path(td))
-                _runner.invoke(_main, _args)
-        except SystemExit as e:
-            assert e.__repr__() == _definition.get("exception", None)
-        finally:
-            for log_line in _definition.get("logs", []):
-                assert log_line in "\n".join(caplog.messages)
+        run_definition(definition)
