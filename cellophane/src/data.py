@@ -64,11 +64,11 @@ class Container(UserDict):
 
     def __contains__(self, key) -> bool:
         try:
-            self[key]
+            self[key]  # pylint: disable=pointless-statement]
+            return True
         except (KeyError, TypeError):
             return False
-        else:
-            return True
+            
 
     def __setattr__(self, name, value) -> None:
         if name not in self._container_attributes:
