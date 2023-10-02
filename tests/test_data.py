@@ -1,6 +1,7 @@
 import pickle
 from copy import deepcopy
 from pathlib import Path
+from typing import ClassVar
 
 from attrs import define, field
 from pytest import fixture, mark, param, raises
@@ -15,7 +16,7 @@ class Dummy(data.Container):
     a: int = field(default=1337)
 
     @a.validator
-    def _validate_a(self, attribute, value):
+    def _validate_a(self, _, value):
         if isinstance(value, int) and value > 9000:
             raise ValueError("It's over 9000!")
 
@@ -31,24 +32,23 @@ class Test_Container:
         _container = data.Container()
         _container["a"] = 1337
         _container["b", "c"] = 1338
+        _container["d"] = {"e": 1339}
         assert _container["a"] == 1337
         assert _container["b", "c"] == 1338
-        assert _container.as_dict == {"a": 1337, "b": {"c": 1338}}
+        assert _container["d", "e"] == 1339
 
         with raises(TypeError):
             _container[1337] = 1337
 
         with raises(TypeError):
-            _container[1337]
+            _container[1337]  # pylint: disable=pointless-statement
 
     @staticmethod
     def test_setattr_getattr():
         _container = data.Container()
         _container.a = 1337
-        _container.b = {"c": 1338}
         assert _container.a == 1337
-        assert _container.b.c == 1338
-        assert _container.as_dict == {"a": 1337, "b": {"c": 1338}}
+        assert raises(AttributeError, lambda: _container.b)
 
     @staticmethod
     def test_views() -> None:
@@ -57,7 +57,6 @@ class Test_Container:
         assert _dummy.data == {"b": 1338}
         assert _dummy.a == 1337
         assert _dummy.b == 1338
-        assert _dummy.as_dict == {"a": 1337, "b": 1338}
         assert [*_dummy.keys()] == ["a", "b"]
         assert [*_dummy.values()] == [1337, 1338]
         assert [*_dummy.items()] == [("a", 1337), ("b", 1338)]
@@ -81,6 +80,20 @@ class Test_Container:
 
         assert _dummy_ref.a is _dummy.a
         assert _dummy_copy.a is not _dummy.a
+
+    @staticmethod
+    def test_as_dict():
+        _container = data.Container(a={"b": 1337})
+        _container.a.f = 1338
+        _container.c = 1339
+        assert _container.as_dict == {"a": {"b": 1337, "f": 1338}, "c": 1339}
+
+    @staticmethod
+    def test_contains():
+        _dummy = Dummy(a={"b": 1338})
+        assert "a" in _dummy
+        assert "b" in _dummy.a
+        assert "c" not in _dummy
 
 
 class Test_Output:
@@ -164,6 +177,24 @@ class Test_Sample:
         _sample = data.Sample(id="a", files=["b"])
         _pickle = pickle.dumps(_sample)
         assert pickle.loads(_pickle) == _sample
+
+    @staticmethod
+    def test_with_mixins():
+        class _mixin(data.Sample):
+            a: str = "Hello"
+            b: str = field(default="World")
+            c: int = 1337
+            d: ClassVar[int] = 1338
+
+        _sample_class = data.Sample.with_mixins([_mixin])
+        assert _sample_class is not data.Samples
+        assert _sample_class.d == 1338
+
+        _sample = _sample_class(id="DUMMY", c=1339)
+        assert _sample.a == "Hello"
+        assert _sample.b == "World"
+        assert _sample.c == 1339
+
 
 
 class Test_Samples:
@@ -260,3 +291,26 @@ class Test_Samples:
     @staticmethod
     def test_str(samples):
         assert str(samples) == "\n".join([s.id for s in samples])
+
+    @staticmethod
+    def test_with_sample_class():
+        _samples = data.Samples.with_sample_class(Dummy)
+        assert _samples is not data.Samples
+        assert _samples.sample_class is Dummy
+
+    @staticmethod
+    def test_with_mixins():
+        class _mixin(data.Samples):
+            a: str = "Hello"
+            b: str = field(default="World")
+            c: int = 1337
+            d: ClassVar[int] = 1338
+
+        _samples_class = data.Samples.with_mixins([_mixin])
+        assert _samples_class is not data.Samples
+        assert _samples_class.d == 1338
+
+        _samples = _samples_class(c=1339)
+        assert _samples.a == "Hello"
+        assert _samples.b == "World"
+        assert _samples.c == 1339
