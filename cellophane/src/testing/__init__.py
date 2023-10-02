@@ -2,32 +2,41 @@
 
 import logging
 from pathlib import Path
-from shutil import copytree
-from unittest.mock import MagicMock
+from shutil import copy, copytree
 
 from click.testing import CliRunner
-from pytest import LogCaptureFixture, MonkeyPatch, fixture
+from pytest import LogCaptureFixture, fixture
 from ruamel.yaml import YAML
 
 import cellophane
 
 _YAML = YAML(typ="safe", pure=True)
 
-def _create_structure(structure: dict, root: Path):
+
+def _create_structure(
+    root: Path,
+    structure: dict[str, str | dict[str, str]],
+    external: dict[Path] | None = None,
+):
     for path, content in structure.items():
         (root / "modules").mkdir(parents=True, exist_ok=True)
         (root / "schema.yaml").touch(exist_ok=True)
-        copytree(
-            Path(__file__).parent / "instrumentation",
-            root / "modules" / "instrumentation",
-            dirs_exist_ok=True,
+        copy(
+            Path(__file__).parent / "instrumentation.py",
+            root / "modules" / "instrumentation.py",
         )
 
         if isinstance(content, dict):
             (root / path).mkdir(parents=True, exist_ok=True)
-            _create_structure(content, root / path)
+            _create_structure(root / path, content)
         else:
             (root / path).write_text(content)
+
+    for src, dst in (external or {}).items():
+        if src.is_dir():
+            copytree(src, root / dst)
+        else:
+            copy(src, root / dst)
 
 
 @fixture
@@ -44,7 +53,11 @@ def run_definition(tmp_path: Path, caplog: LogCaptureFixture):
 
         try:
             with _runner.isolated_filesystem(tmp_path) as td:
-                _create_structure(_definition["structure"], Path(td))
+                _create_structure(
+                    Path(td),
+                    _definition["structure"],
+                    _definition.get("external", None),
+                )
                 _main = cellophane.cellophane("DUMMY", root=Path(td))
                 _runner.invoke(_main, _args)
         except SystemExit as e:
