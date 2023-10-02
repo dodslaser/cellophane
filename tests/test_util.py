@@ -1,6 +1,6 @@
 import sys
 
-from pytest import mark, raises, param
+from pytest import mark, param, raises
 
 from cellophane.src import util
 

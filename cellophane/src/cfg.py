@@ -1,23 +1,15 @@
+import re
 from copy import deepcopy
 from functools import cached_property, partial, wraps
 from pathlib import Path
-from typing import (
-    Any,
-    Callable,
-    Iterator,
-    Literal,
-    Mapping,
-    MutableMapping,
-    Sequence,
-)
+from typing import Any, Callable, Iterator, Literal, Mapping, MutableMapping, Sequence
 
-import re
 import rich_click as click
 from attrs import define, field
 from jsonschema.exceptions import ValidationError
 from jsonschema.protocols import Validator
 from jsonschema.validators import Draft7Validator, extend
-from ruamel.yaml import CommentedMap, YAML
+from ruamel.yaml import YAML, CommentedMap
 from ruamel.yaml.compat import StringIO
 
 from . import data, util
@@ -160,13 +152,13 @@ def _validator(fn: Callable):
     @wraps(fn)
     def inner(
         validator: Validator,
-        property: Any,
+        prop: Any,
         instance: MutableMapping,
         schema: Mapping,
         **kwargs,
     ):
         return fn(
-            property,
+            prop,
             validator=validator,
             instance=instance,
             schema=schema,
@@ -188,21 +180,21 @@ def _properties(
     **_,
 ):
     """Store the properties in the validator instance"""
-    for property, subschema in properties.items():
-        _key = (*schema.get("#key", []), property)
-        if property in instance:
+    for prop, subschema in properties.items():
+        _key = (*schema.get("#key", []), prop)
+        if prop in instance:
             for k in range(1, len(_key) + 1):
                 store["present"] |= {_key[:k]}
             if _key in flags:
-                flags[_key].default = instance[property]
+                flags[_key].default = instance[prop]
         else:
-            instance[property] = {}
+            instance[prop] = {}
 
         yield from validator.descend(
-            instance[property],
+            instance[prop],
             subschema,
-            path=property,
-            schema_path=property,
+            path=prop,
+            schema_path=prop,
         )
 
 

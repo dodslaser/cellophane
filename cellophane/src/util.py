@@ -1,8 +1,8 @@
 """Utility functions and classes"""
 
-from typing import Any, Hashable
 import importlib.util
 import sys
+from typing import Any, Hashable
 
 
 def map_nested_keys(data: Any) -> list[list[str]]:

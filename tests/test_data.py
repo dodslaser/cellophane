@@ -1,9 +1,11 @@
-from cellophane.src import data
-from pytest import fixture, raises, param, mark
-from attrs import define, field
+import pickle
 from copy import deepcopy
 from pathlib import Path
-import pickle
+
+from attrs import define, field
+from pytest import fixture, mark, param, raises
+
+from cellophane.src import data
 
 LIB = Path(__file__).parent / "lib"
 

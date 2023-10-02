@@ -1,11 +1,12 @@
-from cellophane import __main__ as dev
-from pytest import raises, mark, param, fixture
-from unittest.mock import MagicMock
-from click.testing import CliRunner
+import logging
 from os import chdir
 from shutil import rmtree
-import logging
+from unittest.mock import MagicMock
 
+from click.testing import CliRunner
+from pytest import fixture, mark, param, raises
+
+from cellophane import __main__ as dev
 
 # FIXME: Create a dummy repo to test against
 MODULES_REPO_URL = "https://github.com/ClinicalGenomicsGBG/cellophane_modules"

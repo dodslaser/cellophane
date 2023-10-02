@@ -2,9 +2,9 @@
 
 import atexit
 import logging
+import multiprocessing as mp
 from logging.handlers import QueueHandler, QueueListener
 from pathlib import Path
-import multiprocessing as mp
 
 from rich.logging import RichHandler
 

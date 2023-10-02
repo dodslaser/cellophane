@@ -1,12 +1,13 @@
-from cellophane.src import cfg, data
-from pytest import mark, param, raises
+import sys
+from functools import reduce
+from pathlib import Path
+
 import rich_click as click
 from click.testing import CliRunner
+from pytest import mark, param, raises
 from ruamel.yaml import YAML
-from pathlib import Path
-from functools import reduce
-import sys
 
+from cellophane.src import cfg, data
 
 _YAML = YAML(typ="safe", pure=True)
 LIB = Path("__file__").parent / "tests" / "lib"

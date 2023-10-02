@@ -1,20 +1,18 @@
 import subprocess as sp
+from collections import UserDict, UserList
+from copy import deepcopy
+from graphlib import CycleError
 from pathlib import Path
 from typing import Any, Callable
-from collections import UserDict, UserList
 from unittest.mock import MagicMock
 
-from copy import deepcopy
 from psutil import Process, TimeoutExpired
 from pytest import LogCaptureFixture, mark, param, raises
 from pytest_mock import MockerFixture
 
-from cellophane.src import data, modules
-from graphlib import CycleError
-
+from cellophane.src import data, logs, modules
 from cellophane.src.data import Container, Sample, Samples
 from cellophane.src.modules import Hook, Runner
-from cellophane.src import logs
 
 LIB = Path(__file__).parent / "lib"
 

@@ -2,17 +2,17 @@
 
 import multiprocessing as mp
 import os
-import sys
 import shlex
+import sys
 import time
 from pathlib import Path
 from signal import SIGTERM, signal
-from typing import Optional, Callable
-from uuid import uuid4, UUID
-
-from . import cfg
+from typing import Callable, Optional
+from uuid import UUID, uuid4
 
 import drmaa2
+
+from . import cfg
 
 
 def _cleanup(job, session):

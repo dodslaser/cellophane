@@ -1,7 +1,7 @@
 import logging
-from cellophane.src import logs
-
 from pathlib import Path
+
+from cellophane.src import logs
 
 
 class Test_add_file_handler:

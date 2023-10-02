@@ -1,19 +1,13 @@
 """Utilities for interacting with SLIMS"""
 
-from attrs import define, field, fields_dict, has, make_class
 from collections import UserDict, UserList
-from collections.abc import KeysView, ValuesView, ItemsView
-from functools import reduce, partial
+from collections.abc import ItemsView, KeysView, ValuesView
 from copy import deepcopy
+from functools import partial, reduce
 from pathlib import Path
-from typing import (
-    Any,
-    Optional,
-    Sequence,
-    TypeVar,
-    Iterable,
-)
+from typing import Any, Iterable, Optional, Sequence, TypeVar
 
+from attrs import define, field, fields_dict, has, make_class
 from ruamel.yaml import YAML
 
 _YAML = YAML(typ="safe")

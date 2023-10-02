@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
 from uuid import uuid4
 
-from pytest import mark, raises, param, fixture
+from pytest import fixture, mark, param, raises
 from pytest_mock import MockerFixture
 
 from cellophane import sge

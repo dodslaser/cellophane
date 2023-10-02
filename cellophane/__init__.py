@@ -5,14 +5,13 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, Literal, Sequence
 
-from mpire import WorkerPool
-
 import rich_click as click
 from humanfriendly import format_timespan
 from jsonschema.exceptions import ValidationError
+from mpire import WorkerPool
 from ruamel.yaml.scanner import ScannerError
 
-from .src import cfg, data, logs, modules, sge, util  # noqa: F401
+from .src import cfg, data, logs, modules, sge, util  # pylint: disable=unused-import
 
 CELLOPHANE_ROOT = Path(__file__).parent
 
@@ -59,7 +58,7 @@ def _start_runners(
                 pool.apply_async(
                     runner,
                     kwargs=kwargs,
-                    worker_init=lambda worker_state: worker_state.__setitem__(
+                    worker_init=lambda worker_state: worker_state.__setitem__(  # pylint: disable=unnecessary-dunder-call
                         "samples",
                         _samples,
                     ),
