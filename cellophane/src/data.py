@@ -5,7 +5,7 @@ from collections.abc import ItemsView, KeysView, ValuesView
 from copy import deepcopy
 from functools import partial, reduce
 from pathlib import Path
-from typing import Any, Iterable, Optional, Sequence, TypeVar
+from typing import Any, ClassVar, Iterable, Optional, Sequence, TypeVar
 
 from attrs import define, field, fields_dict, has, make_class
 from ruamel.yaml import YAML
@@ -194,10 +194,10 @@ class Samples(UserList[S]):
     """
 
     data: list[S] = field(factory=list)
-    sample_class: type[Sample] = Sample
+    sample_class: ClassVar[type[Sample]] = Sample
 
     def __init__(self, data: list | None = None, /, **kwargs):
-        self.__attrs_init__(**kwargs)
+        self.__attrs_init__(**kwargs)  # pylint: disable=no-member
         super().__init__(data or [])
 
     @classmethod
@@ -207,13 +207,17 @@ class Samples(UserList[S]):
         for sample in _YAML.load(path):
             _id = sample.pop("id")
             samples.append(
-                cls().sample_class(id=str(_id), **sample)  # type: ignore[call-arg]
+                cls.sample_class(id=str(_id), **sample)  # type: ignore[call-arg]
             )
         return cls(samples)
 
     @classmethod
     def with_mixins(cls, mixins):
         return _apply_mixins(cls, UserList, mixins)
+
+    @classmethod
+    def with_sample_class(cls, sample_class):
+        return type(cls.__name__, (cls,), {"sample_class": sample_class})
 
     def split(self, link_by: Optional[str] = None):
         if link_by is not None:

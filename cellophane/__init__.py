@@ -104,15 +104,20 @@ def _main(
         logger.error(f"Failed to resolve hook dependencies: {exception}")
         raise SystemExit(1) from exception
 
-    _SAMPLES = data.Samples.with_mixins(samples_mixins)
     _SAMPLE = data.Sample.with_mixins(sample_mixins)
-
-    _SAMPLES.sample_class = _SAMPLE
+    _SAMPLES = (
+        data.Samples
+        .with_sample_class(_SAMPLE)
+        .with_mixins(samples_mixins)
+    )
 
     # Load samples from file, or create empty samples object
-    samples = (
-        _SAMPLES.from_file(config.samples_file) if config.samples_file else _SAMPLES()
-    )
+    if config.samples_file:
+        logger.debug(f"Loading samples from {config.samples_file}")
+        samples = _SAMPLES.from_file(config.samples_file)
+    else:
+        logger.debug("No samples file specified, creating empty samples object")
+        samples = _SAMPLES()
 
     common_kwargs = {"config": config, "root": root}
 
