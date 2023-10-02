@@ -1,0 +1,14 @@
+structure:
+  samples.yaml: |
+    - id: INVALID
+      files:
+      - input/MISSING
+args:
+  --samples_file: samples.yaml
+  --logdir: logs
+  --outdir: out
+  --log_level: DEBUG
+logs:
+  - |
+    Removed invalid sample INVALID
+    No samples to process

@@ -10,12 +10,13 @@ structure:
       @modules.pre_hook(after=["pre_hook_b"])
       def pre_hook_b(**_):
           ...
-  schema.yaml: ""
+  input:
+    a: "INPUT_A"
   samples.yaml: |
     - id: a
       meta: x
       files:
-      - a 
+      - "input/a"
 args:
   --samples_file: samples.yaml
   --logdir: logs

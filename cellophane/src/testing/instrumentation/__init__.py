@@ -29,26 +29,3 @@ class CallCountMixin(data.Samples):
             for r in {s.runner for s in self}
             if r is not None
         }
-
-
-@modules.pre_hook(before="all")
-def ensure_files(samples, config, **_):
-    """Ensure that all samples have files."""
-    (config.outdir / "inputs").mkdir(parents=True, exist_ok=True)
-    for sample in samples:
-        sample.files = [
-            (config.outdir / "inputs" / f) for s in samples for f in s.files
-        ]
-        for file in sample.files:
-            file.touch(exist_ok=True)
-
-    return samples
-
-
-@modules.runner()
-def set_failed(samples, config, **_):
-    """Set samples as failed if they are in the config."""
-    for s in samples:
-        if s.id in config.failed_samples:
-            s.done = False
-    return samples

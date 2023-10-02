@@ -10,12 +10,13 @@ structure:
       @modules.post_hook(condition="failed")
       def fail_hook(samples, **_):
           ...
-  schema.yaml: ""
   samples.yaml: |
     - id: a
       meta: x
       files:
-      - a 
+      - input/a.txt
+  input:
+    a.txt: "INPUT_A"
 args:
   --samples_file: samples.yaml
   --logdir: logs
@@ -23,9 +24,8 @@ args:
   --log_level: DEBUG
 logs:
   - |
-    Found 2 hooks
-    Found 2 runners
+    Found 1 hooks
+    Found 1 runners
     Found 1 sample mixins
     Found 1 samples mixins
-    Running ensure_files hook
   

@@ -2,7 +2,6 @@ structure:
   modules:
     a.py: |
       INVALID
-  schema.yaml: ""
 args:
   --logdir: logs
   --outdir: out
