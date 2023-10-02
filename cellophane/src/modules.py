@@ -258,8 +258,8 @@ def load(
 
 def pre_hook(
     label: Optional[str] = None,
-    before: list[str] | Literal["all"] = [],
-    after: list[str] | Literal["all"] = [],
+    before: list[str] | Literal["all"] | None = None,
+    after: list[str] | Literal["all"] | None = None,
 ) -> Callable:
 
     """Decorator for hooks that will run before all runners."""
@@ -270,8 +270,8 @@ def pre_hook(
             func=func,
             when="pre",
             condition="always",
-            before=before,
-            after=after,
+            before=before or [],
+            after=after or [],
         )
 
     return wrapper
@@ -280,8 +280,8 @@ def pre_hook(
 def post_hook(
     label: Optional[str] = None,
     condition: Literal["always", "complete", "failed"] = "always",
-    before: list[str] | Literal["all"] = [],
-    after: list[str] | Literal["all"] = [],
+    before: list[str] | Literal["all"] | None = None,
+    after: list[str] | Literal["all"] | None = None,
 ):
     """Decorator for hooks that will run after all runners."""
     if condition not in ["always", "complete", "failed"]:
@@ -293,8 +293,8 @@ def post_hook(
             func=func,
             when="post",
             condition=condition,
-            before=before,
-            after=after,
+            before=before or [],
+            after=after or [],
         )
 
     return wrapper
