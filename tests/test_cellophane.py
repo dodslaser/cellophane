@@ -280,6 +280,7 @@ class Test_cellophane:
             param(LIB / "integration" / "good_basic.yaml", id="good_basic"),
             param(LIB / "integration" / "bad_missing_file.yaml", id="bad_missing_file"),
             param(LIB / "integration" / "bad_hook_order.yaml", id="bad_hook_order"),
+            param(LIB / "integration" / "bad_unhandeled_exception.yaml", id="bad_unhandeled_exception"),
             param(LIB / "integration" / "bad_schema.yaml", id="bad_schema"),
             param(LIB / "integration" / "bad_args.yaml", id="bad_args"),
             param(LIB / "integration" / "bad_module.yaml", id="bad_module"),
