@@ -20,14 +20,14 @@ def _create_structure(
     external_root: Path | None = None,
     external: dict[str, str] | None = None,
 ):
-    for path, content in structure.items():
-        (root / "modules").mkdir(parents=True, exist_ok=True)
-        (root / "schema.yaml").touch(exist_ok=True)
-        copy(
-            Path(__file__).parent / "instrumentation.py",
-            root / "modules" / "instrumentation.py",
-        )
+    (root / "modules").mkdir(parents=True, exist_ok=True)
+    (root / "schema.yaml").touch(exist_ok=True)
+    copy(
+        Path(__file__).parent / "instrumentation.py",
+        root / "modules" / "instrumentation.py",
+    )
 
+    for path, content in structure.items():
         if isinstance(content, dict):
             (root / path).mkdir(parents=True, exist_ok=True)
             _create_structure(root / path, content)
@@ -60,28 +60,37 @@ def run_definition(
 
     def inner(definition: Path):
         _definition = _YAML.load(definition)
-        _args = [i for p in _definition["args"].items() for i in p if i is not None]
-        for target, mock in _definition.get("mocks", {}).items():
-            mocker.patch(
-                target=target,
-                side_effect=Exception if mock.get("raise_exception", False) else None,
-                **mock.get("kwargs", {}),
+        _args = [
+            i for p in _definition.get("args", []).items() for i in p if i is not None
+        ]
+        with _runner.isolated_filesystem(tmp_path) as td, caplog.at_level(
+            logging.DEBUG
+        ):
+            _create_structure(
+                root=Path(td),
+                structure=_definition.get("structure", {}),
+                external_root=_extenal_root,
+                external=_definition.get("external", None),
             )
-        try:
-            with _runner.isolated_filesystem(tmp_path) as td:
-                _create_structure(
-                    root=Path(td),
-                    structure=_definition["structure"],
-                    external_root=_extenal_root,
-                    external=_definition.get("external", None),
-                )
+
+            try:
                 _main = cellophane.cellophane("DUMMY", root=Path(td))
-                _runner.invoke(_main, _args)
-        except SystemExit as e:
-            assert repr(e) == _definition.get("exception", None)
-        finally:
-            for log_line in _definition.get("logs", []):
-                assert log_line in "\n".join(caplog.messages)
+                for target, mock in _definition.get("mocks", {}).items():
+                    mocker.patch(
+                        target=target,
+                        side_effect=Exception(e)
+                        if (e := mock.get("exception", False))
+                        else None,
+                        **mock.get("kwargs", {}),
+                    )
+                _result = _runner.invoke(_main, _args)
+            except (SystemExit, Exception) as e:  # pylint: disable=broad-except
+                assert repr(e) == _definition.get("exception", repr(None))
+            else:
+                assert repr(_result.exception) == _definition.get("exception", repr(None))
+            finally:
+                for log_line in _definition.get("logs", []):
+                    assert log_line in "\n".join(caplog.messages)
 
     yield inner
     logging.getLogger().handlers = _handlers
