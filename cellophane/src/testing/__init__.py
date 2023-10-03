@@ -39,10 +39,7 @@ def _create_structure(
         _src = Path(src)
         if not _src.is_absolute():
             _src = (external_root / src).resolve()
-        if _src.is_dir():
-            copytree(_src, root / dst)
-        else:
-            copy(_src, root / dst)
+        (root / dst).symlink_to(_src)
 
 
 def _execute_definition(
