@@ -256,18 +256,10 @@ def _is_path(_, instance):
     return isinstance(instance, Path | click.Path | None)
 
 
-# def _required_not_none(validator, required, instance, schema):
-#     for property in required:
-#         if (
-#             validator.is_type(instance, "object")
-#             and instance.get(property, None) is None
-#         ):
-#             yield ValidationError(f"{property!r} is a required property")
-
 
 CellophaneValidator: Validator = extend(
     Draft7Validator,
-    # validators=Draft7Validator.VALIDATORS | {"required": _required_not_none},
+    validators=Draft7Validator.VALIDATORS | {"required": None},
     type_checker=Draft7Validator.TYPE_CHECKER.redefine_many(
         {
             "object": _is_object_or_container,
