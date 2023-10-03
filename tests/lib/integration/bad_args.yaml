@@ -10,3 +10,4 @@ args:
   --outdir: out
 logs:
   - "Invalid configuration: a: 'INVALID' is not of type 'number'"
+exception: SystemExit(1)

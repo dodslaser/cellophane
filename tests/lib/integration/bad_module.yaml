@@ -8,3 +8,4 @@ args:
   --log_level: DEBUG
 logs:
   - "Unhandled exception: name 'INVALID' is not defined"
+exception: SystemExit(1)
