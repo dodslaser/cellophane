@@ -55,6 +55,7 @@ def _execute_definition(
     _args = [i for p in (args or []).items() for i in p if i is not None]
 
     try:
+        mocker.patch("cellophane.logs.setup_logging")
         _main = cellophane.cellophane("DUMMY", root=root)
         for target, mock in (mocks or {}).items():
             mocker.patch(
