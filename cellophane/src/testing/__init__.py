@@ -66,9 +66,9 @@ def _execute_definition(
             )
         _result = runner.invoke(_main, _args)
     except (SystemExit, Exception) as e:  # pylint: disable=broad-except
-        assert repr(e) == exception or repr(None)
+        assert repr(e) == (exception or repr(None))
     else:
-        assert repr(_result.exception) == exception or repr(None)
+        assert repr(_result.exception) == (exception or repr(None))
     finally:
         for log_line in logs or []:
             assert log_line in "\n".join(caplog.messages)
