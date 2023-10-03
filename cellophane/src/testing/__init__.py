@@ -78,21 +78,20 @@ def parametrize_from_yaml(paths: list[Path]) -> callable:
     """Parametrize a test from a YAML file."""
 
     def wrapper(func: callable) -> callable:
-        @mark.parametrize(
+        return mark.parametrize(
             "definition",
             [
                 param(definition, id=definition.get("id", path.stem))
-                for path in paths
-                for definition in _YAML.load_all(path)
+                for path, documents in [
+                    (p, _YAML.load_all(p))
+                    for p in paths
+                ]
+                for definitions in documents
+                for definition in (
+                    definitions if isinstance(definitions, list) else [definitions]
+                )
             ],
-        )
-        def inner(
-            definition: dict[str, str | dict[str, str]],
-            run_definition: callable,
-        ):
-            func(definition, run_definition)
-
-        return inner
+        )(func)
 
     return wrapper
 
