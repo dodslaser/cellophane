@@ -3,9 +3,10 @@
 import logging
 from pathlib import Path
 from shutil import copy, copytree
+from typing import Any
 
 from click.testing import CliRunner
-from pytest import FixtureRequest, LogCaptureFixture, fixture
+from pytest import FixtureRequest, LogCaptureFixture, fixture, mark, param
 from pytest_mock import MockerFixture
 from ruamel.yaml import YAML
 
@@ -44,6 +45,61 @@ def _create_structure(
             copy(_src, root / dst)
 
 
+def _execute_definition(
+    root: Path,
+    mocks: dict[str, dict[str, Any] | None],
+    args: list[str] | None,
+    caplog: LogCaptureFixture,
+    mocker: MockerFixture,
+    runner: CliRunner,
+    exception: Exception | None,
+    logs: list[str] | None,
+):
+    _args = [i for p in (args or []).items() for i in p if i is not None]
+
+    try:
+        _main = cellophane.cellophane("DUMMY", root=root)
+        for target, mock in (mocks or {}).items():
+            mocker.patch(
+                target=target,
+                side_effect=Exception(e)
+                if (e := (mock or {}).get("exception", False))
+                else None,
+                **(mock or {}).get("kwargs", {}),
+            )
+        _result = runner.invoke(_main, _args)
+    except (SystemExit, Exception) as e:  # pylint: disable=broad-except
+        assert repr(e) == exception or repr(None)
+    else:
+        assert repr(_result.exception) == exception or repr(None)
+    finally:
+        for log_line in logs or []:
+            assert log_line in "\n".join(caplog.messages)
+
+
+def parametrize_from_yaml(paths: list[Path]) -> callable:
+    """Parametrize a test from a YAML file."""
+
+    def wrapper(func: callable) -> callable:
+        @mark.parametrize(
+            "definition",
+            [
+                param(definition, id=definition.get("id", path.stem))
+                for path in paths
+                for definition in _YAML.load_all(path)
+            ],
+        )
+        def inner(
+            definition: dict[str, str | dict[str, str]],
+            run_definition: callable,
+        ):
+            func(definition, run_definition)
+
+        return inner
+
+    return wrapper
+
+
 @fixture
 def run_definition(
     tmp_path: Path,
@@ -59,38 +115,26 @@ def run_definition(
     logging.getLogger().handlers = []
 
     def inner(definition: Path):
-        _definition = _YAML.load(definition)
-        _args = [
-            i for p in _definition.get("args", []).items() for i in p if i is not None
-        ]
-        with _runner.isolated_filesystem(tmp_path) as td, caplog.at_level(
-            logging.DEBUG
+        with (
+            _runner.isolated_filesystem(tmp_path) as td,
+            caplog.at_level(logging.DEBUG),
         ):
             _create_structure(
                 root=Path(td),
-                structure=_definition.get("structure", {}),
+                structure=definition.get("structure", {}),
                 external_root=_extenal_root,
-                external=_definition.get("external", None),
+                external=definition.get("external", None),
             )
-
-            try:
-                _main = cellophane.cellophane("DUMMY", root=Path(td))
-                for target, mock in _definition.get("mocks", {}).items():
-                    mocker.patch(
-                        target=target,
-                        side_effect=Exception(e)
-                        if (e := mock.get("exception", False))
-                        else None,
-                        **mock.get("kwargs", {}),
-                    )
-                _result = _runner.invoke(_main, _args)
-            except (SystemExit, Exception) as e:  # pylint: disable=broad-except
-                assert repr(e) == _definition.get("exception", repr(None))
-            else:
-                assert repr(_result.exception) == _definition.get("exception", repr(None))
-            finally:
-                for log_line in _definition.get("logs", []):
-                    assert log_line in "\n".join(caplog.messages)
+            _execute_definition(
+                root=Path(td),
+                mocks=definition.get("mocks", {}),
+                args=definition.get("args", None),
+                caplog=caplog,
+                mocker=mocker,
+                runner=_runner,
+                exception=definition.get("exception", None),
+                logs=definition.get("logs", None),
+            )
 
     yield inner
     logging.getLogger().handlers = _handlers
