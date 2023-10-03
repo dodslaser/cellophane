@@ -79,6 +79,7 @@ def _start_runners(
             logger.critical(f"Unhandled exception in runner: {e}")
             pool.terminate()
 
+
 def _load_modules(root, logger):
     (
         hooks,
@@ -99,11 +100,7 @@ def _load_modules(root, logger):
         raise SystemExit(1) from exception
 
     _SAMPLE = data.Sample.with_mixins(sample_mixins)
-    _SAMPLES = (
-        data.Samples
-        .with_sample_class(_SAMPLE)
-        .with_mixins(samples_mixins)
-    )
+    _SAMPLES = data.Samples.with_sample_class(_SAMPLE).with_mixins(samples_mixins)
     return hooks, runners, _SAMPLES
 
 
@@ -119,7 +116,7 @@ def _main(
     common_kwargs = {"config": config, "root": root}
 
     # Load samples from file, or create empty samples object
-    if config.samples_file:
+    if "samples_file" in config:
         logger.debug(f"Loading samples from {config.samples_file}")
         samples = samples_class.from_file(config.samples_file)
     else:
@@ -179,7 +176,7 @@ def cellophane(
     """Generate a cellophane CLI from a schema file"""
     click.rich_click.DEFAULT_STRING = "[{}]"
 
-    # logs.setup_logging()
+    logs.setup_logging()
     logger = logs.get_labeled_adapter(label)
 
     try:
@@ -199,7 +196,6 @@ def cellophane(
     except Exception as exception:
         logger.critical(f"Unhandled exception: {exception}", exc_info=True)
         raise SystemExit(1) from exception
-    
 
     @schema.add_options
     @click.command()
@@ -230,9 +226,8 @@ def cellophane(
             config = cfg.Config(
                 schema=schema,
                 validate=True,
-                **kwargs,
+                **{k: v for k, v in kwargs.items() if v is not None},
             )
-
         except ValidationError as exception:
             for error in schema.iter_errors(kwargs):
                 _path = ".".join(str(p) for p in error.absolute_path)
