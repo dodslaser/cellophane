@@ -278,6 +278,7 @@ class Test_cellophane:
     @parametrize_from_yaml(
         [
             LIB / "integration" / "good_basic.yaml",
+            LIB / "integration" / "good_no_runners.yaml",
             LIB / "integration" / "bad_missing_file.yaml",
             LIB / "integration" / "bad_hook_order.yaml",
             LIB / "integration" / "bad_unhandeled_exception.yaml",

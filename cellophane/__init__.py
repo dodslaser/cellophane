@@ -44,6 +44,11 @@ def _start_runners(
     logger: logging.LoggerAdapter,
     **kwargs,
 ):
+
+    if not runners:
+        logger.warning("No runners to execute")
+        return samples
+
     with WorkerPool(use_dill=True, use_worker_state=True, daemon=False) as pool:
         try:
             for runner, _samples in (
