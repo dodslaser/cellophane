@@ -79,13 +79,7 @@ def _start_runners(
             logger.critical(f"Unhandled exception in runner: {e}")
             pool.terminate()
 
-
-def _main(
-    logger: logging.LoggerAdapter,
-    config: cfg.Config,
-    root: Path,
-) -> None:
-    """Run cellophane"""
+def _load_modules(root, logger):
     (
         hooks,
         runners,
@@ -110,16 +104,27 @@ def _main(
         .with_sample_class(_SAMPLE)
         .with_mixins(samples_mixins)
     )
+    return hooks, runners, _SAMPLES
+
+
+def _main(
+    hooks: list[modules.Hook],
+    runners: list[modules.Runner],
+    samples_class: type[data.Samples],
+    logger: logging.LoggerAdapter,
+    config: cfg.Config,
+    root: Path,
+) -> None:
+    """Run cellophane"""
+    common_kwargs = {"config": config, "root": root}
 
     # Load samples from file, or create empty samples object
     if config.samples_file:
         logger.debug(f"Loading samples from {config.samples_file}")
-        samples = _SAMPLES.from_file(config.samples_file)
+        samples = samples_class.from_file(config.samples_file)
     else:
         logger.debug("No samples file specified, creating empty samples object")
-        samples = _SAMPLES()
-
-    common_kwargs = {"config": config, "root": root}
+        samples = samples_class()
 
     # Run pre-hooks
     samples = _run_hooks(hooks, "pre", samples, **common_kwargs)
@@ -189,6 +194,13 @@ def cellophane(
         logger.critical(f"Failed to load schema: {exception}")
         raise SystemExit(1) from exception
 
+    try:
+        hooks, runners, samples_class = _load_modules(root, logger)
+    except Exception as exception:
+        logger.critical(f"Unhandled exception: {exception}", exc_info=True)
+        raise SystemExit(1) from exception
+    
+
     @schema.add_options
     @click.command()
     @click.option(
@@ -239,6 +251,9 @@ def cellophane(
 
         try:
             _main(
+                hooks=hooks,
+                runners=runners,
+                samples_class=samples_class,
                 config=config,
                 logger=logger,
                 root=root,
