@@ -2,7 +2,7 @@
 
 from uuid import UUID, uuid4
 
-from cellophane import data, modules
+from cellophane import data
 
 
 class CallIDMixin(data.Sample):

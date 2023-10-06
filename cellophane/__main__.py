@@ -8,7 +8,7 @@ from typing import Literal, Sequence
 import rich_click as click
 from git.exc import InvalidGitRepositoryError
 from git.repo import Repo
-from questionary import checkbox, select, Choice
+from questionary import Choice, checkbox, select
 
 from . import CELLOPHANE_ROOT, cfg, logs
 
