@@ -2,8 +2,7 @@ structure:
   schema.yaml: |
     properties:
       a:
-        allOf:
-          - type: number
+        type: number
 args:
   --a: "INVALID"
   --logdir: logs
