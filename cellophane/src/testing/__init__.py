@@ -6,7 +6,7 @@ from shutil import copy, copytree
 from typing import Any
 
 from click.testing import CliRunner
-from pytest import FixtureRequest, LogCaptureFixture, fixture, mark, param
+from pytest import FixtureRequest, LogCaptureFixture, fail, fixture, mark, param
 from pytest_mock import MockerFixture
 from ruamel.yaml import YAML
 
@@ -41,8 +41,20 @@ def _create_structure(
             _src = (external_root / src).resolve()
         (root / dst).symlink_to(_src)
 
+def _fail_from_click_result(result, msg):
+    if result:
+        fail(
+            pytrace=False,
+            msg=(
+                f"{msg}\n"
+                f"Exit code: {result.exit_code}\n"
+                f"Output:\n{result.output}"
+            ),
+        )
+    else:
+        fail(pytrace=False, msg=msg)
 
-def _execute_definition(
+def _execute_from_structure(
     root: Path,
     mocks: dict[str, dict[str, Any] | None],
     args: list[str] | None,
@@ -51,6 +63,7 @@ def _execute_definition(
     runner: CliRunner,
     exception: Exception | None,
     logs: list[str] | None,
+    output: list[str] | None,
 ):
     _args = [i for p in (args or []).items() for i in p if i is not None]
 
@@ -67,13 +80,42 @@ def _execute_definition(
             )
         _result = runner.invoke(_main, _args)
     except (SystemExit, Exception) as e:  # pylint: disable=broad-except
-        assert repr(e) == (exception or repr(None))
+        _exception = e
+        _result = None
     else:
-        assert repr(_result.exception) == (exception or repr(None))
-    finally:
-        for log_line in logs or []:
-            assert log_line in "\n".join(caplog.messages)
+        _exception = _result.exception
 
+    if repr(_exception) != (exception or repr(None)):
+        _fail_from_click_result(
+            result=_result,
+            msg=(
+                "Unexpected exception\n"
+                f"Expected: {exception}\n"
+                f"Received: {repr(_exception)}"
+            ),
+        )
+
+    for log_line in logs or []:
+        if log_line not in "\n".join(caplog.messages):
+            _fail_from_click_result(
+                result=_result,
+                msg=(
+                    "Log message not found\n"
+                    f"Missing line:\n{log_line}"
+                )
+            )
+
+    for output_line in output or []:
+        if output_line not in _result.output:
+            _fail_from_click_result(
+                result=_result,
+                msg=(
+                    "Command output not found\n"
+                    f"Missing output:\n{output_line}"
+                )
+            )
+
+    return _result
 
 def parametrize_from_yaml(paths: list[Path]) -> callable:
     """Parametrize a test from a YAML file."""
@@ -122,7 +164,7 @@ def run_definition(
                 external_root=_extenal_root,
                 external=definition.get("external", None),
             )
-            _execute_definition(
+            _execute_from_structure(
                 root=Path(td),
                 mocks=definition.get("mocks", {}),
                 args=definition.get("args", None),
@@ -131,6 +173,7 @@ def run_definition(
                 runner=_runner,
                 exception=definition.get("exception", None),
                 logs=definition.get("logs", None),
+                output=definition.get("output", None),
             )
 
     yield inner
