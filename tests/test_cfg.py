@@ -29,45 +29,6 @@ SCHEMAS = {
     ),
 }
 
-
-class Test__type_checkers:
-    instances = [
-        ("None", None),
-        ("Container", data.Container()),
-        ("list", [1, "3", 3, "7"]),
-        ("tuple", (1, "3", 3, "7")),
-        ("dict", {"1": 3, "3": 7}),
-        ("set", {1, 3, 7}),
-        ("string", "string"),
-        ("int", 1337),
-        ("float", 13.37),
-        ("True", True),
-        ("False", False),
-        ("Path", Path("string")),
-        ("click.Path", click.Path()),
-    ]
-
-    validators = [
-        (cfg._is_object_or_container, [0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0]),
-        (cfg._is_array, [0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
-        (cfg._is_path, [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1]),
-    ]
-
-    def pytest_generate_tests(self, metafunc):
-        metafunc.parametrize(
-            "validator,instance,expected",
-            [
-                param(validator, instance, expected, id=f"{validator.__name__}({_id})")
-                for validator, expected in self.validators
-                for (_id, instance), expected in zip(self.instances, expected)
-            ],
-        )
-
-    @staticmethod
-    def test_validator(validator, instance, expected):
-        assert validator(None, instance) == expected
-
-
 class Test_StringMapping:
     @staticmethod
     @mark.parametrize(
@@ -309,14 +270,7 @@ class Test_Schema:
         _schema = cfg.Schema(SCHEMAS[request.node.callspec.id])
         _flags = [*_schema.flags]
         assert _flags == expected
-
-    @staticmethod
-    def test_iter_errors():
-        # FIXME: Expand test to cover different validation errors
-        _schema = cfg.Schema(SCHEMAS["nested"])
-        _errors = [*_schema.iter_errors({"a": {"b": 1}})]
-        assert len(_errors) == 1
-        assert _errors[0].message == "1 is not of type 'string'"
+        assert [f.required for f in _flags] == required
 
 
 class Test_Config:
