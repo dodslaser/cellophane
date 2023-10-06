@@ -2,6 +2,7 @@
 import logging
 import time
 from copy import deepcopy
+from functools import partial
 from pathlib import Path
 from typing import Any, Literal, Sequence
 
@@ -38,6 +39,12 @@ def _run_hooks(
     return _samples
 
 
+def _worker_set_samples(worker_state, samples):
+    worker_state["samples"] = samples
+
+def _worker_get_samples(worker_state):
+    return worker_state.get("samples")
+
 def _start_runners(
     runners: Sequence[modules.Runner],
     samples: data.Samples,
@@ -63,16 +70,9 @@ def _start_runners(
                 pool.apply_async(
                     runner,
                     kwargs=kwargs,
-                    worker_init=lambda worker_state: worker_state.__setitem__(  # pylint: disable=unnecessary-dunder-call
-                        "samples",
-                        _samples,
-                    ),
-                    worker_exit=lambda worker_state: worker_state.get(
-                        "samples",
-                        _samples,
-                    ),
+                    worker_init=partial(_worker_set_samples, samples=_samples),
+                    worker_exit=_worker_get_samples,
                 )
-
             pool.join()
             return samples.__class__([s for r in pool.get_exit_results() for s in r])
 
