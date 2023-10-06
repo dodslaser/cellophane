@@ -93,7 +93,7 @@ class Test__Flag:
         "flag,click_option",
         [
             param(
-                cfg.Flag(key=("a", "b"), type="string", required=True),
+                cfg.Flag(key=("a", "b"), type="string", node_required=True, parent_required=True),
                 click.option("--a_b", type=str, required=True),
                 id="required",
             ),
@@ -109,7 +109,12 @@ class Test__Flag:
             ),
             param(
                 cfg.Flag(key=("a", "b"), type="boolean"),
-                click.option("--a_b/--no-a_b", type=bool, default=None),
+                click.option("--a_b/--no-a_b", type=bool, default=True),
+                id="boolean",
+            ),
+            param(
+                cfg.Flag(key=("a", "b"), type="string", enum=["A", "B", "C"]),
+                click.option("--a_b", type=click.Choice(["A", "B", "C"])),
                 id="boolean",
             ),
             *(
@@ -148,7 +153,7 @@ class Test_Schema:
         [
             param(
                 LIB / "schema" / "nested.yaml",
-                {"properties": {"a": {"properties": {"b": {"type": 'string'}}}}},
+                {"type": "object", "properties": {"a": {"type": "object", "properties": {"b": {"type": 'string'}}}}},
                 id="nested"
             ),
             param(
@@ -234,39 +239,44 @@ class Test_Schema:
 
     @staticmethod
     @mark.parametrize(
-        "expected",
+        "expected,required",
         [
             param(
-                [cfg.Flag(key=("a", "b"), type="string")],
+                [cfg.Flag(key=["a", "b"], type="string")],
+                [False],
                 id="nested",
             ),
             param(
                 [
-                    cfg.Flag(key=("a",), type="string"),
-                    cfg.Flag(key=("b",), type="string"),
+                    cfg.Flag(parent_present=True, key=["a"], type="string"),
+                    cfg.Flag(parent_present=True, key=["b"], type="string"),
                 ],
+                [False, False],
                 id="multiple",
             ),
             param(
-                [cfg.Flag(key=("a",), type="string", default="SCHEMA")],
+                [cfg.Flag(parent_present=True, key=["a"], type="string", default="SCHEMA")],
+                [False],
                 id="default",
             ),
             param(
-                [cfg.Flag(key=("a",), type="string", required=True)],
+                [cfg.Flag(parent_present=True, key=["a"], type="string", node_required=True)],
+                [True],
                 id="required",
             ),
             param(
                 [
-                    cfg.Flag(key=("a", "x"), type="string", required=True),
-                    cfg.Flag(key=("a", "y"), type="string"),
-                    cfg.Flag(key=("b", "x"), type="string"),
-                    cfg.Flag(key=("b", "y"), type="string"),
+                    cfg.Flag(parent_required=True, node_required=True, key=["a", "x"], type="string"),
+                    cfg.Flag(parent_required=True, key=["a", "y"], type="string"),
+                    cfg.Flag(parent_required=False, node_required=True, key=["b", "x"], type="string"),
+                    cfg.Flag(parent_required=False, key=["b", "y"], type="string"),
                 ],
+                [True, False, False, False],
                 id="parent_required",
             ),
         ],
     )
-    def test_schema_flags(expected, request):
+    def test_schema_flags(expected, required, request):
         _schema = cfg.Schema(SCHEMAS[request.node.callspec.id])
         _flags = [*_schema.flags]
         assert _flags == expected
@@ -339,12 +349,12 @@ class Test_Config:
         [
             param(
                 {"a": "CONFIG"},
-                cfg.Flag(key=("a",), type="string", default="CONFIG"),
+                cfg.Flag(parent_present=True, key=["a"], type="string", default="CONFIG"),
                 id="from_config",
             ),
             param(
                 {},
-                cfg.Flag(key=("a",), type="string", default="SCHEMA"),
+                cfg.Flag(parent_present=True, key=["a"], type="string", default="SCHEMA"),
                 id="from_schema",
             ),
         ],
