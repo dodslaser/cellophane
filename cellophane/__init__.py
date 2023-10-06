@@ -227,27 +227,19 @@ def cellophane(
         start_time = time.time()
         logger.setLevel(log_level)
 
-        try:
-            config = cfg.Config(
-                schema=schema,
-                validate=True,
-                **{k: v for k, v in kwargs.items() if v is not None},
-            )
-        except ValidationError as exception:
-            for error in schema.iter_errors(kwargs):
-                _path = ".".join(str(p) for p in error.absolute_path)
-                logger.critical(f"Invalid configuration: {_path}: {error.message}")
-            raise SystemExit(1) from exception
-        else:
-            config.analysis = label
-            config.log_level = log_level
-            config.timestamp = time.strftime(
-                "%Y%m%d_%H%M%S", time.localtime(start_time)
-            )
-            config.outprefix = outprefix or config.timestamp
-            logs.add_file_handler(
-                logger, path=config.logdir / f"{label}.{config.outprefix}.log"
-            )
+        config = cfg.Config(
+            schema=schema,
+            **{k: v for k, v in kwargs.items() if v is not None}
+        )
+        config.analysis = label
+        config.log_level = log_level
+        config.timestamp = time.strftime(
+            "%Y%m%d_%H%M%S", time.localtime(start_time)
+        )
+        config.outprefix = outprefix or config.timestamp
+        logs.add_file_handler(
+            logger, path=config.logdir / f"{label}.{config.outprefix}.log"
+        )
 
         try:
             _main(

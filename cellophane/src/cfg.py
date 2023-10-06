@@ -1,13 +1,13 @@
+"""Configuration file handling and CLI generation"""
+
 import re
 from copy import deepcopy
-from functools import cached_property, partial, wraps
+from functools import cached_property
 from pathlib import Path
-from typing import Any, Callable, Iterator, Literal, Mapping, MutableMapping, Sequence
+from typing import Any, Callable, Literal, Mapping, Sequence
 
 import rich_click as click
 from attrs import define, field
-from jsonschema.exceptions import ValidationError
-from jsonschema.protocols import Validator
 from jsonschema.validators import Draft7Validator, extend
 from ruamel.yaml import YAML, CommentedMap
 from ruamel.yaml.compat import StringIO
@@ -49,7 +49,10 @@ class StringMapping(click.ParamType):
 
 @define(slots=False)
 class Flag:
-    key = field(type=tuple)
+    parent_present: bool = field(default=False)
+    parent_required: bool = field(default=False)
+    node_required: bool = field(default=False)
+    key: list[str] | None = field(default=None)
     type: Literal[
         "string",
         "number",
@@ -60,12 +63,12 @@ class Flag:
         "path",
     ] | None = field(default=None)
     description: str | None = field(default=None)
-    required: bool = field(default=False)
     default: Any = field(default=None)
+    enum: list[Any] | None = field(default=None)
     secret: bool = field(default=False)
 
     @type.validator
-    def _type(self, _, value: str | None):
+    def _type(self, _, value: str | None) -> None:
         if value not in [
             "string",
             "number",
@@ -79,8 +82,15 @@ class Flag:
             raise ValueError(f"Invalid type: {value}")
 
     @property
+    def required(self) -> bool:
+        """Determines if the flag is required"""
+        return self.node_required and (self.parent_present or self.parent_required)
+
+    @property
     def pytype(self):
         match self.type:
+            case _ if self.enum:
+                return click.Choice(self.enum)
             case "string":
                 return str
             case "number":
@@ -107,88 +117,46 @@ class Flag:
             if self.type == "boolean"
             else f"--{self.flag}",
             type=self.pytype,
-            default=self.default,
+            default=(
+                True
+                if self.type == "boolean"
+                and self.default is None
+                else self.default
+            ),
             required=self.required,
             help=self.description,
             show_default=not self.secret,
         )
 
+class Root:  #pragma: no cover
+    """Sentinel to mark the root of a config instance"""
+    def __repr__(self):
+        return "ROOT"
 
-def _set_key(
-    schema: MutableMapping,
-    flags: dict[tuple, Flag],
-    parent: tuple | None = None,
-):
-    if parent:
-        schema["#key"] = parent
+ROOT = Root()
 
-    for ikey, item in schema.items():
-        if ikey == "properties":
-            for pkey, prop in item.items():
-                _key = (*(parent or []), pkey)
-                if "properties" not in prop:
-                    flags[_key] = Flag(
-                        key=_key,
-                        default=prop.get("default", None),
-                        secret=prop.get("secret", False),
-                        description=prop.get("description", None),
-                        type=prop.get("type", None),
-                    )
-                prop = _set_key(prop, flags, _key)
+def _properties(validator, properties, instance, _):
+    """Convert properties to flags"""
 
-    return schema
-
-
-def _set_required(flags, required_keys, instance_keys):
-    for key, flag in flags.items():
-        _required_paths = required_keys | (instance_keys - {key})
-
-        flag.required = key not in instance_keys and all(
-            key[:i] in _required_paths for i in range(1, len(key) + 1)
-        )
-
-
-def _validator(fn: Callable):
-    @wraps(fn)
-    def inner(
-        validator: Validator,
-        prop: Any,
-        instance: MutableMapping,
-        schema: Mapping,
-        **kwargs,
-    ):
-        return fn(
-            prop,
-            validator=validator,
-            instance=instance,
-            schema=schema,
-            **kwargs,
-        )
-
-    return inner
-
-
-@_validator
-def _properties(
-    properties: Mapping,
-    *,
-    validator: Validator,
-    instance: MutableMapping,
-    schema: Mapping,
-    store: dict,
-    flags: dict[tuple, Flag],
-    **_,
-):
-    """Store the properties in the validator instance"""
+    # Instance will only be {} if no property of parent is present
+    # Validator will only be ROOT_VALIDATOR if we are at the root (not evolved)
+    _parent_present = instance != {} or instance.get(ROOT, False)
     for prop, subschema in properties.items():
-        _key = (*schema.get("#key", []), prop)
-        if prop in instance:
-            for k in range(1, len(_key) + 1):
-                store["present"] |= {_key[:k]}
-            if _key in flags:
-                flags[_key].default = instance[prop]
-        else:
-            instance[prop] = {}
+        match subschema:
+            case {"type": "object"}:
+                instance[prop] = instance.get(prop, {})
+            case _:
+                _flag = Flag(
+                    parent_present=_parent_present,
+                    default=instance.get(prop, None)
+                    or subschema.get("default", None),
+                    type=subschema.get("type", None),
+                    enum=subschema.get("enum", None),
+                    description=subschema.get("description", None),
+                    secret=subschema.get("secret", False),
+                )
+
+                instance[prop] = _flag
 
         yield from validator.descend(
             instance[prop],
@@ -198,78 +166,39 @@ def _properties(
         )
 
 
-@_validator
-def _required(
-    required: list[str],
-    schema: Mapping,
-    store: dict,
-    **_,
-):
+def _required(validator, required, instance, _):
+    """Mark required flags as required"""
     for prop in required:
-        store["required"] |= {(*schema.get("#key", []), prop)}
+        match instance[prop]:
+            case Flag() as flag:
+                flag.node_required = True
+            case parent if validator.is_type(parent, "object"):
+                for subprop in parent.values():
+                    if isinstance(subprop, Flag):
+                        subprop.parent_required = True
 
 
-@_validator
-def _root(
-    subschema: MutableMapping,
-    instance: MutableMapping,
-    validator: Validator,
-    flags: dict[tuple, Flag],
-    **_,
-):
-    _subschema = _set_key(deepcopy(subschema), flags)
-    _instance = deepcopy(instance)
-    _store: dict[str, set] = {"required": set(), "present": set()}
-
-    _validator = extend(
-        validator.__class__,
-        validators={
-            "type": None,
-            "enum": None,
-            "properties": partial(_properties, store=_store, flags=flags),
-            "required": partial(_required, store=_store, flags=flags),
-        },
-    )(schema=_subschema)
-
-    yield from _validator.descend(_instance, _subschema)
-    _set_required(flags, _store["required"], _store["present"])
-
-
-def _is_object_or_container(_, instance):
-    return any(
-        (
-            Draft7Validator.TYPE_CHECKER.is_type(instance, "object"),
-            isinstance(instance, data.Container),
-        )
-    )
-
-
-def _is_array(_, instance):
-    return (
-        Draft7Validator.TYPE_CHECKER.is_type(instance, "array")
-        or isinstance(instance, Sequence)
-        and not isinstance(instance, str | bytes)
-    )
-
-
-def _is_path(_, instance):
-    return isinstance(instance, Path | click.Path | None)
-
-
-
-CellophaneValidator: Validator = extend(
+BaseValidator = extend(
     Draft7Validator,
-    validators=Draft7Validator.VALIDATORS | {"required": None},
-    type_checker=Draft7Validator.TYPE_CHECKER.redefine_many(
-        {
-            "object": _is_object_or_container,
-            "mapping": _is_object_or_container,
-            "array": _is_array,
-            "path": _is_path,
-        }
-    ),
+    validators={
+        validator: None
+        for validator in Draft7Validator.VALIDATORS
+        if validator not in ["properties", "if"]
+    },
 )
-
+RootValidator = extend(
+    BaseValidator,
+    validators={
+        "properties": _properties,
+        "if": None,
+    }
+)
+RequiredValidator = extend(
+    BaseValidator,
+    validators={
+        "required": _required,
+    }
+)
 
 @define(slots=False, init=False, frozen=True)
 class Schema(data.Container):
@@ -297,19 +226,19 @@ class Schema(data.Container):
         return wrapper
 
     @cached_property
-    def flags(
-        self,
-    ) -> list[Flag]:
+    def flags(self) -> list[Flag]:
         """Get flags from schema"""
-        _flags: dict[tuple, Flag] = {}
-        _validator = extend(
-            Draft7Validator,
-            validators={"#ROOT": partial(_root, flags=_flags)},
-        )({"#ROOT": deepcopy(self.as_dict)})
+        _flags: list[Flag] = []
+        _data = {ROOT: True}
+        RootValidator(self.as_dict).validate(_data)
+        RequiredValidator(self.as_dict).validate(_data)
+        _data.pop(ROOT)
 
-        _validator.validate({})
-
-        return [*_flags.values()]
+        _container = data.Container(_data)
+        for key in util.map_nested_keys(_data):
+            _container[key].key = key
+            _flags.append(_container[key])
+        return _flags
 
     @cached_property
     def example_config(self) -> str:
@@ -337,20 +266,6 @@ class Schema(data.Container):
             _YAML.dump(_map, handle)
             return handle.getvalue()
 
-    def validate(self, config: data.Container):
-        """Iterate over validation errors"""
-        _validator: Draft7Validator = CellophaneValidator(self.as_dict)
-        _validator.validate(config)
-
-    def iter_errors(
-        self,
-        config: data.Container,
-        validator: type[Draft7Validator] = CellophaneValidator,
-    ) -> Iterator[ValidationError]:
-        """Iterate over validation errors"""
-        _validator = validator({**self.data})
-        return _validator.iter_errors(config)
-
 
 @define(slots=False, kw_only=True, init=False)
 class Config(data.Container):
@@ -361,7 +276,6 @@ class Config(data.Container):
     def __init__(
         self,
         schema: Schema,
-        validate: bool = True,
         allow_empty: bool = False,
         _data: dict | None = None,
         **kwargs,
@@ -377,9 +291,6 @@ class Config(data.Container):
                 _data_container[flag.key] = kwargs[flag.flag]
             elif flag.default:
                 _data_container[flag.key] = flag.default
-
-        if validate:
-            schema.validate(_data_container)
 
         self.data = _data_container.data
 
@@ -413,12 +324,14 @@ class Config(data.Container):
 
     @property
     def flags(self) -> list[Flag]:
-        """Get flags from schema that depend on configuration"""
-        _flags: dict[tuple, Flag] = {}
-        _validator = extend(
-            Draft7Validator,
-            validators={"#ROOT": partial(_root, flags=_flags)},
-        )({"#ROOT": deepcopy(self.schema.as_dict)})
-        _validator.validate(deepcopy(self.as_dict))
+        _flags: list[Flag] = []
+        _data = deepcopy(self.as_dict) | {ROOT: True}
+        RootValidator(self.schema.as_dict).validate(_data)
+        RequiredValidator(self.as_dict).validate(_data)
+        _data.pop(ROOT)
 
-        return [*_flags.values()]
+        _container = data.Container(_data)
+        for key in util.map_nested_keys(_data):
+            _container[key].key = key
+            _flags.append(_container[key])
+        return _flags
