@@ -8,6 +8,6 @@ args:
   --a: "INVALID"
   --logdir: logs
   --outdir: out
-logs:
-  - "Invalid configuration: a: 'INVALID' is not of type 'number'"
-exception: SystemExit(1)
+output:
+  - "Invalid value for '--a': 'INVALID' is not a valid float."
+exception: SystemExit(2)
