@@ -14,16 +14,16 @@ from . import CELLOPHANE_ROOT, cfg, logs
 
 
 class InvalidModuleError(Exception):
-    def __init__(self, module: str, msg=None):
-        self.module = module
-        super().__init__(msg or f"Module '{module}' is not valid")
+    def __init__(self, _module: str, msg=None):
+        self.module = _module
+        super().__init__(msg or f"Module '{_module}' is not valid")
 
 
 class InvalidBranchError(Exception):
-    def __init__(self, module: str, branch: str, msg=None):
-        self.module = module
+    def __init__(self, _module: str, branch: str, msg=None):
+        self.module = _module
         self.branch = branch
-        super().__init__(msg or f"Branch '{branch}' is not valid for module '{module}'")
+        super().__init__(msg or f"Branch '{branch}' is not valid for module '{_module}'")
 
 
 class NoModulesError(Exception):
@@ -85,25 +85,25 @@ class ModulesRepo(Repo):
         ]
 
     @lru_cache
-    def module_branches(self, module: str):
+    def module_branches(self, _module: str):
         return [
-            b.removeprefix(module).lstrip("_")
+            b.removeprefix(_module).lstrip("_")
             for b in self._branches
             if all(
                 (
-                    b.startswith(module),
-                    b != module,
+                    b.startswith(_module),
+                    b != _module,
                 )
             )
         ]
 
     @lru_cache
-    def latest_module_tag(self, module: str):
-        if tags := [t for t in self.tags if t.name in self.module_branches(module)]:
+    def latest_module_tag(self, _module: str):
+        if tags := [t for t in self.tags if t.name in self.module_branches(_module)]:
             # FIXME: This assumes that the most recent release is the latest version
             return sorted(tags, key=lambda t: t.object.committed_date)[-1].name
         else:
-            raise AttributeError(f"Could not find any releases for {module}")
+            raise AttributeError(f"Could not find any releases for {_module}")
 
     @property
     def url(self):
@@ -141,10 +141,10 @@ class CellophaneRepo(Repo):
             file.touch(exist_ok=force)
 
         with (
-            open(CELLOPHANE_ROOT / "template" / "__main__.py", "r") as main_handle,
-            open(CELLOPHANE_ROOT / "template" / "entrypoint.py", "r") as entry_handle,
-            open(path / f"{_prog_name}.py", "w") as entry_dest_handle,
-            open(path / "__main__.py", "w") as main_dest_handle,
+            open(CELLOPHANE_ROOT / "template" / "__main__.py", "r", encoding="utf-8") as main_handle,
+            open(CELLOPHANE_ROOT / "template" / "entrypoint.py", "r", encoding="utf-8") as entry_handle,
+            open(path / f"{_prog_name}.py", "w", encoding="utf-8") as entry_dest_handle,
+            open(path / "__main__.py", "w", encoding="utf-8") as main_dest_handle,
         ):
             base = main_handle.read()
             main_dest_handle.write(base.format(label=name, prog_name=_prog_name))
@@ -191,7 +191,7 @@ def _update_example_config(path: Path):
         ],
     )
 
-    with open(path / "config.example.yaml", "w") as handle:
+    with open(path / "config.example.yaml", "w", encoding="utf-8") as handle:
         handle.write(schema.example_config)
 
 
@@ -206,35 +206,35 @@ def _ask_modules(valid_modules: Sequence[str]):
     ).ask()
 
 
-def _ask_branch(module: str, modules_repo: ModulesRepo):
+def _ask_branch(_module: str, modules_repo: ModulesRepo):
     _branch = select(
-        f"Select branch for {module}",
+        f"Select branch for {_module}",
         # FIXME: Should the number of branches be limited?
-        choices=["latest", *modules_repo.module_branches(module)],
+        choices=["latest", *modules_repo.module_branches(_module)],
         default="latest",
         erase_when_done=True,
     ).ask()
     if _branch == "latest":
-        _branch = modules_repo.latest_module_tag(module)
+        _branch = modules_repo.latest_module_tag(_module)
 
     return _branch
 
 
 def _validate_modules(modules, repo, valid_modules, ignore_branch=False):
-    for idx, (module, branch) in enumerate(modules):
-        if module not in valid_modules:
-            raise InvalidModuleError(module)
+    for idx, (_module, branch) in enumerate(modules):
+        if _module not in valid_modules:
+            raise InvalidModuleError(_module)
 
         if not ignore_branch and branch is None:
-            branch = _ask_branch(module, repo.external)
+            branch = _ask_branch(_module, repo.external)
 
         if branch == "latest":
-            branch = repo.external.latest_module_tag(module)
+            branch = repo.external.latest_module_tag(_module)
 
-        modules[idx] = (module, branch)
+        modules[idx] = (_module, branch)
 
-        if not ignore_branch and branch not in repo.external.module_branches(module):
-            raise InvalidBranchError(module, branch)
+        if not ignore_branch and branch not in repo.external.module_branches(_module):
+            raise InvalidBranchError(_module, branch)
 
     return modules
 
@@ -369,21 +369,21 @@ def add(
     """Add module(s)"""
 
     added = []
-    for module, branch in modules:
-        logger.info(f"Adding module {module} ({branch})")
+    for _module, branch in modules:
+        logger.info(f"Adding module {_module} ({branch})")
         try:
             sm = repo.create_submodule(
-                name=module,
-                path=path / "modules" / module,
+                name=_module,
+                path=path / "modules" / _module,
                 url=repo.external.url,
-                branch=f"{module}_{branch}",
+                branch=f"{_module}_{branch}",
             )
             repo.index.add([sm])
-        except Exception as e:
-            logger.error(e, exc_info=log_level == "DEBUG")
+        except Exception as exception:  # pylint: disable=broad-except
+            logger.error(exception, exc_info=log_level == "DEBUG")
             continue
         else:
-            added.append(module)
+            added.append(_module)
 
     if added:
         try:
@@ -407,24 +407,24 @@ def update(
 ):
     """Update module(s)"""
     updated = []
-    for module, branch in modules:
-        logger.info(f"Updating module {module} ({branch})")
+    for _module, branch in modules:
+        logger.info(f"Updating module {_module} ({branch})")
         try:
-            sm_prev = repo.submodule(module)
+            sm_prev = repo.submodule(_module)
             module_url, module_path = sm_prev.url, sm_prev.path
             sm_prev.remove(force=True)
             sm = repo.create_submodule(
                 name=sm_prev.name,
                 path=module_path,
                 url=module_url,
-                branch=f"{module}_{branch}",
+                branch=f"{_module}_{branch}",
             )
             repo.index.add([sm])
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-except
             logger.error(e, exc_info=log_level == "DEBUG")
             continue
         else:
-            updated.append(module)
+            updated.append(_module)
 
     if updated:
         try:
@@ -455,16 +455,16 @@ def rm(
     """Remove module"""
 
     removed = []
-    for module, _ in modules:
+    for _module, _ in modules:
         try:
-            sm = repo.submodule(module)
-            logger.info(f"Removing module {module}")
+            sm = repo.submodule(_module)
+            logger.info(f"Removing module {_module}")
             sm.remove()
-        except Exception as e:
-            logger.error(e)
+        except Exception as exception:  # pylint: disable=broad-except
+            logger.error(exception)
             continue
         else:
-            removed.append(module)
+            removed.append(_module)
 
     if removed:
         try:
@@ -524,4 +524,4 @@ def init(ctx: click.Context, name: str, force: str):
 if __name__ == "__main__":  # pragma: no cover
     click.rich_click.DEFAULT_STRING = "[{}]"
     logs.setup_logging()
-    main()
+    main()  # pylint: disable=no-value-for-parameter
