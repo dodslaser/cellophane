@@ -41,6 +41,7 @@ def _create_structure(
             _src = (external_root / src).resolve()
         (root / dst).symlink_to(_src)
 
+
 def _fail_from_click_result(result, msg):
     if result:
         fail(
@@ -53,6 +54,7 @@ def _fail_from_click_result(result, msg):
         )
     else:
         fail(pytrace=False, msg=msg)
+
 
 def _execute_from_structure(
     root: Path,
@@ -99,23 +101,18 @@ def _execute_from_structure(
         if log_line not in "\n".join(caplog.messages):
             _fail_from_click_result(
                 result=_result,
-                msg=(
-                    "Log message not found\n"
-                    f"Missing line:\n{log_line}"
-                )
+                msg=("Log message not found\n" f"Missing line:\n{log_line}"),
             )
 
     for output_line in output or []:
         if output_line not in _result.output:
             _fail_from_click_result(
                 result=_result,
-                msg=(
-                    "Command output not found\n"
-                    f"Missing output:\n{output_line}"
-                )
+                msg=("Command output not found\n" f"Missing output:\n{output_line}"),
             )
 
     return _result
+
 
 def parametrize_from_yaml(paths: list[Path]) -> callable:
     """Parametrize a test from a YAML file."""
@@ -125,10 +122,7 @@ def parametrize_from_yaml(paths: list[Path]) -> callable:
             "definition",
             [
                 param(definition, id=definition.get("id", path.stem))
-                for path, documents in [
-                    (p, _YAML.load_all(p))
-                    for p in paths
-                ]
+                for path, documents in [(p, _YAML.load_all(p)) for p in paths]
                 for definitions in documents
                 for definition in (
                     definitions if isinstance(definitions, list) else [definitions]

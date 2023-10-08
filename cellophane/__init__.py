@@ -42,8 +42,10 @@ def _run_hooks(
 def _worker_set_samples(worker_state, samples):
     worker_state["samples"] = samples
 
+
 def _worker_get_samples(worker_state):
     return worker_state.get("samples")
+
 
 def _start_runners(
     runners: Sequence[modules.Runner],
@@ -229,12 +231,13 @@ def cellophane(
 
         config = cfg.Config(
             schema=schema,
-            **{k: v for k, v in kwargs.items() if v is not None}
+            **{k: v for k, v in kwargs.items() if v is not None},
         )
         config.analysis = label
         config.log_level = log_level
         config.timestamp = time.strftime(
-            "%Y%m%d_%H%M%S", time.localtime(start_time)
+            "%Y%m%d_%H%M%S",
+            time.localtime(start_time),
         )
         config.outprefix = outprefix or config.timestamp
         logs.add_file_handler(

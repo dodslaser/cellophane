@@ -42,7 +42,7 @@ def _run(
     cwd: Path,
     os_env: bool = True,
     callback: Callable,
-    error_callback: Callable
+    error_callback: Callable,
 ) -> None:
     (logdir / "sge").mkdir(exist_ok=True)
 
@@ -72,7 +72,11 @@ def _run(
             }
         )
     except Exception as e:
-        with open(logdir / "sge" / f"{name}.{uuid.hex}.sge_err", "w") as f:
+        with open(
+            logdir / "sge" / f"{name}.{uuid.hex}.sge_err",
+            mode="w",
+            encoding="utf-8",
+        ) as f:
             f.write(str(e))
         if error_callback is not None:
             error_callback(e)

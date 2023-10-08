@@ -148,8 +148,7 @@ def _properties(validator, properties, instance, _):
             case _:
                 _flag = Flag(
                     parent_present=_parent_present,
-                    default=instance.get(prop, None)
-                    or subschema.get("default", None),
+                    default=instance.get(prop, None) or subschema.get("default", None),
                     type=subschema.get("type", None),
                     enum=subschema.get("enum", None),
                     description=subschema.get("description", None),
@@ -191,14 +190,15 @@ RootValidator = extend(
     validators={
         "properties": _properties,
         "if": None,
-    }
+    },
 )
 RequiredValidator = extend(
     BaseValidator,
     validators={
         "required": _required,
-    }
+    },
 )
+
 
 @define(slots=False, init=False, frozen=True)
 class Schema(data.Container):

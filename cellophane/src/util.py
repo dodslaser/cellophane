@@ -9,11 +9,7 @@ def map_nested_keys(data: Any) -> list[list[str]]:
     """Map keys of nested dicts"""
     match data:
         case dict():
-            return [
-                [k, *p]
-                for k, v in data.items()
-                for p in map_nested_keys(v)
-            ]
+            return [[k, *p] for k, v in data.items() for p in map_nested_keys(v)]
         case _:
             return [[]]
 
@@ -25,7 +21,7 @@ def merge_mappings(m_1: Any, m_2: Any) -> Any:
             return m_1 | m_2
         case {**m_1}, {**m_2} if m_1:
             return {k: merge_mappings(v, m_2.get(k, v)) for k, v in (m_2 | m_1).items()}
-        case [dict(m_1), ], [dict(m_2), ]:
+        case [dict(m_1)], [dict(m_2)]:
             return [merge_mappings(m_1, m_2)]
         case [*m_1], [*m_2] if all(isinstance(v, Hashable) for v in m_1 + m_2):
             # dict is used to preserve order while removing duplicates

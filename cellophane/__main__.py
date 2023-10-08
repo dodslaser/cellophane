@@ -23,7 +23,7 @@ class InvalidBranchError(Exception):
     def __init__(self, _module: str, branch: str, msg=None):
         self.module = _module
         self.branch = branch
-        super().__init__(msg or f"Branch '{branch}' is not valid for module '{_module}'")
+        super().__init__(msg or f"Branch '{branch}' is invalid for '{_module}'")
 
 
 class NoModulesError(Exception):
@@ -141,8 +141,16 @@ class CellophaneRepo(Repo):
             file.touch(exist_ok=force)
 
         with (
-            open(CELLOPHANE_ROOT / "template" / "__main__.py", "r", encoding="utf-8") as main_handle,
-            open(CELLOPHANE_ROOT / "template" / "entrypoint.py", "r", encoding="utf-8") as entry_handle,
+            open(
+                CELLOPHANE_ROOT / "template" / "__main__.py",
+                mode="r",
+                encoding="utf-8",
+            ) as main_handle,
+            open(
+                CELLOPHANE_ROOT / "template" / "entrypoint.py",
+                mode="r",
+                encoding="utf-8",
+            ) as entry_handle,
             open(path / f"{_prog_name}.py", "w", encoding="utf-8") as entry_dest_handle,
             open(path / "__main__.py", "w", encoding="utf-8") as main_dest_handle,
         ):
@@ -511,7 +519,7 @@ def init(ctx: click.Context, name: str, force: str):
             name=name,
             path=path,
             force=force,
-            modules_repo_url=ctx.obj["modules_repo_url"]
+            modules_repo_url=ctx.obj["modules_repo_url"],
         )
     except FileExistsError as e:
         logger.critical("Project path is not empty (--force to ignore)")

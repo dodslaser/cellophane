@@ -7,12 +7,14 @@ from cellophane import data
 
 class CallIDMixin(data.Sample):
     """Mixin for adding a call ID to a sample."""
+
     runner: str | None = None
     call_uuid: UUID | None = None
 
 
 class CallCountMixin(data.Samples):
     """Mixin for counting the number of calls per runner."""
+
     def with_call_id(self, runner):
         """Update samples with a call ID for a given runner."""
         _uuid = uuid4()
