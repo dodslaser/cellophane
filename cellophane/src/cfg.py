@@ -34,7 +34,7 @@ class StringMapping(click.ParamType):
         value: str | Mapping,
         param: click.Parameter | None,
         ctx: click.Context | None,
-    ) -> Mapping | None:
+    ) -> Mapping:
         _extra = []
         if isinstance(value, str):
             _tokens, _extra = self.scanner.scan(value)
