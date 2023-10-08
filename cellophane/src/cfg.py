@@ -128,12 +128,13 @@ class Flag:
             show_default=not self.secret,
         )
 
-class Root:  #pragma: no cover
-    """Sentinel to mark the root of a config instance"""
-    def __repr__(self):
-        return "ROOT"
 
-ROOT = Root()
+class _Root:  # pragma: no cover
+    """Sentinel to mark the root of a config instance"""
+
+
+ROOT = _Root()
+
 
 def _properties(validator, properties, instance, _):
     """Convert properties to flags"""
@@ -325,10 +326,10 @@ class Config(data.Container):
     @property
     def flags(self) -> list[Flag]:
         _flags: list[Flag] = []
-        _data = deepcopy(self.as_dict) | {ROOT: True}
+        _data = deepcopy(self.as_dict) | {_Root: True}
         RootValidator(self.schema.as_dict).validate(_data)
-        RequiredValidator(self.as_dict).validate(_data)
-        _data.pop(ROOT)
+        RequiredValidator(self.schema.as_dict).validate(_data)
+        _data.pop(_Root)
 
         _container = data.Container(_data)
         for key in util.map_nested_keys(_data):
