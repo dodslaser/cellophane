@@ -1,3 +1,5 @@
+# pragma: no cover
+
 """Instrumentation for testing cellophane."""
 
 from uuid import UUID, uuid4
