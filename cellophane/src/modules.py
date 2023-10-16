@@ -71,10 +71,12 @@ class Runner:
 
     def __call__(
         self,
-        worker_state: dict,
         config: cfg.Config,
         root: Path,
+        root_logger: logging.Logger,
+        samples_pickle: str,
     ) -> None:
+        samples = loads(samples_pickle)
         logger = logs.get_labeled_adapter(self.label)
 
         signal(SIGTERM, _cleanup(logger))
@@ -83,11 +85,10 @@ class Runner:
 
         outdir = config.outdir / config.get("outprefix", config.timestamp) / self.label
         if self.individual_samples:
-            outdir /= worker_state["samples"][0].id
-
+            outdir /= samples[0].id
         try:
             match self.main(
-                samples=deepcopy(worker_state["samples"]),
+                samples=deepcopy(samples),
                 config=config,
                 timestamp=config.timestamp,
                 label=self.label,
@@ -96,13 +97,13 @@ class Runner:
                 outdir=outdir,
             ):
                 case None:
-                    logger.debug(f"Runner {self.label} did not return any samples")
-                    for sample in worker_state["samples"]:
+                    logger.debug("Runner did not return any samples")
+                    for sample in samples:
                         sample.done = True
 
                 case returned if isinstance(returned, data.Samples):
-                    worker_state["samples"] = returned
-                    for sample in worker_state["samples"]:
+                    samples = returned
+                    for sample in samples:
                         sample.done = True if sample.done is None else sample.done
 
                 case returned:
@@ -112,10 +113,12 @@ class Runner:
             logger.critical(exc, exc_info=config.log_level == "DEBUG")
 
         finally:
-            if n_complete := len(worker_state["samples"].complete):
+            if n_complete := len(samples.complete):
                 logger.debug(f"Completed {n_complete} samples")
-            if n_failed := len(worker_state["samples"].failed):
+            if n_failed := len(samples.failed):
                 logger.warning(f"Failed for {n_failed} samples")
+
+        return dumps(samples)
 
 
 class Hook:

@@ -39,14 +39,6 @@ def _run_hooks(
     return _samples
 
 
-def _worker_set_samples(worker_state, samples):
-    worker_state["samples"] = samples
-
-
-def _worker_get_samples(worker_state):
-    return worker_state.get("samples")
-
-
 def _start_runners(
     runners: Sequence[modules.Runner],
     samples: data.Samples,
@@ -58,8 +50,9 @@ def _start_runners(
         logger.warning("No runners to execute")
         return samples
 
-    with WorkerPool(use_dill=True, use_worker_state=True, daemon=False) as pool:
+    with WorkerPool(use_dill=True, daemon=False, start_method="fork") as pool:
         try:
+            results = []
             for runner, _samples in (
                 (r, s)
                 for r in runners
@@ -69,22 +62,30 @@ def _start_runners(
                     else [samples]
                 )
             ):
-                pool.apply_async(
+                result = pool.apply_async(
                     runner,
-                    kwargs=kwargs,
-                    worker_init=partial(_worker_set_samples, samples=_samples),
-                    worker_exit=_worker_get_samples,
+                    kwargs=kwargs | {
+                        "samples_pickle": dumps(_samples),
+                        "root_logger": logging.getLogger()
+                    },
                 )
-            pool.join()
-            return samples.__class__([s for r in pool.get_exit_results() for s in r])
+                results.append(result)
+
+            pool.stop_and_join(keep_alive=True)
+
+            return samples.__class__(
+                [s for r in results for s in loads(r.get())]
+            )
 
         except KeyboardInterrupt:
             logger.critical("Received SIGINT, telling runners to shut down...")
             pool.terminate()
+            return samples
 
-        except Exception as e:  # pylint: disable=broad-except
-            logger.critical(f"Unhandled exception in runner: {e}")
+        except Exception as exception:  # pylint: disable=broad-except
+            logger.critical(f"Unhandled exception in runner: {exception}")
             pool.terminate()
+            return samples
 
 
 def _load_modules(root, logger):

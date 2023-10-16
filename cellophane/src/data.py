@@ -185,7 +185,7 @@ class Sample(Container):
 S = TypeVar("S", bound=Sample)
 
 
-@define(slots=False, order=False, init=False, getstate_setstate=True)
+@define(slots=False, order=False, init=False)
 class Samples(UserList[S]):
     """A list of sample containers
 
@@ -269,3 +269,14 @@ class Samples(UserList[S]):
 
     def __str__(self):
         return "\n".join([str(s) for s in self])
+
+    def __setstate__(self, state):
+        for k, v in state.items():
+            self.__setattr__(k, v)
+
+    def __reduce__(self) -> str | tuple[Any, ...]:
+        return (
+            self.__class__,
+            (self.data,),
+            {k: self.__getattribute__(k) for k in fields_dict(self.__class__)},
+        )

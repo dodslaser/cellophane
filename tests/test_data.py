@@ -1,8 +1,9 @@
-import pickle
 from copy import deepcopy
 from pathlib import Path
 from typing import ClassVar
 
+import cloudpickle
+import dill
 from attrs import define, field
 from pytest import fixture, mark, param, raises
 
@@ -175,8 +176,8 @@ class Test_Sample:
     @staticmethod
     def test_pickle():
         _sample = data.Sample(id="a", files=["b"])
-        _pickle = pickle.dumps(_sample)
-        assert pickle.loads(_pickle) == _sample
+        _pickle = dill.dumps(_sample)
+        assert dill.loads(_pickle) == _sample
 
     @staticmethod
     def test_with_mixins():
@@ -314,3 +315,11 @@ class Test_Samples:
         assert _samples.a == "Hello"
         assert _samples.b == "World"
         assert _samples.c == 1339
+
+
+    @staticmethod
+    def test_pickle(samples):
+        _samples_pickle = cloudpickle.dumps(samples)
+        _samples_unpickle = cloudpickle.loads(_samples_pickle)
+
+        assert samples == _samples_unpickle
