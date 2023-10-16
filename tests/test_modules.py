@@ -481,37 +481,54 @@ class Test_resolve_hook_dependencies:
 
 class Test_load:
     @staticmethod
-    def test_load():
+    @mark.parametrize(
+        "path,expected",
+        [
+            param(
+                LIB / "modules" / "mod_basic",
+                {
+                    "hooks": {"pre_hook_basic", "post_hook_basic"},
+                    "runners": {"runner_basic"},
+                    "sample_mixins": {"SampleMixinBasic"},
+                    "samples_mixins": {"SamplesMixinBasic"}
+                },
+                id="basic"
+            ),
+            param(
+                LIB / "modules" / "mod_directory",
+                {
+                    "hooks": {"pre_hook_directory", "post_hook_directory"},
+                    "runners": {"runner_directory"},
+                    "sample_mixins": {"SampleMixinDirectory"},
+                    "samples_mixins": {"SamplesMixinDirectory"}
+                },
+                id="directory"
+            )
+        ]
+    )
+    def test_load(path,expected):
         (
             _hooks,
             _runners,
             _sample_mixins,
             _samples_mixins,
-        ) = modules.load(LIB / "modules")
-        assert [h.name for h in _hooks] == [
-            "post_hook_a",
-            "pre_hook_a",
-            "post_hook_b",
-            "pre_hook_b",
-        ]
-        assert [r.name for r in _runners] == [
-            "runner_a",
-            "runner_b",
-        ]
-        assert [m.__name__ for m in _sample_mixins] == [
-            "SampleMixinA",
-            "SampleMixin_attrs_default",
-            "SampleMixin_attrs_field",
-            "SampleMixin_base",
-            "SampleMixinB",
-        ]
-        assert [m.__name__ for m in _samples_mixins] == [
-            "SamplesMixinA",
-            "SamplesMixin_attrs_default",
-            "SamplesMixin_attrs_field",
-            "SamplesMixin_base",
-            "SamplesMixinB",
-        ]
+        ) = modules.load(path)
+        assert {h.name for h in _hooks} == expected.get("hooks", {})
+        assert {r.name for r in _runners} == expected.get("runners", {})
+        assert {m.__name__ for m in _sample_mixins} == expected.get("sample_mixins", {})
+        assert {m.__name__ for m in _samples_mixins} == expected.get("samples_mixins", [])
+
+    @staticmethod
+    def test_load_exception():
+        with raises(ImportError):
+            modules.load(LIB / "modules" / "mod_invalid")
+    
+
+    @staticmethod
+    def test_load_override_logging():
+        handlers = copy(logging.getLogger().handlers)
+        modules.load(LIB / "modules" / "mod_override_logging")
+        assert logging.getLogger().handlers == handlers
 
 
 class Test_mixins:
@@ -539,7 +556,7 @@ class Test_mixins:
             _,
             _sample_mixins,
             _samples_mixins,
-        ) = modules.load(LIB / "modules")
+        ) = modules.load(LIB / "modules" / "mod_mixin")
 
         _mixins = {m.__name__: m for m in (*_sample_mixins, *_samples_mixins)}
         _mixin = _mixins[f"{base}Mixin_{id}"]

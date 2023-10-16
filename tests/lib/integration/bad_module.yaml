@@ -7,5 +7,5 @@ args:
   --outdir: out
   --log_level: DEBUG
 logs:
-  - "Unhandled exception: name 'INVALID' is not defined"
+  - "Unable to import module 'a': name 'INVALID' is not defined"
 exception: SystemExit(1)
