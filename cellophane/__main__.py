@@ -517,12 +517,12 @@ def _validate_modules(modules, repo, valid_modules, ignore_branch=False):
         if branch == "latest":
             branch = repo.external.latest_module_tag(_module)
 
-        modules[idx] = (_module, branch)
-
         if not ignore_branch and branch not in repo.external.module_branches(_module):
             raise InvalidBranchError(_module, branch)
+        else:
+            _modules.append((_module, branch))
 
-    return modules
+    return _modules
 
 
 @click.group(
