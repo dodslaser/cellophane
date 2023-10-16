@@ -275,15 +275,12 @@ class _Root:  # pragma: no cover
     """Sentinel to mark the root of a config instance"""
 
 
-ROOT = _Root()
-
-
-def _properties(validator, properties, instance, _):
+def _properties(
     """Convert properties to flags"""
 
     # Instance will only be {} if no property of parent is present
     # Validator will only be ROOT_VALIDATOR if we are at the root (not evolved)
-    _parent_present = instance != {} or instance.get(ROOT, False)
+    _parent_present = instance != {} or instance.get(_Root, False)
     for prop, subschema in properties.items():
         match subschema:
             case {"type": "object"}:
@@ -405,10 +402,10 @@ class Schema(data.Container):
     def flags(self) -> list[Flag]:
         """Get flags from schema"""
         _flags: list[Flag] = []
-        _data = {ROOT: True}
+        _data = {_Root: True}
         RootValidator(self.as_dict).validate(_data)
         RequiredValidator(self.as_dict).validate(_data)
-        _data.pop(ROOT)
+        _data.pop(_Root)
 
         _container = data.Container(_data)
         for key in util.map_nested_keys(_data):
