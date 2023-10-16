@@ -23,7 +23,7 @@ def _mock_recursive(endpoints, **kwargs):
     )
 
 
-@fixture(scope="module")
+@fixture(scope="function")
 def modules_repo():
     return dev.ModulesRepo.from_url(MODULES_REPO_URL)
 
@@ -58,7 +58,7 @@ class Test_CellophaneRepo:
     @staticmethod
     def test_invalid_repository(tmp_path):
         with raises(dev.InvalidCellophaneRepoError):
-            dev.CellophaneRepo(tmp_path)
+            dev.CellophaneRepo(tmp_path, modules_repo_url="__INVALID__")
 
 
 class Test_ModulesRepo:
@@ -183,81 +183,125 @@ class Test__validate_modules:
         )
 
 
-class Test_cli_module:
+class Test_module_cli:
     runner = CliRunner()
 
-    @fixture(scope="class")
-    def project_path(self, tmp_path_factory):
-        return tmp_path_factory.mktemp("project")
-
     @mark.parametrize(
-        "command,exit_code",
+        "command,mocks,exit_code,logs",
         [
-            param("add rsync@__INVALID__", 1, id="add_invalid_branch"),
-            param("add __INVALID__@latest", 1, id="add_invalid_module"),
-            param("add rsync@latest", 0, id="add"),
-            param("update rsync@dev", 0, id="update"),
-            param("rm rsync", 0, id="rm"),
-            param("rm", 1, id="rm_no_module_present"),
+            param(
+                "add rsync@dev",
+                {"_validate_modules": {"side_effect": Exception("DUMMY")}},
+                1,
+                ["Unhandled Exception: Exception('DUMMY')"],
+                id="module_unhandled_exception",
+            ),
+            param(
+                "add rsync@dev",
+                {"_update_example_config": {"side_effect": Exception("DUMMY")}},
+                0,
+                ["Unable to add 'rsync@dev': Exception('DUMMY')"],
+                id="add_unhandled_exception",
+            ),
+            param(
+                "add rsync@INVALID",
+                {},
+                1,
+                ["Branch 'INVALID' is invalid for 'rsync'"],
+                id="invalid_branch",
+            ),
+            param(
+                "add INVALID@latest",
+                {},
+                1,
+                ["Module 'INVALID' is not valid"],
+                id="invalid_module",
+            ),
+            param(
+                "add rsync@latest",
+                {},
+                0,
+                ["Added 'rsync@"],
+                id="add",
+            ),
+            param(
+                "update rsync@dev",
+                {"_add_requirements": {"side_effect": Exception("DUMMY")}},
+                0,
+                ["Unable to update 'rsync->dev': Exception('DUMMY')"],
+                id="update_unhandled_exception",
+            ),
+            param(
+                "update rsync@dev",
+                {},
+                0,
+                ["Updated 'rsync->dev'"],
+                id="update",
+            ),
+            param(
+                "rm rsync",
+                {"_update_example_config": {"side_effect": Exception("DUMMY")}},
+                0,
+                ["Unable to remove 'rsync': Exception('DUMMY')"],
+                id="rm_unhandled_exception",
+            ),
+            param(
+                "rm rsync",
+                {},
+                0,
+                ["Removed 'rsync'"],
+                id="rm",
+            ),
+            param(
+                "rm",
+                {},
+                1,
+                ["No modules to select from"],
+                id="rm_no_module_present",
+            ),
         ],
     )
-    def test_module_cli(self, cellophane_repo, command, exit_code):
-        _, _path = cellophane_repo
-        chdir(_path)
-        result = self.runner.invoke(dev.main, f"module {command}")
-        assert result.exit_code == exit_code
-
-    def test_module_cli_unhandled_exception(self, cellophane_repo, mocker):
-        mocker.patch(
-            "cellophane.__main__._validate_modules", side_effect=Exception("DUMMY")
-        )
-        result = self.runner.invoke(dev.main, "module add")
-        assert result.exit_code == 1
-
-    def test_module_cli_invalid_repo(self, tmp_path):
-        chdir(tmp_path)
-        result = self.runner.invoke(dev.main, "module add")
-        assert result.exit_code == 1
-
-    def test_module_cli_dirty_repo(self, cellophane_repo):
-        _repo, _path = cellophane_repo
-        chdir(_path)
-        (_path / "DIRTY").touch()
-        _repo.index.add("DIRTY")
-        result = self.runner.invoke(dev.main, "module add")
-        assert result.exit_code == 1
-        _repo.index.remove("DIRTY")
-
-    @mark.parametrize(
-        "functions,exception",
-        [
-            param(["create_submodule", "submodule"], None, id="git_submodule"),
-            param(["index.commit"], SystemExit, id="git_add"),
-        ],
-    )
-    @mark.parametrize("command", [dev.add, dev.update, dev.rm])
-    def test_module_cli_unhandeled_exceptions(
-        self, caplog, tmp_path, mocker, command, functions, exception
+    def test_module_cli(
+        self,
+        cellophane_repo,
+        command,
+        mocks,
+        exit_code,
+        logs,
+        caplog,
+        mocker,
     ):
-        mocker.patch("cellophane.__main__._update_example_config")
+        repo, path = cellophane_repo
+        mocker.patch("cellophane.logs.setup_logging")
+        for target, kwargs in mocks.items():
+            mocker.patch(f"cellophane.__main__.{target}", **kwargs)
+        chdir(path)
+        with caplog.at_level(logging.DEBUG):
+            result = self.runner.invoke(dev.main, f"module {command}")
+        assert result.exit_code == exit_code, result
+        for log_line in logs:
+            assert log_line in "\n".join(caplog.messages)
+        assert not repo.is_dirty(), repo.git.status()
 
-        _repo_mock = _mock_recursive(functions, side_effect=Exception("DUMMY"))
+    def test_module_cli_invalid_repo(self, tmp_path, mocker, caplog):
+        mocker.patch("cellophane.logs.setup_logging")
+        chdir(tmp_path)
+        with caplog.at_level(logging.DEBUG):
+            result = self.runner.invoke(dev.main, "module add")
+        assert "Invalid cellophane repository" in "\n".join(caplog.messages)
+        assert result.exit_code == 1
 
-        try:
-            command(
-                path=tmp_path,
-                repo=_repo_mock,
-                logger=logging.getLogger("DUMMY"),
-                log_level="DEBUG",
-                modules=[("DUMMY", "DUMMY")],
-            )
-        except (exception, Exception) as e:
-            assert exception and isinstance(e, exception)
-        else:
-            assert exception is None
-        finally:
-            assert "DUMMY" in caplog.text
-
+    def test_module_cli_dirty_repo(self, cellophane_repo, mocker, caplog):
+        repo, path = cellophane_repo
+        mocker.patch("cellophane.logs.setup_logging")
+        chdir(path)
+        (path / "DIRTY").touch()
+        repo.index.add("DIRTY")
+        with caplog.at_level(logging.DEBUG):
+            result = self.runner.invoke(dev.main, "module add")
+            repo.index.remove("DIRTY")
+        assert "Repository has uncommited changes" in "\n".join(caplog.messages)
+        assert result.exit_code == 1
 
 class Test_cli_init:
     runner = CliRunner()
