@@ -629,15 +629,18 @@ def module(
             ),
         )
 
-    except NoModulesError as e:
-        _logger.warning(e)
-        raise SystemExit(1) from e
-    except (InvalidModuleError, InvalidBranchError) as e:
-        _logger.critical(e)
-        raise SystemExit(1) from e
-    except Exception as e:
-        _logger.critical(e, exc_info=ctx.obj["log_level"] == "DEBUG")
-        raise SystemExit(1) from e
+    except NoModulesError as exc:
+        _logger.warning(exc)
+        raise SystemExit(1) from exc
+    except (InvalidModuleError, InvalidBranchError) as exc:
+        _logger.critical(exc)
+        raise SystemExit(1) from exc
+    except Exception as exc:
+        _logger.critical(
+            f"Unhandled Exception: {repr(exc)}",
+            exc_info=ctx.obj["log_level"] == "DEBUG",
+        )
+        raise SystemExit(1) from exc
 
     _command(
         path=_path,
