@@ -221,13 +221,18 @@ class Output:
         return len(self.src)
 
 
-def _apply_mixins(cls, base, mixins):
+    _name = cls.__name__
     for m in mixins:
+        _name += f"_{m.__name__}"
         m.__bases__ = (base,)
+        m.__module__ = "__main__"
         if not has(m):
             define(m, init=False, slots=False)
 
-    return make_class(cls.__name__, (), (*mixins, cls), init=False, slots=False)
+    _cls = make_class(name or _name, (), (*mixins, cls), init=False, slots=False)
+    _cls.mixins = mixins
+    _cls.__module__ = "__main__"
+    return _cls
 
 
 @define(slots=False, init=False)
