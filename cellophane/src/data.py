@@ -10,8 +10,6 @@ from typing import Any, ClassVar, Iterable, Optional, Sequence, TypeVar
 from attrs import define, field, fields_dict, has, make_class
 from ruamel.yaml import YAML
 
-_YAML = YAML(typ="safe")
-
 
 @define(slots=False)
 class Container(UserDict):
@@ -318,7 +316,8 @@ class Samples(UserList[S]):
     def from_file(cls, path: Path):
         """Get samples from a YAML file"""
         samples = []
-        for sample in _YAML.load(path):
+        yaml = YAML(typ="safe")
+        for sample in yaml.load(path):
             _id = sample.pop("id")
             samples.append(
                 cls.sample_class(id=str(_id), **sample)  # type: ignore[call-arg]
