@@ -660,31 +660,32 @@ def add(
 ):
     """Add module(s)"""
 
-    added = []
     for _module, branch in modules:
-        logger.info(f"Adding module {_module} ({branch})")
+        submodule = None
         try:
-            sm = repo.create_submodule(
+            submodule = repo.create_submodule(
                 name=_module,
                 path=path / "modules" / _module,
                 url=repo.external.url,
                 branch=f"{_module}_{branch}",
             )
+            _update_example_config(path)
             _add_requirements(path, _module)
+        except Exception as exc:  # pylint: disable=broad-except
+            logger.error(
+                f"Unable to add '{_module}@{branch}': {repr(exc)}",
+                exc_info=log_level == "DEBUG",
+            )
+            if submodule is not None:
+                submodule.remove(force=True)
+                repo.index.reset(paths=[".gitmodules"])
+            repo.git.restore("config.example.yaml")
             continue
         else:
-            added.append(_module)
-
-    if added:
-        try:
-            _update_example_config(path)
             repo.index.add("config.example.yaml")
             repo.index.write()
-            repo.index.commit(f"feat(cellophane): Add module(s) {', '.join(added)}")
-
-        except Exception as e:
-            logger.critical(e, exc_info=log_level == "DEBUG")
-            raise SystemExit(1) from e
+            repo.index.commit(f"feat(cellophane): Added '{_module}@{branch}'")
+            logger.info(f"Added '{_module}@{branch}')")
 
 
 def update(
@@ -696,41 +697,43 @@ def update(
     **_,
 ):
     """Update module(s)"""
-    updated = []
+    del kwargs  # Unused
+
     for _module, branch in modules:
-        logger.info(f"Updating module {_module} ({branch})")
+        submodule = None
+        _path = None
         try:
-            sm_prev = repo.submodule(_module)
-            module_url, module_path = sm_prev.url, sm_prev.path
-            sm_prev.remove(force=True)
-            sm = repo.create_submodule(
-                name=sm_prev.name,
-                path=module_path,
-                url=module_url,
+            submodule = repo.submodule(_module)
+            _name = submodule.name
+            _path = submodule.path
+            _url = submodule.url
+            submodule.remove(force=True)
+            repo.create_submodule(
+                name=_name,
+                path=_path,
+                url=_url,
                 branch=f"{_module}_{branch}",
             )
+            _update_example_config(path)
             _remove_requirements(path, _module)
             _add_requirements(path, _module)
+        except Exception as exc:  # pylint: disable=broad-except
+            logger.error(
+                f"Unable to update '{_module}->{branch}': {repr(exc)}",
+                exc_info=log_level == "DEBUG",
+            )
+            if submodule is not None:
+                submodule.remove(force=True)
+            if _path is not None:
+                repo.git.checkout(
+                    "HEAD", "--", _path, ".gitmodules", "config.example.yaml"
+                )
             continue
         else:
-            updated.append(_module)
-
-    if updated:
-        try:
-            _update_example_config(path)
-            repo.index.add(
-                [
-                    path / ".gitmodules",
-                    path / "config.example.yaml",
-                ]
-            )
+            repo.index.add("config.example.yaml")
             repo.index.write()
-            repo.index.commit(
-                f"chore(cellophane): Updated module(s) {', '.join(updated)}"
-            )
-        except Exception as e:
-            logger.critical(e, exc_info=log_level == "DEBUG")
-            raise SystemExit(1) from e
+            repo.index.commit(f"chore(cellophane): Updated '{_module}->{branch}'")
+            logger.info(f"Updated '{_module}->{branch}'")
 
 
 def rm(
@@ -743,29 +746,31 @@ def rm(
 ):
     """Remove module"""
 
-    removed = []
-    for _module, _ in modules:
-        try:
-            sm = repo.submodule(_module)
-            logger.info(f"Removing module {_module}")
-            sm.remove()
-        except Exception as exception:  # pylint: disable=broad-except
-            logger.error(exception)
-            continue
-        else:
-            removed.append(_module)
+    del kwargs  # Unused
 
-    if removed:
+    _path = None
+    for _module, _ in modules:
+        submodule = None
         try:
+            submodule = repo.submodule(_module)
+            _path = submodule.path
+            submodule.remove()
             _update_example_config(path)
             _remove_requirements(path, _module)
-            repo.index.write()
-            repo.index.commit(
-                f"feat(cellophane): Removed module(s) {', '.join(removed)}"
+        except Exception as exc:  # pylint: disable=broad-except
+            logger.error(
+                f"Unable to remove '{_module}': {repr(exc)}",
+                exc_info=log_level == "DEBUG",
             )
-        except Exception as e:
-            logger.critical(e, exc_info=log_level == "DEBUG")
-            raise SystemExit(1) from e
+            if _path is not None:
+                repo.git.checkout(
+                    "HEAD", "--", _path, ".gitmodules", "config.example.yaml"
+                )
+        else:
+            repo.index.add("config.example.yaml")
+            repo.index.write()
+            repo.index.commit(f"feat(cellophane): Removed '{_module}'")
+            logger.info(f"Removed '{_module}'")
 
 
 @main.command()
