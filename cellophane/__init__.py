@@ -216,12 +216,6 @@ def cellophane(
         logger.critical(f"Failed to load schema: {exception}")
         raise SystemExit(1) from exception
 
-    try:
-        hooks, runners, samples_class = _load_modules(root, logger)
-    except Exception as exception:
-        logger.critical(f"Unhandled exception: {exception}", exc_info=True)
-        raise SystemExit(1) from exception
-
     @schema.add_options
     @click.command()
     @click.option(
@@ -263,6 +257,8 @@ def cellophane(
         )
 
         try:
+            hooks, runners, samples_class = _load_modules(root, logger)
+
             _main(
                 hooks=hooks,
                 runners=runners,
@@ -271,6 +267,10 @@ def cellophane(
                 logger=logger,
                 root=root,
             )
+        except ImportError as exc:
+            logger.critical(exc)
+            raise SystemExit(1) from exc
+
         except Exception as exception:
             logger.critical(f"Unhandled exception: {exception}", exc_info=True)
             raise SystemExit(1) from exception

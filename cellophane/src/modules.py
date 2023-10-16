@@ -279,8 +279,8 @@ def load(
             module = module_from_spec(spec)  # type: ignore[arg-type]
             sys.modules[name] = module
             spec.loader.exec_module(module)  # type: ignore[union-attr]
-        except ImportError:
-            continue
+        except Exception as exc:
+            raise ImportError(f"Unable to import module '{base}': {exc}") from exc
 
         # Reset logging handlers to avoid duplicate messages
         for handler in {*logging.root.handlers} ^ {*original_handlers}:
