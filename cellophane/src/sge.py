@@ -121,7 +121,50 @@ def submit(
     callback: Optional[Callable] = None,
     error_callback: Optional[Callable] = None,
 ):
-    """Submit a job to SGE using DRMAA."""
+    """
+    Submits a job for execution on SGE.
+
+    Args:
+        script (str): The path to the script to be executed.
+        *args: Additional positional arguments for the script.
+        name (str): The name of the job. Defaults to the current module name.
+        config (cfg.Config): The configuration object.
+        uuid (UUID | None): The UUID of the job. Defaults to a new UUID.
+        queue (str | None): The queue for the job.
+            Defaults to the queue specified in the configuration.
+        pe (str | None): The parallel environment for the job.
+            Defaults to the parallel environment specified in the configuration.
+        slots (int | None): The number of slots for the job.
+            Defaults to the number of slots specified in the configuration.
+        env (dict | None): Additional environment variables for the job.
+            Defaults to an empty dictionary.
+        cwd (Path): The current working directory for the job.
+            Defaults to the current working directory.
+        os_env (bool): Whether to include the current operating system environment
+            variables for the job. Defaults to True.
+        check (bool): Whether to wait and check the exit code of the job.
+            Defaults to True.
+        callback (Callable | None): A callback function to be called after the job
+            completes successfully.
+        error_callback (Callable | None): A callback function to be called if the job
+            fails.
+
+    Returns:
+        multiprocessing.Process: The process object representing the submitted job.
+
+    Raises:
+        RuntimeError: Raised when the job fails with a non-zero exit code
+            if `check` is True.
+
+    Example:
+        ```python
+        script = "/path/to/script.py"
+        args = ("arg1", "arg2")
+        config = cfg.Config(...)
+        job = submit(script, *args, config=config)
+        job.join()
+        ```
+    """
     if uuid is None:
         uuid = uuid4()
 

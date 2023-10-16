@@ -181,7 +181,24 @@ def cellophane(
     label: str,
     root: Path,
 ) -> click.BaseCommand:
-    """Generate a cellophane CLI from a schema file"""
+    """
+    Creates a click command for running the Cellophane application.
+
+    Defines a click command that represents the Cellophane application.
+    Sets up the necessary configurations, initializes the logger, and executes
+    the main logic of the application.
+
+    The log level, config path, and output prefix, are hard-coded as command
+    line options. The remaining options are dynamically generated from the
+    schema files.
+
+    Args:
+        label (str): The label for the application.
+        root (Path): The root path for the application.
+
+    Returns:
+        click.BaseCommand: The click command for the Cellophane application.
+    """
     click.rich_click.DEFAULT_STRING = "[{}]"
 
     logs.setup_logging()

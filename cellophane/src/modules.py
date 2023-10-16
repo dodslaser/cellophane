@@ -41,7 +41,17 @@ def _is_instance_or_subclass(obj, cls):
 
 
 class Runner:
-    """Base class for cellophane runners."""
+    """
+    A runner for executing a function as a job.
+
+    Args:
+        func (Callable): The function to be executed as a job.
+        label (str | None): The label for the runner.
+            Defaults to the name of the function.
+        individual_samples (bool): Whether to process samples individually.
+            Defaults to False.
+        link_by (str | None): The attribute to link samples by. Defaults to None.
+    """
 
     label: str
     individual_samples: bool
@@ -193,6 +203,20 @@ class Hook:
 def resolve_hook_dependencies(
     hooks: list[Hook],
 ) -> list[Hook]:
+    """
+    Resolves hook dependencies and returns the hooks in the resolved order.
+    Uses a topological sort to resolve dependencies. If the order of two hooks
+    cannot be determined, the order is not guaranteed.
+
+    # FIXME: It should be possible to determine the order of all hooks
+
+    Args:
+        hooks (list[Hook]): The list of hooks to resolve.
+
+    Returns:
+        list[Hook]: The hooks in the resolved order.
+    """
+
     deps = {
         name: {
             *[d for h in hooks if h.__name__ == name for d in h.after],
@@ -216,6 +240,23 @@ def load(
     list[type[data.Sample]],
     list[type[data.Samples]],
 ]:
+    """
+    Loads module(s) from the specified path and returns the hooks, runners,
+    sample mixins, and samples mixins found within.
+
+    Args:
+        path (Path): The path to the directory containing the modules.
+
+    Returns:
+        tuple[
+            list[Hook],
+            list[Runner],
+            list[type[data.Sample]],
+            list[type[data.Samples]],
+        ]: A tuple containing the lists of hooks, runners, sample mixins,
+            and samples mixins.
+    """
+
     hooks: list[Hook] = []
     runners: list[Runner] = []
     sample_mixins: list[type[data.Sample]] = []
@@ -264,8 +305,19 @@ def pre_hook(
     before: list[str] | Literal["all"] | None = None,
     after: list[str] | Literal["all"] | None = None,
 ) -> Callable:
+    """
+    Decorator for creating a pre-hook.
 
-    """Decorator for hooks that will run before all runners."""
+    Args:
+        label (str | None): The label for the pre-hook. Defaults to None.
+        before (list[str] | Literal["all"] | None): List of pre-hooks guaranteed to
+            execute after the resulting pre-hook. Defaults to an empty list.
+        after (list[str] | Literal["all"] | None): List of pre-hooks guaratneed to
+            execute before the resulting pre-hook. Defaults to an empty list.
+
+    Returns:
+        Callable: The decorator function.
+    """
 
     def wrapper(func):
         return Hook(
@@ -286,7 +338,25 @@ def post_hook(
     before: list[str] | Literal["all"] | None = None,
     after: list[str] | Literal["all"] | None = None,
 ):
-    """Decorator for hooks that will run after all runners."""
+    """
+    Decorator for creating a post-hook.
+
+    Args:
+        label (str | None): The label for the pre-hook. Defaults to None.
+        condition (Literal["always", "complete", "failed"]): The condition for
+            the post-hook to execute.
+            - "always": The post-hook will always execute.
+            - "complete": The post-hook will recieve only completed samples.
+            - "failed": The post-hook will recieve only failed samples.
+            Defaults to "always".
+        before (list[str] | Literal["all"] | None): List of post-hooks guaranteed to
+            execute after the resulting pre-hook. Defaults to an empty list.
+        after (list[str] | Literal["all"] | None): List of post-hooks guaratneed to
+            execute before the resulting pre-hook. Defaults to an empty list.
+
+    Returns:
+        Callable: The decorator function.
+    """
     if condition not in ["always", "complete", "failed"]:
         raise ValueError(f"{condition=} must be one of 'always', 'complete', 'failed'")
 
@@ -308,7 +378,18 @@ def runner(
     individual_samples: bool = False,
     link_by: Optional[str] = None,
 ):
-    """Decorator for runners."""
+    """
+    Decorator for creating a runner.
+
+    Args:
+        label (str | None): The label for the runner. Defaults to None.
+        individual_samples (bool): Whether to process samples individually.
+            Defaults to False.
+        link_by (str | None): The attribute to link samples by. Defaults to None.
+
+    Returns:
+        Callable: The decorator function.
+    """
 
     def wrapper(func):
         return Runner(

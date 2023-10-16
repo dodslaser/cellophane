@@ -15,13 +15,20 @@ _YAML = YAML(typ="safe")
 
 @define(slots=False)
 class Container(UserDict):
-    """Supercharged dict with attribute access
+    """Base container class for the Config, Sample, and Samples classes.
 
-    Similar to dotwiz/Box, but with a few differences:
-    - Supports nested attribute access/assignment
-    - Uses attrs for initialization (so supports attrs features like validators)
+    The container supports attribute-style access to its data and allows nested key
+    access using Sequence[str] keys.
 
-    This is used internally for the cfg.Config and data.Sample classes
+    Args:
+        data (dict | None): The initial data for the container.
+            Defaults to an empty dictionary.
+
+    Attributes:
+        data (dict): The dictionary that stores the data.
+
+    Methods:
+        as_dict: Returns the container's data as a dictionary.
     """
 
     data: dict = field(factory=dict)
@@ -42,6 +49,33 @@ class Container(UserDict):
     # FIXME: This is pretty slow, and should probably be implemented by each subclass
     @property
     def as_dict(self):
+        """Dictionary representation of the container.
+
+        The dictionary will have the same nested structure as the container.
+
+        Returns:
+            dict: A dictionary representation of the container object.
+
+        Example:
+            ```python
+            data = Container(
+                key_1 = "value_1",
+                key_2 = Container(
+                    key_3 = "value_3",
+                    key_4 = "value_4"
+                )
+            )
+            print(data.as_dict)
+            # {
+            #     "key_1": "value_1",
+            #     "key_2": {
+            #         "key_3": "value_3",
+            #         "key_4": "value_4"
+            #     }
+            # }
+            ```
+        """
+
         ret = dict(self)
         for k, v in ret.items():
             if isinstance(v, Container):
@@ -53,13 +87,37 @@ class Container(UserDict):
         return [*dir(self), *fields_dict(self.__class__)]
 
     def keys(self):
+        """
+        Keys view of the container object.
+
+        Only returns keys on the top level of the container's data.
+
+        Returns:
+            KeysView: A view of the keys.
+        """
         _fields = {k: None for k in fields_dict(self.__class__) if k != "data"}
         return KeysView({**_fields, **self.data})
 
     def values(self):
+        """
+        Values view of the container object.
+
+        Only returns values on the top level of the container's data.
+
+        Returns:
+            ValuesView: A view of the values.
+        """
         return ValuesView({k: self[k] for k in self.keys()})
 
     def items(self):
+        """
+        Items view of the container object.
+
+        Only returns keys-value pairs on the top level of the container's data.
+
+        Returns:
+            ItemsView: A view of the keys.
+        """
         return ItemsView({k: self[k] for k in self.keys()})
 
     def __contains__(self, key) -> bool:
@@ -121,7 +179,17 @@ class Container(UserDict):
 
 @define(frozen=True, slots=False)
 class Output:
-    """Output dataclass for samples."""
+    """
+    Output class represents an output file or directory.
+
+    Attributes:
+        src (set[Path]): The set of source paths.
+        dest_dir (Path): The destination directory.
+        parent_id (str | None): The optional parent ID. Defaults to None.
+
+    Methods:
+        set_parent_id(value: str): Sets the parent ID to the specified value.
+    """
 
     src: set[Path]
     dest_dir: Path
@@ -135,6 +203,15 @@ class Output:
             object.__setattr__(self, "src", {Path(s) for s in self.src})
 
     def set_parent_id(self, value: str):
+        """
+        Sets the value of the "parent_id" attribute to the specified value.
+
+        Args:
+            value (str): The value to set for the "parent_id" attribute.
+
+        Returns:
+            None
+        """
         object.__setattr__(self, "parent_id", value)
 
     def __hash__(self):
@@ -155,13 +232,20 @@ def _apply_mixins(cls, base, mixins):
 
 @define(slots=False, init=False)
 class Sample(Container):
-    """Base sample container
+    """
+    Base sample class represents a sample with an ID, a list of files, a flag indicating
+    if it's done, and a list of Output objects.
+    Can be subclassed in a module to add additional functionality (mixin).
 
-    Uses data.Container under the hood.
+    Attributes:
+        id (str): The ID of the sample.
+        files (list[str]): The list of files associated with the sample.
+        done (bool | None): The flag indicating if the sample is done. Defaults to None.
+        output (list[Output]): The list of Output objects associated with the sample.
 
-    Can be extended by subclassing in a module (subclass will be added to data.Sample
-    as a base class). @attrs.define decorator is not necessary for subclasses but may
-    help with type checking.
+    Methods:
+        with_mixins(mixins): Returns a new Sample class with the specified mixins
+            applied.
     """
 
     id: str = field(kw_only=True)
@@ -179,6 +263,20 @@ class Sample(Container):
 
     @classmethod
     def with_mixins(cls, mixins):
+        """
+        Returns a new Sample class with the specified mixins as base classes.
+
+        Internally called by Cellophane with the samples mixins specified
+        in the loaded modules. Uses attrs.make_class to create a new class,
+        so any attrs decorators in the mixins will be applied.
+
+        Args:
+            cls (type): The class to apply the mixins to.
+            mixins (Iterable[type]): An iterable of mixin classes to apply.
+
+        Returns:
+            type: The new class with the mixins applied.
+        """
         return _apply_mixins(cls, UserDict, mixins)
 
 
@@ -187,10 +285,21 @@ S = TypeVar("S", bound=Sample)
 
 @define(slots=False, order=False, init=False)
 class Samples(UserList[S]):
-    """A list of sample containers
+    """
+    Base samples class represents a list of samples.
+    Can be subclassed in a module to add additional functionality (mixin).
 
-    Can be extended by subclassing in a module in the same way as data.Sample. Uses
-    attrs under the hood, so the final object will support all attrs features.
+    Attributes:
+        data (list[Sample]): The list of samples.
+
+    Methods:
+        from_file(path: Path): Returns a new Samples object with samples loaded from
+            the specified YAML file.
+        with_mixins(mixins): Returns a new Samples class with the specified mixins
+            applied.
+        with_sample_class(sample_class): Returns a new Samples class with the specified
+            sample class.
+
     """
 
     data: list[S] = field(factory=list)
@@ -213,13 +322,81 @@ class Samples(UserList[S]):
 
     @classmethod
     def with_mixins(cls, mixins):
+        """
+        Returns a new Samples class with the specified mixins as base classes.
+
+        Internally called by Cellophane with the samples mixins specified
+        in the loaded modules. Uses attrs.make_class to create a new class,
+        so any attrs decorators in the mixins will be applied.
+
+        Args:
+            cls (type): The class to apply the mixins to.
+            mixins (Iterable[type]): An iterable of mixin classes to apply.
+
+        Returns:
+            type: The new class with the mixins applied.
+        """
+
         return _apply_mixins(cls, UserList, mixins)
 
     @classmethod
     def with_sample_class(cls, sample_class):
+        """
+        Returns a new Samples class with the specified sample class as the
+        class to use for samples.
+
+        Internally called by Cellophane with the samples mixins specified
+        in the loaded modules.
+
+        Args:
+            cls (type): The class to apply the mixins to.
+            sample_class (type): The class to use for samples.
+
+        Returns:
+            type: The new class with the sample class applied.
+        """
+
         return type(cls.__name__, (cls,), {"sample_class": sample_class})
 
     def split(self, link_by: Optional[str] = None):
+        """
+        Splits the data into groups based on the specified attribute value.
+
+        Args:
+            link_by (str | None): The attribute to link the samples by.
+                Defaults to None, which results in Samples objects with one
+                sample each.
+
+        Yields:
+            Iterable[Samples]: An iterable of Samples objects.
+
+        Example:
+            ```python
+            Samples(
+                [
+                    Sample(id="sample1", files=["file1_1.txt"]),
+                    Sample(id="sample1", files=["file1_2.txt"]),
+                    Sample(id="sample2", files=["file2.txt"]),
+                ]
+            )
+
+            # Splitting by the "id" attribute (eg. to merge data from multiple runs)
+            for samples in data.split(link_by="id"):
+                print(samples)
+            # Samples(
+            #     Sample(id='sample1', files=['file1_1.txt']),
+            #     Sample(id='sample1', files=['file1_2.txt'])
+            # )
+            # Samples(Sample(id='sample2', files=['file2.txt']))
+
+            # Splitting without linking (eg. to get individual samples)
+            for sample in data.split():
+                print(sample)
+            # Samples(Sample(id='sample1', files=['file1_1.txt']))
+            # Samples(Sample(id='sample1', files=['file1_2.txt']))
+            # Samples(Sample(id='sample2', files=['file2.txt']))
+            ```
+        """
         if link_by is not None:
             linked = {
                 sample[link_by]: [li for li in self if li[link_by] == sample[link_by]]
@@ -230,8 +407,36 @@ class Samples(UserList[S]):
         else:
             for sample in self:
                 yield self.__class__([sample])
-
+    
     def remove_invalid(self):
+        """
+        Removes invalid samples from the calling Samples object.
+
+        Invalid samples are defined as samples that have:
+        - None or missing files
+        - None values in the files list
+        - Files that do not exist
+        - Non-string ID values
+
+        Example:
+            ```python
+            data = Samples(
+                [
+                    Sample(id="sample1", files=["file1.txt"]),
+                    Sample(id="sample2", files=[None, "file2.txt"]),
+                    Sample(id="sample3", files=["file3.txt"]),
+                ]
+            )
+
+            # Removing invalid samples
+            data.remove_invalid()
+            print(data)
+            # Samples(
+            #     Sample(id='sample1', files=['file1.txt']),
+            #     Sample(id='sample3', files=['file3.txt'])
+            # )
+            ```
+        """
         self.data = [
             sample
             for sample in self
@@ -243,10 +448,38 @@ class Samples(UserList[S]):
 
     @property
     def unique_ids(self):
+        """
+        Returns a set of unique IDs from the samples in the data.
+
+        Returns:
+            set[str]: The set of unique IDs.
+
+        Example:
+            ```python
+            data = [
+                Sample(id="sample1", files=["file1.txt"]),
+                Sample(id="sample2", files=["file2.txt"]),
+                Sample(id="sample1", files=["file3.txt"]),
+            ]
+
+            unique_ids = data.unique_ids
+            print(unique_ids)  # {"sample1", "sample2"}
+            ```
+        """
         return {s.id for s in self}
 
     @property
     def complete(self):
+        """
+        Get only completed samples from a Samples object.
+
+        Samples are considered as completed if all runners have completed
+        successfully, and the sample is marked as done.
+
+        Returns:
+            Class: A new instance of the class with only the completed samples.
+        """
+
         return self.__class__(
             [
                 sample
@@ -258,6 +491,15 @@ class Samples(UserList[S]):
 
     @property
     def failed(self):
+        """
+        Get only failed samples from a Samples object.
+
+        Samples are considered as failed if one or more of the runners has not
+        completed successfully, or has explicitly marked the sample as not done.
+
+        Returns:
+            Class: A new instance of the class with only the failed samples.
+        """
         return self.__class__(
             [
                 sample

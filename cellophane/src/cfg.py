@@ -18,6 +18,44 @@ _YAML = YAML()
 
 
 class StringMapping(click.ParamType):
+    """
+    Represents a click parameter type for comma-separated mappings.
+
+    Attributes:
+        name (str): The name of the parameter type.
+        scanner (re.Scanner): The regular expression scanner used for parsing mappings.
+
+    Methods:
+        convert(
+            value: str | Mapping,
+            param: click.Parameter | None,
+            ctx: click.Context | None,
+        ) -> Mapping | None:
+            Converts the input value to a mapping.
+
+    Args:
+        value (str | Mapping): The input value to be converted.
+        param (click.Parameter | None): The click parameter associated with the value.
+        ctx (click.Context | None): The click context.
+
+    Returns:
+        Mapping | None: The converted mapping.
+
+    Raises:
+        click.BadParameter: When the input value is not a valid comma-separated mapping.
+
+    Example:
+        ```python
+        mapping_type = StringMapping()
+        value = "a=1, b=2, c=3"
+        param = None
+        ctx = None
+
+        result = mapping_type.convert(value, param, ctx)
+        print(result)  # Output: {'a': '1', 'b': '2', 'c': '3'}
+        ```
+    """
+
     name = "mapping"
     scanner = re.Scanner(  # type: ignore[attr-defined]
         [
@@ -35,6 +73,37 @@ class StringMapping(click.ParamType):
         param: click.Parameter | None,
         ctx: click.Context | None,
     ) -> Mapping:
+        """
+        Converts a string value to a mapping.
+
+        This method takes a value and converts it to a mapping.
+        If the value is a string, it is scanned and split into tokens.
+        If the number of tokens is even, the tokens are paired up and
+        converted into a dictionary.
+        If the value is already a mapping and there are no extra tokens,
+        it is returned as is. Otherwise, an error is raised.
+
+        Args:
+            self: The instance of the class.
+            value (str | Mapping): The value to be converted.
+            param (click.Parameter | None): The click parameter
+                associated with the value.
+            ctx (click.Context | None): The click context associated with the value.
+
+        Returns:
+            Mapping | None: The converted mapping value.
+
+        Raises:
+            ValueError: Raised when the value is not a valid comma-separated mapping.
+
+        Example:
+            ```python
+            converter = Converter()
+            value = "a=1,b=2"
+            result = converter.convert(value, None, None)
+            print(result)  # {'a': '1', 'b': '2'}
+            ```
+        """
         _extra = []
         if isinstance(value, str):
             _tokens, _extra = self.scanner.scan(value)
@@ -49,6 +118,38 @@ class StringMapping(click.ParamType):
 
 @define(slots=False)
 class Flag:
+    """
+    Represents a flag used for command-line options.
+
+    Attributes:
+        parent_present (bool): Indicates if the parent is present.
+        parent_required (bool): Indicates if the parent is required.
+        node_required (bool): Indicates if the node is required.
+        key (list[str] | None): The key associated with the flag.
+        type (
+            Literal[
+                "string",
+                "number",
+                "integer",
+                "boolean",
+                "mapping",
+                "array",
+                "path",
+            ] | None
+        ): The type of the flag.
+        description (str | None): The description of the flag.
+        default (Any): The default value of the flag.
+        enum (list[Any] | None): The list of allowed values for the flag.
+        secret (bool): Determines if the value is hidden in the help section.
+
+    Properties:
+        required: Determines if the flag is required.
+        pytype: Returns the Python type corresponding to the flag type.
+        flag: Returns the flag name.
+        click_option: Returns the click.option decorator for the flag.
+        ```
+    """
+
     parent_present: bool = field(default=False)
     parent_required: bool = field(default=False)
     node_required: bool = field(default=False)
@@ -81,13 +182,37 @@ class Flag:
         ]:
             raise ValueError(f"Invalid type: {value}")
 
+        """
+        Retrieves the key.
+
+        Returns:
+            list[str]: The key.
+
+        Raises:
+            ValueError: Raised when the key is not set.
+        """
     @property
     def required(self) -> bool:
-        """Determines if the flag is required"""
+        """
+        Returns a boolean indicating whether the property is required.
+
+        A property is required if the node is required and the parent
+        is present OR required.
+
+        Returns:
+            bool: True if the property is required, False otherwise.
+        """
+
         return self.node_required and (self.parent_present or self.parent_required)
 
     @property
     def pytype(self):
+        """
+        Translate jsonschema type to Python type.
+
+        Returns:
+            type: The Python type corresponding to the property type.
+        """
         match self.type:
             case _ if self.enum:
                 return click.Choice(self.enum)
@@ -108,10 +233,27 @@ class Flag:
 
     @property
     def flag(self) -> str:
+        """
+        Constructs the flag name from the key.
+
+        The flag name is constructed by joining the key with underscores.
+
+        Raises:
+            ValueError: Raised when the key is None.
+
+        Returns:
+            str: The flag name.
+        """
         return "_".join(self.key)
 
     @property
     def click_option(self) -> Callable:
+        """
+        Construct a click.option decorator from a Flag
+
+        Returns:
+            Callable: A click.option decorator
+        """
         return click.option(
             f"--{self.flag}/--no-{self.flag}"
             if self.type == "boolean"
@@ -203,11 +345,43 @@ RequiredValidator = extend(
 
 @define(slots=False, init=False, frozen=True)
 class Schema(data.Container):
-    """Schema for validating configuration files"""
+    """
+    Represents a schema for configuration data.
+
+    Class Methods:
+        from_file(cls, path: Path | Sequence[Path]) -> Schema:
+            Loads the schema from a file or a sequence of files.
+
+    Properties:
+        add_options: Decorator that adds click options to a function.
+        flags: List of flags extracted from the schema.
+        example_config: Example configuration generated from the schema.
+
+    Example:
+        ```python
+        schema = Schema()
+
+        # Loading schema from a file
+        path = Path("schema.yaml")
+        loaded_schema = Schema.from_file(path)
+
+        # Adding click options to a function
+        @schema.add_options
+        @click.command()
+        def cli(**kwargs):
+            ...
+
+        # Getting the list of flags
+        flags = schema.flags
+
+        # Generating an example configuration
+        example_config = schema.example_config
+        ```
+    """
 
     @classmethod
     def from_file(cls, path: Path | Sequence[Path]):
-        """Load schema from file"""
+        """Loads the schema from a file or a sequence of files"""
         if isinstance(path, Path):
             with open(path, "r", encoding="utf-8") as handle:
                 return cls(_YAML.load(handle) or {})
@@ -219,6 +393,7 @@ class Schema(data.Container):
 
     @property
     def add_options(self) -> Callable:
+        """Decorator that adds click options to a function"""
         def wrapper(func):
             for flag in self.flags:
                 func = flag.click_option(func)
@@ -243,6 +418,7 @@ class Schema(data.Container):
 
     @cached_property
     def example_config(self) -> str:
+        """Generate an example configuration from the schema"""
         _map = CommentedMap()
         for flag in self.flags:
             if flag.description:
@@ -270,7 +446,58 @@ class Schema(data.Container):
 
 @define(slots=False, kw_only=True, init=False)
 class Config(data.Container):
-    """Configuration file"""
+    """
+    Represents a configuration object based on a schema.
+
+    Attributes:
+        schema (Schema): The schema associated with the configuration.
+
+    Methods:
+        __init__(
+            schema: Schema,
+            allow_empty: bool = False,
+            _data: dict | None = None,
+            **kwargs,
+        ):
+            Initializes the Config object with the given schema and data.
+
+        from_file(
+            path: str,
+            schema: Schema,
+            validate: bool = True,
+            allow_empty: bool = False,
+            **kwargs,
+        ):
+            Creates a Config object from a file.
+
+        as_dict:
+            Returns the configuration as a dictionary.
+
+        flags:
+            Returns the flags from the schema that depend on the configuration.
+
+    Args:
+        schema (Schema): The schema associated with the configuration.
+        allow_empty (bool, optional): Allow empty configuration. Defaults to False.
+        _data (dict | None, optional): The data for the configuration. Defaults to None.
+        **kwargs: Additional keyword arguments for the configuration.
+
+    Example:
+        ```python
+        schema = Schema()
+        config = Config(schema)
+
+        # Creating a configuration from a file
+        path = "config.yaml"
+        config = Config.from_file(path, schema)
+
+        # Accessing the configuration as a dictionary
+        data = config.as_dict
+
+        # Getting the flags from the schema with config values used for defaults
+        flags = config.flags
+        ```
+    """
 
     schema: Schema
 
@@ -297,6 +524,12 @@ class Config(data.Container):
 
     @property
     def as_dict(self):
+        """
+        Convert the configuration to a dictionary.
+
+        Returns:
+            dict: The configuration as a dictionary.
+        """
         return {
             k: v.as_dict if isinstance(v, data.Container) else v
             for k, v in self.data.items()
@@ -312,6 +545,7 @@ class Config(data.Container):
         allow_empty: bool = False,
         **kwargs,
     ):
+        """Creates a Config object from a file"""
         _path = Path(path)
         _data = _YAML.load(_path.read_bytes())
 
@@ -325,6 +559,7 @@ class Config(data.Container):
 
     @property
     def flags(self) -> list[Flag]:
+        """Get flags from schema with config values used for defaults"""
         _flags: list[Flag] = []
         _data = deepcopy(self.as_dict) | {_Root: True}
         RootValidator(self.schema.as_dict).validate(_data)

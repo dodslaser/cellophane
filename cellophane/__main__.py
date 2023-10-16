@@ -14,12 +14,27 @@ from . import CELLOPHANE_ROOT, cfg, logs
 
 
 class InvalidModuleError(Exception):
+    """
+    Exception raised when a module is not valid.
+
+    Args:
+        _module (str): The name of the module.
+        msg (str | None): The error message (default: None).
+    """
     def __init__(self, _module: str, msg=None):
         self.module = _module
         super().__init__(msg or f"Module '{_module}' is not valid")
 
 
 class InvalidBranchError(Exception):
+    """
+    Exception raised when a module is not valid.
+
+    Args:
+        _module (str): The name of the module.
+        branch (str): The name of the branch.
+        msg (str | None): The error message (default: None).
+    """
     def __init__(self, _module: str, branch: str, msg=None):
         self.module = _module
         self.branch = branch
@@ -27,11 +42,23 @@ class InvalidBranchError(Exception):
 
 
 class NoModulesError(Exception):
+    """
+    Exception raised when there are no modules to select from.
+    """
     def __init__(self):
         super().__init__("No modules to select from")
 
 
 class InvalidModulesRepoError(InvalidGitRepositoryError):
+    """
+    Exception raised when the modules repository is invalid.
+
+    Args:
+        url (str): The URL of the invalid modules repository.
+        *args: Additional positional arguments passed to InvalidGitRepositoryError.
+        msg (str | None): The error message (default: None).
+        **kwargs: Additional keyword arguments passed to InvalidGitRepositoryError.
+    """
     def __init__(self, url, *args, msg=None, **kwargs):
         super().__init__(
             msg or f"Invalid modules repository ({url})",
@@ -41,6 +68,15 @@ class InvalidModulesRepoError(InvalidGitRepositoryError):
 
 
 class InvalidCellophaneRepoError(InvalidGitRepositoryError):
+    """
+    Exception raised when the project repository is invalid.
+
+    Args:
+        path (Path | str): The project root path.
+        *args: Additional positional arguments passed to InvalidGitRepositoryError.
+        msg (str | None): The error message (default: None).
+        **kwargs: Additional keyword arguments passed to InvalidGitRepositoryError.
+    """
     def __init__(self, path, *args, msg=None, **kwargs):
         super().__init__(
             msg or f"Invalid cellophane repository ({path})",
@@ -50,8 +86,63 @@ class InvalidCellophaneRepoError(InvalidGitRepositoryError):
 
 
 class ModulesRepo(Repo):
+    """
+    Represents a modules repository.
+
+    This class extends the `Repo` class and provides additional functionality
+    specific to modules repositories.
+
+    Methods:
+        from_url(cls, url: str) -> ModulesRepo:
+            Creates a `ModulesRepo` instance by cloning the repository from the
+            specified URL.
+
+        _branches(self) -> List[str]:
+            Retrieves the list of branches in the repository.
+
+        modules(self) -> List[str]:
+            Retrieves the list of modules in the repository.
+
+        module_branches(self, _module: str) -> List[str]:
+            Retrieves the branches associated with the specified module.
+
+        latest_module_tag(self, _module: str) -> str:
+            Retrieves the latest tag for the specified module.
+
+    Attributes:
+        url: The URL of the repository.
+
+        Example:
+            ```python
+            url = "https://github.com/ClinicalGenomicsGBG/cellophane_modules"
+            repo = ModulesRepo.from_url(url)
+            branches = repo.module_branches("my_module")
+            latest_tag = repo.latest_module_tag("my_module")
+            ```
+    """
+
     @classmethod
     def from_url(cls, url):
+        """
+        Creates a `ModulesRepo` instance by cloning the repository from the specified
+        URL.
+
+        Args:
+            cls: The class itself.
+            url (str): The URL of the repository.
+
+        Returns:
+            ModulesRepo: An instance of the `ModulesRepo` class.
+
+        Raises:
+            InvalidModulesRepoError: Raised when the repository cloning fails.
+
+        Example:
+            ```python
+            url = "https://github.com/ClinicalGenomicsGBG/cellophane_modules"
+            repo = ModulesRepo.from_url(url)
+            ```
+        """
         _path = mkdtemp(prefix="cellophane_modules_")
         try:
             return cls.clone_from(url, _path, checkout=False)
@@ -68,6 +159,17 @@ class ModulesRepo(Repo):
 
     @cached_property
     def modules(self) -> list[str]:
+        """
+        Retrieves the list of modules in the repository.
+
+
+        Uses `git ls_tree` to retrieve the list of subdirectories in the repository.
+        All non-hidden directories at the base level are considered modules.
+
+        Returns:
+            List[str]: The list of module names.
+        """
+
         return [
             m
             for m in self.git.ls_tree(
@@ -86,6 +188,23 @@ class ModulesRepo(Repo):
 
     @lru_cache
     def module_branches(self, _module: str):
+        """
+        Retrieves the branches associated with the specified module.
+
+        Args:
+            _module (str): The name of the module.
+
+        Returns:
+            list[str]: The list of branch names associated with the module.
+
+        Example:
+            ```python
+            repo = ModulesRepo()
+            module = "my_module"
+            repo.module_branches(module)  # ["latest", "v1.0.0", "v1.0.1"]
+            ```
+        """
+
         return [
             b.removeprefix(_module).lstrip("_")
             for b in self._branches
@@ -99,6 +218,27 @@ class ModulesRepo(Repo):
 
     @lru_cache
     def latest_module_tag(self, _module: str):
+        """
+        Retrieves the latest tag for the specified module.
+
+        Assumes most recent tag is the latest release.
+
+        Args:
+            _module (str): The name of the module.
+
+        Returns:
+            str: The name of the latest tag for the module.
+
+        Raises:
+            AttributeError: Raised when no releases are found for the module.
+
+        Example:
+            ```python
+            repo = ModulesRepo()
+            module = "my_module"
+            repo.latest_module_tag(module) # "v1.0.1"
+            ```
+        """
         if tags := [t for t in self.tags if t.name in self.module_branches(_module)]:
             # FIXME: This assumes that the most recent release is the latest version
             return sorted(tags, key=lambda t: t.object.committed_date)[-1].name
@@ -107,10 +247,41 @@ class ModulesRepo(Repo):
 
     @property
     def url(self):
+        """Returns the URL of the repository."""
         return self.remote("origin").url
 
 
 class CellophaneRepo(Repo):
+    """
+    Represents a Cellophane project repository.
+
+    Extends the `Repo` class and provides additional functionality specific to
+    Cellophane project repositories.
+
+    Attributes:
+        external (ModulesRepo): The external modules repository.
+
+    Methods:
+        initialize(cls, name, path: Path, modules_repo_url: str, force=False):
+            Initializes a new Cellophane project repository with the specified name,
+            path, and modules repository URL.
+
+    Properties:
+        modules (List[str]): The list of modules in the repository.
+        absent_modules (List[str]): List modules that are not added to the project.
+        present_modules (List[str]): List modules that are present in the project.
+
+    Example:
+        ```python
+        path = Path("path/to/repo")
+        modules_repo_url = "https://github.com/ClinicalGenomicsGBG/cellophane_modules"
+        repo = CellophaneRepo(path, modules_repo_url)
+        modules = repo.modules
+        absent_modules = repo.absent_modules  # ["module_a", "module_b"]
+        present_modules = repo.present_modules  # ["module_c", "module_d"]
+        ```
+    """
+
     external: ModulesRepo
 
     def __init__(self, path: Path, modules_repo_url: str | None = None, **kwargs):
@@ -123,6 +294,64 @@ class CellophaneRepo(Repo):
 
     @classmethod
     def initialize(cls, name, path: Path, modules_repo_url: str, force=False):
+        """
+        Initializes a new Cellophane repository with the specified name, path,
+        and modules repository URL.
+
+        Creates the necessary directories and files for the repository structure.
+        The repository is then initialized,, and an initial commit is made.
+
+        Args:
+            name (str): The name of the repository.
+            path (Path): The path where the repository will be initialized.
+            modules_repo_url (str): The URL of the modules repository.
+            force (bool | None): Whether to force initialization even if the path
+                is not empty. Defaults to False.
+
+        Returns:
+            CellophaneRepo: An instance of the `CellophaneRepo` class representing the
+                initialized repository.
+
+        Raises:
+            FileExistsError: Raised when the path is not empty and force is False.
+
+        Example:
+            ```python
+            name = "my_awesome_repo"
+            path = Path("/path/to/repo")
+            modules_repo_url = "https://example.com/modules"
+            repo = CellophaneRepo.initialize(name, path, modules_repo_url)
+
+            # ./my_awesome_wrapper/
+            # │
+            # │   # Directory containing cellophane modules
+            # ├── modules
+            # │   ├── __init__.py
+            # │   │
+            # │   │   # Requirements file for the modules
+            # │   └── requirements.txt
+            # │
+            # │   # Directory containing scripts to be submitted by Popen, SGE, etc.
+            # ├── scripts
+            # │   └── my_script.sh
+            # │
+            # │   # Directory containing misc. files used by the wrapper.
+            # ├── scripts
+            # │   └── some_more_data.txt
+            # │
+            # │   # Requirements file for the wrapper
+            # ├── requirements.txt
+            # │
+            # │   # JSON Schema defining configuration options
+            # ├── schema.yaml
+            # │
+            # │   # Main entrypoint for the wrapper
+            # └── __main__.py
+            # │
+            # │   # Alternative entrypoint for the wrapper
+            # └── my_awesome_wrapper.py
+            ```
+        """
         _prog_name = re.sub("\\W", "_", name)
 
         if [*path.glob("*")] and not force:
@@ -178,14 +407,33 @@ class CellophaneRepo(Repo):
 
     @property
     def modules(self) -> list[str]:
+        """
+        Retrieves the list of modules in the repository.
+
+        Returns:
+            List[str]: The list of module names.
+        """
         return [sm.name for sm in self.submodules]
 
     @property
     def absent_modules(self) -> list[str]:
+        """
+        Retrieves the list of modules not added to the project.
+
+        Returns:
+            List[str]: List modules not added to the project.
+        """
+
         return [*{*self.external.modules} - {*self.modules}]
 
     @property
     def present_modules(self) -> list[str]:
+        """
+        Retrieves the list of modules currently in the project.
+
+        Returns:
+            List[str]: List modules not added to the project.
+        """
         return [*{*self.modules} & {*self.external.modules}]
 
 
