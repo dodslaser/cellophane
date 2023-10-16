@@ -369,23 +369,28 @@ class CellophaneRepo(Repo):
         ):
             file.touch(exist_ok=force)
 
-        with (
-            open(
-                CELLOPHANE_ROOT / "template" / "__main__.py",
-                mode="r",
-                encoding="utf-8",
-            ) as main_handle,
-            open(
-                CELLOPHANE_ROOT / "template" / "entrypoint.py",
-                mode="r",
-                encoding="utf-8",
-            ) as entry_handle,
-            open(path / f"{_prog_name}.py", "w", encoding="utf-8") as entry_dest_handle,
-            open(path / "__main__.py", "w", encoding="utf-8") as main_dest_handle,
-        ):
-            base = main_handle.read()
-            main_dest_handle.write(base.format(label=name, prog_name=_prog_name))
-            entry_dest_handle.write(entry_handle.read())
+        (path / "__main__.py").write_text(
+            (CELLOPHANE_ROOT / "template" / "__main__.py")
+            .read_text(encoding="utf-8")
+            .format(label=name, prog_name=_prog_name)
+        )
+
+        (path / f"{_prog_name}.py").write_text(
+            (CELLOPHANE_ROOT / "template" / "entrypoint.py")
+            .read_text(encoding="utf-8")
+            .format(label=name, prog_name=_prog_name)
+        )
+
+        (path / "requirements.txt").write_text(
+            (CELLOPHANE_ROOT / "template" / "requirements.txt")
+            .read_text(encoding="utf-8")
+            .format(label=name, prog_name=_prog_name)
+        )
+        (path / "modules" / "requirements.txt").write_text(
+            (CELLOPHANE_ROOT / "template" / "module_requirements.txt")
+            .read_text(encoding="utf-8")
+            .format(label=name, prog_name=_prog_name)
+        )
 
         _update_example_config(path)
 
@@ -394,6 +399,8 @@ class CellophaneRepo(Repo):
         repo.index.add(
             [
                 path / "modules" / "__init__.py",
+                path / "modules" / "requirements.txt",
+                path / "requirements.txt",
                 path / "schema.yaml",
                 path / "config.example.yaml",
                 path / "__main__.py",
@@ -437,7 +444,30 @@ class CellophaneRepo(Repo):
         return [*{*self.modules} & {*self.external.modules}]
 
 
-def _update_example_config(path: Path):
+def _add_requirements(path: Path, _module: str) -> None:
+    requirements_path = path / "modules" / "requirements.txt"
+    module_path = path / "modules" / _module
+
+    if (
+        module_path.is_dir()
+        and (module_requirements := module_path / "requirements.txt").exists()
+        and (spec := f"-r {module_requirements}\n") not in requirements_path.read_text()
+    ):
+        with open(requirements_path, "a", encoding="utf-8") as handle:
+            handle.write(spec)
+
+
+def _remove_requirements(path: Path, _module: str) -> None:
+    requirements_path = path / "modules" / "requirements.txt"
+    module_path = path / "modules" / _module
+
+    if (spec := f"-r {module_path / 'requirements.txt'}\n") in (
+        requirements := requirements_path.read_text()
+    ):
+        with open(requirements_path, "w", encoding="utf-8") as handle:
+            handle.write(requirements.replace(spec, ""))
+
+
     # FIXME: Add support for manually defined examples
     schema = cfg.Schema.from_file(
         path=[
@@ -637,9 +667,7 @@ def add(
                 url=repo.external.url,
                 branch=f"{_module}_{branch}",
             )
-            repo.index.add([sm])
-        except Exception as exception:  # pylint: disable=broad-except
-            logger.error(exception, exc_info=log_level == "DEBUG")
+            _add_requirements(path, _module)
             continue
         else:
             added.append(_module)
@@ -678,9 +706,8 @@ def update(
                 url=module_url,
                 branch=f"{_module}_{branch}",
             )
-            repo.index.add([sm])
-        except Exception as e:  # pylint: disable=broad-except
-            logger.error(e, exc_info=log_level == "DEBUG")
+            _remove_requirements(path, _module)
+            _add_requirements(path, _module)
             continue
         else:
             updated.append(_module)
@@ -728,12 +755,7 @@ def rm(
     if removed:
         try:
             _update_example_config(path)
-            repo.index.add(
-                [
-                    path / ".gitmodules",
-                    path / "config.example.yaml",
-                ]
-            )
+            _remove_requirements(path, _module)
             repo.index.write()
             repo.index.commit(
                 f"feat(cellophane): Removed module(s) {', '.join(removed)}"
