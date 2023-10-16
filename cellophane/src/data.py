@@ -307,6 +307,7 @@ class Samples(UserList[S]):
 
     data: list[S] = field(factory=list)
     sample_class: ClassVar[type[Sample]] = Sample
+    mixins: ClassVar[list[type["Samples"]]] = []
 
     def __init__(self, data: list | None = None, /, **kwargs):
         self.__attrs_init__(**kwargs)  # pylint: disable=no-member
