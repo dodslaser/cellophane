@@ -1,3 +1,5 @@
+# pragma: no cover
+
 """Testing utilities for Cellophane."""
 
 import logging
@@ -5,7 +7,7 @@ from pathlib import Path
 from shutil import copy, copytree
 from typing import Any
 
-from click.testing import CliRunner
+from click.testing import CliRunner, Result
 from pytest import FixtureRequest, LogCaptureFixture, fail, fixture, mark, param
 from pytest_mock import MockerFixture
 from ruamel.yaml import YAML
@@ -20,7 +22,7 @@ def _create_structure(
     structure: dict[str, str | dict[str, str]],
     external_root: Path | None = None,
     external: dict[str, str] | None = None,
-):
+) -> None:
     (root / "modules").mkdir(parents=True, exist_ok=True)
     (root / "schema.yaml").touch(exist_ok=True)
     copy(
@@ -42,7 +44,7 @@ def _create_structure(
         (root / dst).symlink_to(_src)
 
 
-def _fail_from_click_result(result, msg):
+def _fail_from_click_result(result: Result, msg: str) -> None:
     if result:
         fail(
             pytrace=False,
