@@ -153,7 +153,6 @@ class Flag:
     parent_present: bool = field(default=False)
     parent_required: bool = field(default=False)
     node_required: bool = field(default=False)
-    key: list[str] | None = field(default=None)
     type: Literal[
         "string",
         "number",
@@ -163,6 +162,7 @@ class Flag:
         "array",
         "path",
     ] | None = field(default=None)
+    _key: list[str] | None = field(default=None)
     description: str | None = field(default=None)
     default: Any = field(default=None)
     enum: list[Any] | None = field(default=None)
@@ -182,6 +182,9 @@ class Flag:
         ]:
             raise ValueError(f"Invalid type: {value}")
 
+
+    @property
+    def key(self) -> list[str]:
         """
         Retrieves the key.
 
@@ -191,6 +194,19 @@ class Flag:
         Raises:
             ValueError: Raised when the key is not set.
         """
+        if not self._key:
+            raise ValueError("Key not set")
+        return self._key
+
+    @key.setter
+    def key(self, value: list[str]) -> None:
+        if not isinstance(value, list) or not all(
+            isinstance(v, str) for v in value
+        ):
+            raise ValueError(f"Invalid key: {value}")
+
+        self._key = value
+
     @property
     def required(self) -> bool:
         """
