@@ -40,8 +40,8 @@ class Container(UserDict):
         self.__attrs_init__(*args, **kwargs)
         for k, v in _data.items():
             self[k] = v
-
     def __new__(cls, *args, **kwargs):
+        del args, kwargs  # unused
         instance = super().__new__(cls)
         object.__setattr__(instance, "data", {})
         return instance

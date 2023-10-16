@@ -7,7 +7,7 @@ import sys
 import time
 from pathlib import Path
 from signal import SIGTERM, signal
-from typing import Callable, Optional
+from typing import Any, Callable
 from uuid import UUID, uuid4
 
 import drmaa2
@@ -15,11 +15,12 @@ import drmaa2
 from . import cfg
 
 
-def _cleanup(job, session):
+def _cleanup(job: drmaa2.Job, session: drmaa2.JobSession) -> Callable:
     """Clean up after a job."""
 
     # FIXME: Nextflow doesn't kill chlid processes when a job is killed.
-    def inner(*_):
+    def inner(*args: Any) -> None:
+        del args  # Unused.
         job.terminate()
         job.wait_terminated()
         session.close()
@@ -31,12 +32,12 @@ def _cleanup(job, session):
 
 def _run(
     script: str,
-    *args,
+    *args: Any,
     logdir: Path,
     uuid: UUID,
-    queue: Optional[str],
-    pe: Optional[str],
-    slots: Optional[int],
+    queue: str | None,
+    pe: str | None,
+    slots: int | None,
     name: str,
     env: dict,
     cwd: Path,
@@ -107,20 +108,20 @@ def _run(
 
 def submit(
     script: str,
-    *args,
+    *args: Any,
     name: str = __name__,
     config: cfg.Config,
-    uuid: Optional[UUID] = None,
-    queue: Optional[str] = None,
-    pe: Optional[str] = None,
-    slots: Optional[int] = None,
-    env: Optional[dict] = None,
+    uuid: UUID | None = None,
+    queue: str | None = None,
+    pe: str | None = None,
+    slots: int | None = None,
+    env: dict | None = None,
     cwd: Path = Path.cwd(),
     os_env: bool = True,
     check: bool = True,
-    callback: Optional[Callable] = None,
-    error_callback: Optional[Callable] = None,
-):
+    callback: Callable | None = None,
+    error_callback: Callable | None = None,
+) -> mp.Process:
     """
     Submits a job for execution on SGE.
 

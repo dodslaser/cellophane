@@ -170,6 +170,8 @@ class Flag:
 
     @type.validator
     def _type(self, _, value: str | None) -> None:
+        del attribute  # Unused
+
         if value not in [
             "string",
             "number",
@@ -229,23 +231,26 @@ class Flag:
         Returns:
             type: The Python type corresponding to the property type.
         """
+        _click_type: Type | click.Path | click.Choice | StringMapping
         match self.type:
             case _ if self.enum:
-                return click.Choice(self.enum)
+                _click_type = click.Choice(self.enum)
             case "string":
-                return str
+                _click_type = str
             case "number":
-                return float
+                _click_type = float
             case "integer":
-                return int
+                _click_type = int
             case "boolean":
-                return bool
+                _click_type = bool
             case "mapping":
-                return StringMapping()
+                _click_type = StringMapping()
             case "array":
-                return list
+                _click_type = list
             case "path":
-                return click.Path(path_type=Path)
+                _click_type = click.Path(path_type=Path)
+
+        return _click_type
 
     @property
     def flag(self) -> str:
@@ -274,11 +279,10 @@ class Flag:
             f"--{self.flag}/--no-{self.flag}"
             if self.type == "boolean"
             else f"--{self.flag}",
-            type=self.pytype,
+            type=self.click_type,
             default=(
                 True
-                if self.type == "boolean"
-                and self.default is None
+                if self.type == "boolean" and self.default is None
                 else self.default
             ),
             required=self.required,
@@ -293,7 +297,7 @@ class _Root:  # pragma: no cover
 
 def _properties(
     """Convert properties to flags"""
-
+    del schema  # Unused
     # Instance will only be {} if no property of parent is present
     # Validator will only be ROOT_VALIDATOR if we are at the root (not evolved)
     _parent_present = instance != {} or instance.get(_Root, False)
@@ -323,8 +327,11 @@ def _properties(
 
 def _required(validator, required, instance, _):
     """Mark required flags as required"""
+
+    del schema  # Unused
+
     for prop in required:
-        match instance[prop]:
+        match instance.get(prop):
             case Flag() as flag:
                 flag.node_required = True
             case parent if validator.is_type(parent, "object"):
