@@ -21,8 +21,8 @@ def _run_hooks(
     hooks: Sequence[modules.Hook],
     when: Literal["pre", "post"],
     samples: data.Samples,
-    **kwargs,
-):
+    **kwargs: Any,
+) -> data.Samples:
     _samples = deepcopy(samples)
     for hook in [h for h in hooks if h.when == when]:
         match hook.condition:
@@ -43,9 +43,8 @@ def _start_runners(
     runners: Sequence[modules.Runner],
     samples: data.Samples,
     logger: logging.LoggerAdapter,
-    **kwargs,
-):
-
+    **kwargs: Any,
+) -> data.Samples:
     if not runners:
         logger.warning("No runners to execute")
         return samples
@@ -88,7 +87,10 @@ def _start_runners(
             return samples
 
 
-def _load_modules(root, logger):
+def _load_modules(
+    root: Path,
+    logger: logging.LoggerAdapter,
+) -> tuple[list[modules.Hook], list[modules.Runner], type[data.Samples]]:
     (
         hooks,
         runners,
@@ -236,7 +238,7 @@ def cellophane(
         help="Log level",
         show_default=True,
     )
-    def inner(log_level, outprefix, **kwargs) -> Any:
+    def inner(log_level: str, outprefix: str, **kwargs: Any) -> None:
         """Run cellophane"""
         start_time = time.time()
         console_handler.setLevel(log_level)

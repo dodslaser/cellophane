@@ -169,7 +169,7 @@ class Flag:
     secret: bool = field(default=False)
 
     @type.validator
-    def _type(self, _, value: str | None) -> None:
+    def _type(self, attribute: str, value: str | None) -> None:
         del attribute  # Unused
 
         if value not in [
@@ -224,7 +224,7 @@ class Flag:
         return self.node_required and (self.parent_present or self.parent_required)
 
     @property
-    def pytype(self):
+    def click_type(self) -> Type | click.Path | click.Choice | StringMapping:
         """
         Translate jsonschema type to Python type.
 
@@ -296,6 +296,11 @@ class _Root:  # pragma: no cover
 
 
 def _properties(
+    validator: Draft7Validator,
+    properties: dict[str, dict],
+    instance: dict,
+    schema: dict,
+) -> Generator:
     """Convert properties to flags"""
     del schema  # Unused
     # Instance will only be {} if no property of parent is present
@@ -308,7 +313,7 @@ def _properties(
             case _:
                 _flag = Flag(
                     parent_present=_parent_present,
-                    default=instance.get(prop, None) or subschema.get("default", None),
+                    default=instance.get(prop) or subschema.get("default", None),
                     type=subschema.get("type", None),
                     enum=subschema.get("enum", None),
                     description=subschema.get("description", None),
@@ -325,7 +330,12 @@ def _properties(
         )
 
 
-def _required(validator, required, instance, _):
+def _required(
+    validator: Draft7Validator,
+    required: list[str],
+    instance: dict[str, Flag | dict],
+    schema: dict,
+) -> None:
     """Mark required flags as required"""
 
     del schema  # Unused
@@ -400,7 +410,7 @@ class Schema(data.Container):
     """
 
     @classmethod
-    def from_file(cls, path: Path | Sequence[Path]):
+    def from_file(cls, path: Path | Sequence[Path]) -> "Schema":
         """Loads the schema from a file or a sequence of files"""
         if isinstance(path, Path):
             with open(path, "r", encoding="utf-8") as handle:
@@ -414,7 +424,8 @@ class Schema(data.Container):
     @property
     def add_options(self) -> Callable:
         """Decorator that adds click options to a function"""
-        def wrapper(func):
+
+        def wrapper(func: Callable) -> Callable:
             for flag in self.flags:
                 func = flag.click_option(func)
             return func
@@ -526,8 +537,8 @@ class Config(data.Container):
         schema: Schema,
         allow_empty: bool = False,
         _data: dict | None = None,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         if not _data and not kwargs and not allow_empty:
             raise ValueError("Empty configuration")
 
@@ -543,7 +554,7 @@ class Config(data.Container):
         self.data = _data_container.data
 
     @property
-    def as_dict(self):
+    def as_dict(self) -> dict:
         """
         Convert the configuration to a dictionary.
 
@@ -563,8 +574,8 @@ class Config(data.Container):
         schema: Schema,
         validate: bool = True,
         allow_empty: bool = False,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> "Config":
         """Creates a Config object from a file"""
         _path = Path(path)
         _data = _YAML.load(_path.read_bytes())

@@ -16,7 +16,8 @@ from . import cfg, data, logs
 
 
 def _cleanup(logger: logging.LoggerAdapter) -> Callable:
-    def inner(*_):
+    def inner(*args: Any) -> None:
+        del args  # Unused
         for proc in psutil.Process().children(recursive=True):
             try:
                 logger.debug(f"Waiting for {proc.name()} ({proc.pid})")
@@ -33,7 +34,7 @@ def _cleanup(logger: logging.LoggerAdapter) -> Callable:
     return inner
 
 
-def _is_instance_or_subclass(obj, cls):
+def _is_instance_or_subclass(obj: Any, cls: type) -> bool:
     if isinstance(obj, type):
         return issubclass(obj, cls) and obj != cls
     else:
@@ -55,7 +56,7 @@ class Runner:
 
     label: str
     individual_samples: bool
-    link_by: Optional[str]
+    link_by: str | None
     func: Callable
     wait: bool
     main: Callable
@@ -64,9 +65,9 @@ class Runner:
     def __init__(
         self,
         func: Callable,
-        label: Optional[str] = None,
+        label: str | None = None,
         individual_samples: bool = False,
-        link_by: Optional[str] = None,
+        link_by: str | None = None,
     ) -> None:
         self.__name__ = func.__name__
         self.__qualname__ = func.__qualname__
@@ -303,7 +304,7 @@ def load(
 
 
 def pre_hook(
-    label: Optional[str] = None,
+    label: str | None = None,
     before: list[str] | Literal["all"] | None = None,
     after: list[str] | Literal["all"] | None = None,
 ) -> Callable:
@@ -321,7 +322,7 @@ def pre_hook(
         Callable: The decorator function.
     """
 
-    def wrapper(func):
+    def wrapper(func: Callable) -> Hook:
         return Hook(
             label=label,
             func=func,
@@ -335,11 +336,11 @@ def pre_hook(
 
 
 def post_hook(
-    label: Optional[str] = None,
+    label: str | None = None,
     condition: Literal["always", "complete", "failed"] = "always",
     before: list[str] | Literal["all"] | None = None,
     after: list[str] | Literal["all"] | None = None,
-):
+) -> Callable:
     """
     Decorator for creating a post-hook.
 
@@ -362,7 +363,7 @@ def post_hook(
     if condition not in ["always", "complete", "failed"]:
         raise ValueError(f"{condition=} must be one of 'always', 'complete', 'failed'")
 
-    def wrapper(func):
+    def wrapper(func: Callable) -> Hook:
         return Hook(
             label=label,
             func=func,
@@ -376,10 +377,10 @@ def post_hook(
 
 
 def runner(
-    label: Optional[str] = None,
+    label: str | None = None,
     individual_samples: bool = False,
-    link_by: Optional[str] = None,
-):
+    link_by: str | None = None,
+) -> Callable:
     """
     Decorator for creating a runner.
 
@@ -393,7 +394,7 @@ def runner(
         Callable: The decorator function.
     """
 
-    def wrapper(func):
+    def wrapper(func: Callable) -> Runner:
         return Runner(
             label=label,
             func=func,

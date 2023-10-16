@@ -31,22 +31,23 @@ class Container(UserDict):
 
     data: dict = field(factory=dict)
 
-    def __init__(self, data: dict | None = None, *args, **kwargs):
+
+    def __init__(self, data: dict | None = None, *args: Any, **kwargs: Any) -> None:
         _data = data or {}
         for key in [k for k in kwargs if k not in fields_dict(self.__class__)]:
             _data[key] = kwargs.pop(key)
         self.__attrs_init__(*args, **kwargs)
         for k, v in _data.items():
             self[k] = v
-    def __new__(cls, *args, **kwargs):
+
+    def __new__(cls, *args: Any, **kwargs: Any) -> "Container":
         del args, kwargs  # unused
         instance = super().__new__(cls)
         object.__setattr__(instance, "data", {})
         return instance
 
-    # FIXME: This is pretty slow, and should probably be implemented by each subclass
     @property
-    def as_dict(self):
+    def as_dict(self) -> dict[str, Any]:
         """Dictionary representation of the container.
 
         The dictionary will have the same nested structure as the container.
@@ -81,10 +82,10 @@ class Container(UserDict):
         return ret
 
     @property
-    def _container_attributes(self):
+    def _container_attributes(self) -> list[str]:
         return [*dir(self), *fields_dict(self.__class__)]
 
-    def keys(self):
+    def keys(self) -> KeysView[str]:
         """
         Keys view of the container object.
 
@@ -94,9 +95,9 @@ class Container(UserDict):
             KeysView: A view of the keys.
         """
         _fields = {k: None for k in fields_dict(self.__class__) if k != "data"}
-        return KeysView({**_fields, **self.data})
+        return KeysView({**_fields, **self.data})  # pylint: disable=C0206
 
-    def values(self):
+    def values(self) -> ValuesView[Any]:
         """
         Values view of the container object.
 
@@ -105,9 +106,9 @@ class Container(UserDict):
         Returns:
             ValuesView: A view of the values.
         """
-        return ValuesView({k: self[k] for k in self.keys()})
+        return ValuesView({k: self[k] for k in self.keys()})  # pylint: disable=C0206
 
-    def items(self):
+    def items(self) -> ItemsView[str, Any]:
         """
         Items view of the container object.
 
@@ -116,9 +117,9 @@ class Container(UserDict):
         Returns:
             ItemsView: A view of the keys.
         """
-        return ItemsView({k: self[k] for k in self.keys()})
+        return ItemsView({k: self[k] for k in self.keys()})  # pylint: disable=C0206
 
-    def __contains__(self, key) -> bool:
+    def __contains__(self, key: str | Sequence[str]) -> bool:
         try:
             self[key]  # pylint: disable=pointless-statement]
             return True
@@ -126,7 +127,7 @@ class Container(UserDict):
             return False
             
 
-    def __setattr__(self, name, value) -> None:
+    def __setattr__(self, name: str, value: Any) -> None:
         if name not in self._container_attributes:
             self[name] = value
         else:
@@ -193,14 +194,14 @@ class Output:
     dest_dir: Path
     parent_id: str | None = None
 
-    def __attrs_post_init__(self):
+    def __attrs_post_init__(self) -> None:
         object.__setattr__(self, "dest_dir", Path(self.dest_dir))
         if not isinstance(self.src, Iterable):
             object.__setattr__(self, "src", {Path(self.src)})
         else:
             object.__setattr__(self, "src", {Path(s) for s in self.src})
 
-    def set_parent_id(self, value: str):
+    def set_parent_id(self, value: str) -> None:
         """
         Sets the value of the "parent_id" attribute to the specified value.
 
@@ -212,13 +213,34 @@ class Output:
         """
         object.__setattr__(self, "parent_id", value)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash((*self.src, self.dest_dir, self.parent_id))
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.src)
 
 
+@overload
+def _apply_mixins(
+    cls: type["Samples"],
+    base: type,
+    mixins: Sequence[type["Samples"]],
+) -> type["Samples"]:
+    ...  # pragma: no cover
+
+
+@overload
+def _apply_mixins(
+    cls: type["Sample"],
+    base: type,
+    mixins: Sequence[type["Sample"]],
+) -> type["Sample"]:
+    ...  # pragma: no cover
+
+
+def _apply_mixins(
+    cls: type, base: type, mixins: Sequence[type], name: str | None = None
+) -> type:
     _name = cls.__name__
     for m in mixins:
         _name += f"_{m.__name__}"
@@ -255,17 +277,18 @@ class Sample(Container):
     files: list[str] = field(factory=list)
     done: bool | None = None
     output: list[Output] = field(factory=list)
+    mixins: ClassVar[list[type["Sample"]]] = []
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.id
 
-    def __reduce__(self):
+    def __reduce__(self) -> tuple[Callable[..., "Sample"], tuple[Any, ...]]:
         state = {k: self[k] for k in fields_dict(self.__class__)}
         builder = partial(self.__class__, state.pop("data"), **state)
         return (builder, ())
 
     @classmethod
-    def with_mixins(cls, mixins):
+    def with_mixins(cls, mixins: Sequence[type["Sample"]]) -> type["Sample"]:
         """
         Returns a new Sample class with the specified mixins as base classes.
 
@@ -309,12 +332,12 @@ class Samples(UserList[S]):
     sample_class: ClassVar[type[Sample]] = Sample
     mixins: ClassVar[list[type["Samples"]]] = []
 
-    def __init__(self, data: list | None = None, /, **kwargs):
+    def __init__(self, data: list | None = None, /, **kwargs: Any) -> None:
         self.__attrs_init__(**kwargs)  # pylint: disable=no-member
         super().__init__(data or [])
 
     @classmethod
-    def from_file(cls, path: Path):
+    def from_file(cls, path: Path) -> "Samples":
         """Get samples from a YAML file"""
         samples = []
         yaml = YAML(typ="safe")
@@ -326,7 +349,7 @@ class Samples(UserList[S]):
         return cls(samples)
 
     @classmethod
-    def with_mixins(cls, mixins):
+    def with_mixins(cls, mixins: Sequence[type["Samples"]]) -> type["Samples"]:
         """
         Returns a new Samples class with the specified mixins as base classes.
 
@@ -345,7 +368,7 @@ class Samples(UserList[S]):
         return _apply_mixins(cls, UserList, mixins)
 
     @classmethod
-    def with_sample_class(cls, sample_class):
+    def with_sample_class(cls, sample_class: type["Sample"]) -> type["Samples"]:
         """
         Returns a new Samples class with the specified sample class as the
         class to use for samples.
@@ -363,7 +386,7 @@ class Samples(UserList[S]):
 
         return type(cls.__name__, (cls,), {"sample_class": sample_class})
 
-    def split(self, link_by: Optional[str] = None):
+    def split(self, link_by: str | None = None) -> Iterable["Samples"]:
         """
         Splits the data into groups based on the specified attribute value.
 
@@ -412,8 +435,8 @@ class Samples(UserList[S]):
         else:
             for sample in self:
                 yield self.__class__([sample])
-    
-    def remove_invalid(self):
+
+    def remove_invalid(self) -> None:
         """
         Removes invalid samples from the calling Samples object.
 
@@ -452,7 +475,7 @@ class Samples(UserList[S]):
         ]
 
     @property
-    def unique_ids(self):
+    def unique_ids(self) -> set[str]:
         """
         Returns a set of unique IDs from the samples in the data.
 
@@ -474,7 +497,7 @@ class Samples(UserList[S]):
         return {s.id for s in self}
 
     @property
-    def complete(self):
+    def complete(self) -> "Samples":
         """
         Get only completed samples from a Samples object.
 
@@ -495,7 +518,7 @@ class Samples(UserList[S]):
         )
 
     @property
-    def failed(self):
+    def failed(self) -> "Samples":
         """
         Get only failed samples from a Samples object.
 
@@ -514,7 +537,7 @@ class Samples(UserList[S]):
             ]
         )
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "\n".join([str(s) for s in self])
 
     def __setstate__(self, state):

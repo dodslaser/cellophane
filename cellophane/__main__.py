@@ -1,3 +1,5 @@
+"""CLI for managing cellophane projects"""
+
 import logging
 import re
 from functools import cached_property, lru_cache
@@ -21,7 +23,8 @@ class InvalidModuleError(Exception):
         _module (str): The name of the module.
         msg (str | None): The error message (default: None).
     """
-    def __init__(self, _module: str, msg=None):
+
+    def __init__(self, _module: str, msg: str | None = None):
         self.module = _module
         super().__init__(msg or f"Module '{_module}' is not valid")
 
@@ -35,7 +38,10 @@ class InvalidBranchError(Exception):
         branch (str): The name of the branch.
         msg (str | None): The error message (default: None).
     """
-    def __init__(self, _module: str, branch: str, msg=None):
+
+    def __init__(
+        self, _module: str, branch: str | None, msg: str | None = None
+    ) -> None:
         self.module = _module
         self.branch = branch
         super().__init__(msg or f"Branch '{branch}' is invalid for '{_module}'")
@@ -45,7 +51,8 @@ class NoModulesError(Exception):
     """
     Exception raised when there are no modules to select from.
     """
-    def __init__(self):
+
+    def __init__(self) -> None:
         super().__init__("No modules to select from")
 
 
@@ -59,7 +66,14 @@ class InvalidModulesRepoError(InvalidGitRepositoryError):
         msg (str | None): The error message (default: None).
         **kwargs: Additional keyword arguments passed to InvalidGitRepositoryError.
     """
-    def __init__(self, url, *args, msg=None, **kwargs):
+
+    def __init__(
+        self,
+        url: str,
+        *args: Any,
+        msg: str | None = None,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(
             msg or f"Invalid modules repository ({url})",
             *args,
@@ -77,7 +91,14 @@ class InvalidCellophaneRepoError(InvalidGitRepositoryError):
         msg (str | None): The error message (default: None).
         **kwargs: Additional keyword arguments passed to InvalidGitRepositoryError.
     """
-    def __init__(self, path, *args, msg=None, **kwargs):
+
+    def __init__(
+        self,
+        path: Path | str,
+        *args: Any,
+        msg: str | None = None,
+        **kwargs: Any,
+    ):
         super().__init__(
             msg or f"Invalid cellophane repository ({path})",
             *args,
@@ -122,7 +143,7 @@ class ModulesRepo(Repo):
     """
 
     @classmethod
-    def from_url(cls, url):
+    def from_url(cls, url: str) -> "ModulesRepo":
         """
         Creates a `ModulesRepo` instance by cloning the repository from the specified
         URL.
@@ -145,7 +166,11 @@ class ModulesRepo(Repo):
         """
         _path = mkdtemp(prefix="cellophane_modules_")
         try:
-            return cls.clone_from(url, _path, checkout=False)
+            return cls.clone_from(
+                url=url,
+                to_path=_path,
+                checkout=False,
+            )  # type: ignore[return-value]
         except Exception as e:
             raise InvalidModulesRepoError(url) from e
 
@@ -187,7 +212,7 @@ class ModulesRepo(Repo):
         ]
 
     @lru_cache
-    def module_branches(self, _module: str):
+    def module_branches(self, _module: str) -> list[str]:
         """
         Retrieves the branches associated with the specified module.
 
@@ -217,7 +242,7 @@ class ModulesRepo(Repo):
         ]
 
     @lru_cache
-    def latest_module_tag(self, _module: str):
+    def latest_module_tag(self, _module: str) -> str:
         """
         Retrieves the latest tag for the specified module.
 
@@ -246,7 +271,7 @@ class ModulesRepo(Repo):
             raise AttributeError(f"Could not find any releases for {_module}")
 
     @property
-    def url(self):
+    def url(self) -> str:
         """Returns the URL of the repository."""
         return self.remote("origin").url
 
@@ -284,7 +309,12 @@ class CellophaneRepo(Repo):
 
     external: ModulesRepo
 
-    def __init__(self, path: Path, modules_repo_url: str | None = None, **kwargs):
+    def __init__(
+        self,
+        path: Path,
+        modules_repo_url: str,
+        **kwargs: Any,
+    ) -> None:
         try:
             super().__init__(str(path), **kwargs)
         except InvalidGitRepositoryError as e:
@@ -293,7 +323,13 @@ class CellophaneRepo(Repo):
         self.external = ModulesRepo.from_url(modules_repo_url)
 
     @classmethod
-    def initialize(cls, name, path: Path, modules_repo_url: str, force=False):
+    def initialize(
+        cls,
+        name: str,
+        path: Path,
+        modules_repo_url: str,
+        force: bool = False,
+    ) -> "CellophaneRepo":
         """
         Initializes a new Cellophane repository with the specified name, path,
         and modules repository URL.
@@ -468,6 +504,7 @@ def _remove_requirements(path: Path, _module: str) -> None:
             handle.write(requirements.replace(spec, ""))
 
 
+def _update_example_config(path: Path) -> None:
     # FIXME: Add support for manually defined examples
     schema = cfg.Schema.from_file(
         path=[
@@ -481,7 +518,7 @@ def _remove_requirements(path: Path, _module: str) -> None:
         handle.write(schema.example_config)
 
 
-def _ask_modules(valid_modules: Sequence[str]):
+def _ask_modules(valid_modules: Sequence[str]) -> list[str] | None:
     if not valid_modules:
         raise NoModulesError
     return checkbox(
@@ -492,7 +529,7 @@ def _ask_modules(valid_modules: Sequence[str]):
     ).ask()
 
 
-def _ask_branch(_module: str, modules_repo: ModulesRepo):
+def _ask_branch(_module: str, modules_repo: ModulesRepo) -> str:
     _branch = select(
         f"Select branch for {_module}",
         # FIXME: Should the number of branches be limited?
@@ -506,8 +543,34 @@ def _ask_branch(_module: str, modules_repo: ModulesRepo):
     return _branch
 
 
-def _validate_modules(modules, repo, valid_modules, ignore_branch=False):
-    for idx, (_module, branch) in enumerate(modules):
+@overload
+def _validate_modules(
+    modules: list[tuple[str, str | None]],
+    repo: CellophaneRepo,
+    valid_modules: list[str],
+    ignore_branch: Literal[True],
+) -> list[tuple[str, str | None]]:
+    ...  # pragma: no cover
+
+
+@overload
+def _validate_modules(
+    modules: list[tuple[str, str | None]],
+    repo: CellophaneRepo,
+    valid_modules: list[str],
+    ignore_branch: Literal[False],
+) -> list[tuple[str, str]]:
+    ...  # pragma: no cover
+
+
+def _validate_modules(
+    modules: list[tuple[str, str | None]],
+    repo: CellophaneRepo,
+    valid_modules: list[str],
+    ignore_branch: bool = False,
+) -> list[tuple[str, str | None]] | list[tuple[str, str]]:
+    _modules: list[tuple[str, str | None]] = []
+    for _module, branch in modules:
         if _module not in valid_modules:
             raise InvalidModuleError(_module)
 
@@ -552,7 +615,7 @@ def _validate_modules(modules, repo, valid_modules, ignore_branch=False):
     callback=lambda ctx, param, value: value.upper(),
 )
 @click.pass_context
-def main(ctx: click.Context, path: Path, log_level: str, modules_repo_url: str):
+def main(ctx: click.Context, path: Path, log_level: str, modules_repo_url: str) -> None:
     """Cellophane
 
     A library for writing modular wrappers
@@ -589,7 +652,7 @@ def module(
     ctx: click.Context,
     command: Literal["add", "update", "rm"],
     modules: list[tuple[str, str]] | None,
-):
+) -> None:
     """Manage modules
 
     COMMAND: add|update|rm
@@ -657,7 +720,7 @@ def add(
     logger: logging.LoggerAdapter,
     log_level: str,
     modules: list[tuple[str, str]],
-):
+) -> None:
     """Add module(s)"""
 
     for _module, branch in modules:
@@ -694,8 +757,8 @@ def update(
     logger: logging.LoggerAdapter,
     log_level: str,
     modules: list[tuple[str, str]],
-    **_,
-):
+    **kwargs: Any,
+) -> None:
     """Update module(s)"""
     del kwargs  # Unused
 
@@ -742,8 +805,8 @@ def rm(
     logger: logging.LoggerAdapter,
     log_level: str,
     modules: list[tuple[str, str]],
-    **_,
-):
+    **kwargs: Any,
+) -> None:
     """Remove module"""
 
     del kwargs  # Unused
@@ -785,7 +848,7 @@ def rm(
     type=str,
 )
 @click.pass_context
-def init(ctx: click.Context, name: str, force: str):
+def init(ctx: click.Context, name: str, force: bool) -> None:
     """Initialize a new cellophane project
 
     If no path is specified, the current directory will be used.
