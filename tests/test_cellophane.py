@@ -8,6 +8,7 @@ from uuid import UUID, uuid4
 import rich_click as click
 from click.testing import CliRunner
 from pytest import LogCaptureFixture, mark, param
+from pytest_mock import MockerFixture
 from ruamel.yaml import YAML
 
 import cellophane
@@ -87,6 +88,7 @@ class Test__run_hooks:
 
 
 class Test__start_runners:
+    # FIXME: Create equivalent integration tests instead
     class SampleMixin(data.Sample):
         custom_prop: str = "custom"
         runner: str | None = None
@@ -147,7 +149,7 @@ class Test__start_runners:
                 _SAMPLE(id="c", runner=None),
             ]
         )
-        _logger_mock = MagicMock()
+
 
         _config = cfg.Config(cfg.Schema(), allow_empty=True)
         _config.log_level = logging.DEBUG
@@ -161,7 +163,7 @@ class Test__start_runners:
                 self._individual_samples_runner,
             ],
             samples=_samples,
-            logger=_logger_mock,
+            logger=logging.getLogger(),
             config=_config,
             root=tmp_path,
         )
@@ -189,7 +191,7 @@ class Test__start_runners:
         ],
     )
     def test__start_runners_exceptions(
-        mocker,
+        mocker: MockerFixture,
         exception: Exception,
         log_lines: list[list[str]],
         caplog: LogCaptureFixture,
@@ -201,7 +203,7 @@ class Test__start_runners:
         cellophane._start_runners(
             [MagicMock(individual_samples=False, link_by=None)],
             samples=["DUMMY"],  # type: ignore[arg-type]
-            logger=cellophane.logs.get_labeled_adapter("DUMMY"),
+            logger=logging.getLogger()
         )
 
         for line in log_lines:

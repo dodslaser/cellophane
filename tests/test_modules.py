@@ -1,16 +1,18 @@
+import logging
 import subprocess as sp
 from collections import UserDict, UserList
-from copy import deepcopy
+from copy import copy
 from graphlib import CycleError
 from pathlib import Path
 from typing import Any, Callable
 from unittest.mock import MagicMock
 
+from cloudpickle import dumps, loads
 from psutil import Process, TimeoutExpired
 from pytest import LogCaptureFixture, mark, param, raises
 from pytest_mock import MockerFixture
 
-from cellophane.src import data, logs, modules
+from cellophane.src import data, modules
 from cellophane.src.data import Container, Sample, Samples
 from cellophane.src.modules import Hook, Runner
 
@@ -54,8 +56,9 @@ class Test__cleanup:
 
         assert all(p.poll() is None for p in procs)
 
-        with raises(SystemExit), caplog.at_level("DEBUG", logger="cellophane"):
-            modules._cleanup(logs.get_labeled_adapter("DUMMY"))()
+        with raises(SystemExit), caplog.at_level("DEBUG"):
+            logger = logging.LoggerAdapter(logging.getLogger(), {"label": "DUMMY"})
+            modules._cleanup(logger)()
 
         assert all(p.poll() is not None for p in procs)
         for p in pids:
@@ -109,7 +112,7 @@ class Test__instance_or_subclass:
         assert modules._is_instance_or_subclass(obj, cls) == expected
 
 
-class Test_runner:
+class Test_Runner:
     samples: data.Samples = data.Samples(
         [
             data.Sample(id="a"),  # type: ignore[call-arg]
@@ -157,7 +160,7 @@ class Test_runner:
                 MagicMock(return_value=None),
                 {},
                 [True, True, True],
-                [["Runner runner_mock did not return any samples"]],
+                [["Runner did not return any samples"]],
                 id="None",
             ),
             param(
@@ -171,7 +174,7 @@ class Test_runner:
                 MagicMock(return_value=None),
                 {"individual_samples": True},
                 [True, True, True],
-                [["Runner runner_mock did not return any samples"]],
+                [["Runner did not return any samples"]],
                 id="individual_samples",
             ),
             param(
@@ -220,17 +223,17 @@ class Test_runner:
             return_value=_config_mock,
         )
 
-        _ws = {"samples": deepcopy(self.samples)}
-        assert all(s.done is None for s in _ws["samples"])
-        with caplog.at_level("DEBUG", logger="cellophane"):
-            _runner(
-                worker_state=_ws,
+        with caplog.at_level("DEBUG"):
+            _ret = _runner(
                 config=MagicMock(timestamp="DUMMY", log_level=None),
                 root=tmp_path / "root",
+                root_logger=logging.getLogger(),
+                samples_pickle=dumps(self.samples)
             )
+
             for line in log_lines:
                 assert "\n".join(line) in "\n".join(caplog.messages)
-        assert [s.done for s in _ws["samples"]] == expected_done
+        assert [s.done for s in loads(_ret)] == expected_done
 
 
 class Test_Hook:
@@ -318,28 +321,43 @@ class Test_Hook:
 
     @staticmethod
     @mark.parametrize(
-        "when,kwargs,return_spec,expected",
+        "when,kwargs,input_value,return_value,expected,logs",
         [
             param(
                 "pre",
                 {},
-                data.Samples,
+                MagicMock(spec=data.Samples, value="INPUT"),
+                MagicMock(spec=data.Samples, value="RETURNED"),
                 "RETURNED",
+                [],
                 id="pre",
             ),
             param(
                 "post",
                 {"condition": "complete"},
-                data.Samples,
+                MagicMock(spec=data.Samples, value="INPUT"),
+                MagicMock(spec=data.Samples, value="RETURNED"),
                 "RETURNED",
+                [],
                 id="post_complete",
             ),
             param(
                 "post",
                 {"condition": "complete"},
+                MagicMock(spec=data.Samples, value="INPUT"),
                 str,
                 "INPUT",
+                ["Unexpected return type"],
                 id="invalid_return",
+            ),
+            param(
+                "post",
+                {"condition": "complete"},
+                MagicMock(spec=data.Samples, value="INPUT"),
+                None,
+                "INPUT",
+                ["Hook did not return any samples"],
+                id="no_return",
             ),
         ],
     )
@@ -347,26 +365,28 @@ class Test_Hook:
         tmp_path: Path,
         when: str,
         kwargs: dict[str, Any],
-        return_spec: type[Any],
+        input_value: type[Any],
+        return_value: type[Any],
         expected: Any,
+        logs: list[str],
+        caplog: LogCaptureFixture,
     ):
         _decorator = getattr(modules, f"{when}_hook")
-
-        _samples = MagicMock(spec=data.Samples, value="INPUT")
         _hook = _decorator(**kwargs)(
-            lambda **_: MagicMock(spec=return_spec, value="RETURNED"),
+            lambda **_: return_value,
         )
 
-        assert (
-            _hook(
-                samples=_samples,
+        with caplog.at_level("DEBUG"):
+            _ret = _hook(
+                samples=input_value,
                 config=MagicMock(outdir=tmp_path, timestamp="DUMMY", log_level=None),
                 root=Path(),
-            ).value
-            == expected
-        )
 
-        # FIXME: Check log calls
+            )
+        
+        for log_line in logs:
+            assert log_line in "\n".join(caplog.messages)
+        assert _ret.value == expected
 
 
 class Test_resolve_hook_dependencies:
@@ -548,7 +568,7 @@ class Test_mixins:
             "attrs_field",
         ],
     )
-    def test_mixin(base: str, id: str):
+    def test_mixin(base: str, id: str):  # pylint: disable=redefined-builtin
         _container = getattr(data, base)
 
         (

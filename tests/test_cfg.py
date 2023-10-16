@@ -7,7 +7,7 @@ from click.testing import CliRunner
 from pytest import mark, param, raises
 from ruamel.yaml import YAML
 
-from cellophane.src import cfg, data
+from cellophane.src import cfg
 
 _YAML = YAML(typ="safe", pure=True)
 LIB = Path("__file__").parent / "tests" / "lib"
@@ -28,6 +28,7 @@ SCHEMAS = {
         (LIB / "schema" / "parent_required.yaml").read_text(),
     ),
 }
+
 
 class Test_StringMapping:
     @staticmethod
@@ -93,7 +94,12 @@ class Test__Flag:
         "flag,click_option",
         [
             param(
-                cfg.Flag(key=("a", "b"), type="string", node_required=True, parent_required=True),
+                cfg.Flag(
+                    key=("a", "b"),
+                    type="string",
+                    node_required=True,
+                    parent_required=True,
+                ),
                 click.option("--a_b", type=str, required=True),
                 id="required",
             ),
@@ -141,9 +147,21 @@ class Test__Flag:
         assert _click_info == _flag_info
 
     @staticmethod
-    def test_invalid_flag():
+    def test_invalid_type():
         with raises(ValueError):
             cfg.Flag(key=("a", "b"), type="invalid")
+
+    @staticmethod
+    def test_invalid_key():
+        _flag = cfg.Flag()
+        with raises(ValueError):
+            _flag.key = "INVALID"
+
+    @staticmethod
+    def test_unset_key():
+        _flag = cfg.Flag()
+        with raises(ValueError):
+            _ = _flag.key
 
 
 class Test_Schema:
@@ -153,8 +171,13 @@ class Test_Schema:
         [
             param(
                 LIB / "schema" / "nested.yaml",
-                {"type": "object", "properties": {"a": {"type": "object", "properties": {"b": {"type": 'string'}}}}},
-                id="nested"
+                {
+                    "type": "object",
+                    "properties": {
+                        "a": {"type": "object", "properties": {"b": {"type": "string"}}}
+                    },
+                },
+                id="nested",
             ),
             param(
                 [
@@ -167,25 +190,16 @@ class Test_Schema:
                     "properties": {
                         "a": {
                             "properties": {
-                                "b": {
-                                    "type": "string",
-                                    "default": "MERGE_B"
-                                },
-                                "c": {
-                                    "type": "string",
-                                    "default": "MERGE_C"
-                                }
+                                "b": {"type": "string", "default": "MERGE_B"},
+                                "c": {"type": "string", "default": "MERGE_C"},
                             }
                         },
-                        "d": {
-                            "type": "string",
-                            "default": "MERGE_D"
-                        }
+                        "d": {"type": "string", "default": "MERGE_D"},
                     }
                 },
-                id="merge"
-            )
-        ]
+                id="merge",
+            ),
+        ],
     )
     def test_from_file(schema, expected):
         _schema = cfg.Schema.from_file(schema)
@@ -207,29 +221,19 @@ class Test_Schema:
             ),
             param(
                 LIB / "schema" / "gen_array.yaml",
-                "array:  # ARRAY (array)\n"
-                "- A\n"
-                "- B\n"
-                "- C\n",
+                "array:  # ARRAY (array)\n" "- A\n" "- B\n" "- C\n",
                 id="array",
             ),
             param(
                 LIB / "schema" / "gen_mapping.yaml",
-                "mapping:  # MAPPING (mapping)\n"
-                "  a: A\n"
-                "  b: B\n",
+                "mapping:  # MAPPING (mapping)\n" "  a: A\n" "  b: B\n",
                 id="object",
             ),
             param(
                 LIB / "schema" / "gen_nested.yaml",
-                "nested:\n"
-                "  a:\n"
-                "    b:\n"
-                "      c: C  # NESTED (string)\n",
+                "nested:\n" "  a:\n" "    b:\n" "      c: C  # NESTED (string)\n",
                 id="nested",
             ),
-
-
         ],
     )
     def test_example_config(schema, expected):
@@ -255,20 +259,41 @@ class Test_Schema:
                 id="multiple",
             ),
             param(
-                [cfg.Flag(parent_present=True, key=["a"], type="string", default="SCHEMA")],
+                [
+                    cfg.Flag(
+                        parent_present=True, key=["a"], type="string", default="SCHEMA"
+                    )
+                ],
                 [False],
                 id="default",
             ),
             param(
-                [cfg.Flag(parent_present=True, key=["a"], type="string", node_required=True)],
+                [
+                    cfg.Flag(
+                        parent_present=True,
+                        key=["a"],
+                        type="string",
+                        node_required=True,
+                    )
+                ],
                 [True],
                 id="required",
             ),
             param(
                 [
-                    cfg.Flag(parent_required=True, node_required=True, key=["a", "x"], type="string"),
+                    cfg.Flag(
+                        parent_required=True,
+                        node_required=True,
+                        key=["a", "x"],
+                        type="string",
+                    ),
                     cfg.Flag(parent_required=True, key=["a", "y"], type="string"),
-                    cfg.Flag(parent_required=False, node_required=True, key=["b", "x"], type="string"),
+                    cfg.Flag(
+                        parent_required=False,
+                        node_required=True,
+                        key=["b", "x"],
+                        type="string",
+                    ),
                     cfg.Flag(parent_required=False, key=["b", "y"], type="string"),
                 ],
                 [True, False, False, False],
@@ -332,13 +357,19 @@ class Test_Config:
         result = runner.invoke(
             _cli,
             [
-                "--string", "STRING",
-                "--integer", "1337",
-                "--number", "13.37",
+                "--string",
+                "STRING",
+                "--integer",
+                "1337",
+                "--number",
+                "13.37",
                 "--boolean",
-                "--array", ["one", "two", "three"],
-                "--mapping", "a=X,b=Y",
-                "--nested_a_b_c", "Z",
+                "--array",
+                ["one", "two", "three"],
+                "--mapping",
+                "a=X,b=Y",
+                "--nested_a_b_c",
+                "Z",
             ],
         )
 
@@ -349,12 +380,16 @@ class Test_Config:
         [
             param(
                 {"a": "CONFIG"},
-                cfg.Flag(parent_present=True, key=["a"], type="string", default="CONFIG"),
+                cfg.Flag(
+                    parent_present=True, key=["a"], type="string", default="CONFIG"
+                ),
                 id="from_config",
             ),
             param(
                 {},
-                cfg.Flag(parent_present=True, key=["a"], type="string", default="SCHEMA"),
+                cfg.Flag(
+                    parent_present=True, key=["a"], type="string", default="SCHEMA"
+                ),
                 id="from_schema",
             ),
         ],

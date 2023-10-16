@@ -11,7 +11,7 @@ from cellophane import sge
 def sge_mocks(mocker: MockerFixture, request):
     try:
         _state = request.getfixturevalue("state")
-    except Exception:
+    except Exception:  # pylint: disable=broad-except
         _state = sge.drmaa2.JobState.DONE
 
     class _mocks:
@@ -102,7 +102,10 @@ class Test_submit:
             return_value=uuid,
         )
 
-        self._run() if exitcode == 0 else raises(RuntimeError, self._run)
+        if exitcode == 0:
+            self._run()
+        else:
+            assert raises(RuntimeError, self._run)
 
         mp_Process_mock.assert_called_once_with(
             target=sge._run,
