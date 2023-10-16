@@ -201,8 +201,8 @@ def cellophane(
     """
     click.rich_click.DEFAULT_STRING = "[{}]"
 
-    logs.setup_logging()
-    logger = logs.get_labeled_adapter(label)
+    console_handler = logs.setup_logging()
+    logger = logging.LoggerAdapter(logging.getLogger(), {"label": label})
 
     try:
         schema = cfg.Schema.from_file(
@@ -245,7 +245,7 @@ def cellophane(
     def inner(log_level, outprefix, **kwargs) -> Any:
         """Run cellophane"""
         start_time = time.time()
-        logger.setLevel(log_level)
+        console_handler.setLevel(log_level)
 
         config = cfg.Config(
             schema=schema,

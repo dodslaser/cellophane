@@ -1,14 +1,12 @@
 """Logging utilities"""
 
-import atexit
 import logging
-import multiprocessing as mp
-from logging.handlers import QueueHandler, QueueListener
 from pathlib import Path
 
 from rich.logging import RichHandler
 
-def setup_logging():  # pragma: no cover
+
+def setup_logging() -> RichHandler:
     """
     Sets up logging for the cellophane module.
 
@@ -18,24 +16,14 @@ def setup_logging():  # pragma: no cover
     """
 
     # Remove any existing handlers
-    root_logger = logging.getLogger()
-    root_logger.handlers = []
-
-    logger = logging.getLogger("cellophane")
-    logger.handlers = []
-
-    log_queue = mp.Manager().Queue(-1)
     console_handler = RichHandler(show_path=True)
     console_handler.setFormatter(
         logging.Formatter("%(label)s: %(message)s", datefmt="%H:%M:%S")
     )
-    listener = QueueListener(log_queue, console_handler)
-    listener.start()
-    atexit.register(listener.stop)
-
-    queue_handler = QueueHandler(log_queue)
-    logger.addHandler(queue_handler)
-
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)
+    root_logger.handlers = [console_handler]
+    return console_handler
 
 def add_file_handler(logger: logging.LoggerAdapter, path: Path) -> None:
     """
@@ -53,13 +41,5 @@ def add_file_handler(logger: logging.LoggerAdapter, path: Path) -> None:
     file_handler.setFormatter(
         logging.Formatter("%(asctime)s : %(label)s : %(message)s")
     )
+    file_handler.setLevel(logging.DEBUG)
     logger.logger.addHandler(file_handler)
-
-
-def get_labeled_adapter(
-    label: str,
-    logger: logging.Logger | None = None,
-) -> logging.LoggerAdapter:
-    if logger is None:
-        logger = logging.getLogger("cellophane")
-    return logging.LoggerAdapter(logger, {"label": label})

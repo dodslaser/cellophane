@@ -528,8 +528,11 @@ def main(ctx: click.Context, path: Path, log_level: str, modules_repo_url: str):
     A library for writing modular wrappers
     """
     ctx.ensure_object(dict)
+    logs.setup_logging().setLevel(log_level)
 
-    ctx.obj["logger"] = logs.get_labeled_adapter("cellophane")
+    ctx.obj["logger"] = logging.LoggerAdapter(
+        logging.getLogger(), {"label": "cellophane"}
+    )
     ctx.obj["logger"].setLevel(log_level)
     ctx.obj["path"] = path
     ctx.obj["log_level"] = log_level
@@ -779,5 +782,4 @@ def init(ctx: click.Context, name: str, force: str):
 
 if __name__ == "__main__":  # pragma: no cover
     click.rich_click.DEFAULT_STRING = "[{}]"
-    logs.setup_logging()
     main()  # pylint: disable=no-value-for-parameter

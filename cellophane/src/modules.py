@@ -87,12 +87,9 @@ class Runner:
         samples_pickle: str,
     ) -> None:
         samples = loads(samples_pickle)
-        logger = logs.get_labeled_adapter(self.label)
+        logger = logging.LoggerAdapter(root_logger, {"label": self.label})
 
         signal(SIGTERM, _cleanup(logger))
-        sys.stdout = open(os.devnull, "w", encoding="utf-8")
-        sys.stderr = open(os.devnull, "w", encoding="utf-8")
-
         outdir = config.outdir / config.get("outprefix", config.timestamp) / self.label
         if self.individual_samples:
             outdir /= samples[0].id
@@ -119,8 +116,10 @@ class Runner:
                 case returned:
                     logger.warning(f"Unexpected return type {type(returned)}")
 
-        except Exception as exc:
-            logger.critical(exc, exc_info=config.log_level == "DEBUG")
+            logger.critical(
+                f"Unhandled Exception: {repr(exc)}",
+                exc_info=config.log_level == "DEBUG",
+            )
 
         finally:
             if n_complete := len(samples.complete):
@@ -180,7 +179,7 @@ class Hook:
         config: cfg.Config,
         root: Path,
     ) -> data.Samples:
-        logger = logs.get_labeled_adapter(self.label)
+        logger = logging.LoggerAdapter(logging.getLogger(), {"label": self.label})
         logger.debug(f"Running {self.label} hook")
 
         match self.func(
@@ -193,6 +192,9 @@ class Hook:
         ):
             case returned if isinstance(returned, data.Samples):
                 _ret = returned
+            case None:
+                logger.debug("Hook did not return any samples")
+                _ret = samples
             case _:
                 logger.warning(f"Unexpected return type {type(returned)}")
                 _ret = samples
