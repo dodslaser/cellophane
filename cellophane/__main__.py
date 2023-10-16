@@ -5,7 +5,7 @@ import re
 from functools import cached_property, lru_cache
 from pathlib import Path
 from tempfile import mkdtemp
-from typing import Literal, Sequence
+from typing import Any, Literal, Sequence, overload
 
 import rich_click as click
 from git.exc import InvalidGitRepositoryError

@@ -4,7 +4,7 @@ import re
 from copy import deepcopy
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Callable, Literal, Mapping, Sequence
+from typing import Any, Callable, Generator, Literal, Mapping, Sequence, Type
 
 import rich_click as click
 from attrs import define, field
@@ -345,7 +345,7 @@ def _required(
             case Flag() as flag:
                 flag.node_required = True
             case parent if validator.is_type(parent, "object"):
-                for subprop in parent.values():
+                for subprop in parent.values():  # type: ignore[union-attr]
                     if isinstance(subprop, Flag):
                         subprop.parent_required = True
 
@@ -561,6 +561,7 @@ class Config(data.Container):
         Returns:
             dict: The configuration as a dictionary.
         """
+        # FIXME: Don't overwrite Container.as_dict
         return {
             k: v.as_dict if isinstance(v, data.Container) else v
             for k, v in self.data.items()

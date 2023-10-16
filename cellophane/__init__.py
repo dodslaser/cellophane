@@ -2,13 +2,12 @@
 import logging
 import time
 from copy import deepcopy
-from functools import partial
 from pathlib import Path
 from typing import Any, Literal, Sequence
 
 import rich_click as click
+from cloudpickle import dumps, loads
 from humanfriendly import format_timespan
-from jsonschema.exceptions import ValidationError
 from mpire import WorkerPool
 from ruamel.yaml.scanner import ScannerError
 
@@ -147,9 +146,7 @@ def _main(
         raise SystemExit(0)
 
     samples = _start_runners(runners, samples, logger, **common_kwargs)
-
     samples = _run_hooks(hooks, "post", samples, **common_kwargs)
-
 
 def _add_config_defaults(
     ctx: click.Context,
@@ -247,13 +244,13 @@ def cellophane(
             schema=schema,
             **{k: v for k, v in kwargs.items() if v is not None},
         )
-        config.analysis = label
-        config.log_level = log_level
-        config.timestamp = time.strftime(
+        config.analysis = label  # type: ignore[attr-defined]
+        config.log_level = log_level  # type: ignore[attr-defined]
+        config.timestamp = time.strftime(  # type: ignore[attr-defined]
             "%Y%m%d_%H%M%S",
             time.localtime(start_time),
         )
-        config.outprefix = outprefix or config.timestamp
+        config.outprefix = outprefix or config.timestamp  # type: ignore[attr-defined]
         logs.add_file_handler(
             logger, path=config.logdir / f"{label}.{config.outprefix}.log"
         )

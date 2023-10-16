@@ -1,18 +1,18 @@
 """Base classes and functions for cellophane modules."""
 import inspect
 import logging
-import os
 import sys
 from copy import deepcopy
 from graphlib import TopologicalSorter
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 from signal import SIGTERM, signal
-from typing import Callable, Literal, Optional
+from typing import Any, Callable, Literal
 
 import psutil
+from cloudpickle import dumps, loads
 
-from . import cfg, data, logs
+from . import cfg, data
 
 
 def _cleanup(logger: logging.LoggerAdapter) -> Callable:
@@ -117,6 +117,7 @@ class Runner:
                 case returned:
                     logger.warning(f"Unexpected return type {type(returned)}")
 
+        except Exception as exc:  # pylint: disable=broad-except
             logger.critical(
                 f"Unhandled Exception: {repr(exc)}",
                 exc_info=config.log_level == "DEBUG",
@@ -270,11 +271,6 @@ def load(
         name = f"_cellophane_module_{base}"
         spec = spec_from_file_location(name, file)
         original_handlers = logging.root.handlers.copy()
-
-        # FIXME: Does removing this check break anything?
-        # It fixes Mypy errors, but it is never reached in tests
-        # if spec is None or spec.loader is None:
-        #     continue
 
         try:
             module = module_from_spec(spec)  # type: ignore[arg-type]

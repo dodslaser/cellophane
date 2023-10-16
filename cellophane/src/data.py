@@ -5,7 +5,7 @@ from collections.abc import ItemsView, KeysView, ValuesView
 from copy import deepcopy
 from functools import partial, reduce
 from pathlib import Path
-from typing import Any, ClassVar, Iterable, Optional, Sequence, TypeVar
+from typing import Any, Callable, ClassVar, Iterable, Sequence, TypeVar, overload
 
 from attrs import define, field, fields_dict, has, make_class
 from ruamel.yaml import YAML
@@ -30,7 +30,6 @@ class Container(UserDict):
     """
 
     data: dict = field(factory=dict)
-
 
     def __init__(self, data: dict | None = None, *args: Any, **kwargs: Any) -> None:
         _data = data or {}
@@ -125,7 +124,6 @@ class Container(UserDict):
             return True
         except (KeyError, TypeError):
             return False
-            
 
     def __setattr__(self, name: str, value: Any) -> None:
         if name not in self._container_attributes:
@@ -155,7 +153,7 @@ class Container(UserDict):
                 return super().__getattribute__(k)
             case str(k):
                 return self.data[k]
-            case *k, :
+            case *k,:
                 return reduce(lambda d, k: d[k], k, self.data)
             case k:
                 raise TypeError(f"Key {k} is not a string or a sequence of strings")
