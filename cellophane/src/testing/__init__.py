@@ -3,8 +3,9 @@
 """Testing utilities for Cellophane."""
 
 import logging
+import traceback
 from pathlib import Path
-from shutil import copy, copytree
+from shutil import copy
 from typing import Any
 
 from click.testing import CliRunner, Result
@@ -14,7 +15,7 @@ from ruamel.yaml import YAML
 
 import cellophane
 
-_YAML = YAML(typ="safe", pure=True)
+_YAML = YAML(typ="unsafe", pure=True)
 
 
 def _create_structure(
@@ -75,11 +76,16 @@ def _execute_from_structure(
         mocker.patch("cellophane.logs.setup_logging")
         _main = cellophane.cellophane("DUMMY", root=root)
         for target, mock in (mocks or {}).items():
+            _side_effect = (
+                exc()
+                if isinstance(exc := (mock or {}).get("exception"), type)
+                and issubclass(exc, BaseException)
+                else Exception(exc) if exc
+                else None
+            )
             mocker.patch(
                 target=target,
-                side_effect=Exception(e)
-                if (e := (mock or {}).get("exception", False))
-                else None,
+                side_effect=_side_effect,
                 **(mock or {}).get("kwargs", {}),
             )
         _result = runner.invoke(_main, _args)
@@ -95,7 +101,8 @@ def _execute_from_structure(
             msg=(
                 "Unexpected exception\n"
                 f"Expected: {exception}\n"
-                f"Received: {repr(_exception)}"
+                f"Received: {repr(_exception)}\n"
+                f"Traceback: {''.join(traceback.format_exception(_exception))}"
             ),
         )
 

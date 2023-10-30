@@ -17,10 +17,8 @@ args:
   --logdir: logs
   --outdir: out
   --log_level: DEBUG
+mocks:
+  cellophane.WorkerPool.apply_async:
+    exception: DUMMY
 logs:
-  - |
-    Found 0 hooks
-    Found 1 runners
-    Found 1 sample mixins
-    Found 1 samples mixins
-  
+  - "Unhandled exception in runner: DUMMY"

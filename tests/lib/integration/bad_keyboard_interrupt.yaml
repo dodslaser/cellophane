@@ -17,10 +17,8 @@ args:
   --logdir: logs
   --outdir: out
   --log_level: DEBUG
+mocks:
+  cellophane.WorkerPool.apply_async:
+    exception: !!python/name:KeyboardInterrupt
 logs:
-  - |
-    Found 0 hooks
-    Found 1 runners
-    Found 1 sample mixins
-    Found 1 samples mixins
-  
+  - Received SIGINT, telling runners to shut down...

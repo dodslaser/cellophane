@@ -1,4 +1,4 @@
-from cellophane.src import modules, data
+from cellophane.src import data, modules
 
 
 @modules.pre_hook()

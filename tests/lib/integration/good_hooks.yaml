@@ -1,0 +1,47 @@
+structure:
+  modules:
+    a.py: |
+      from cellophane import modules
+
+      @modules.runner()
+      def runner(samples, **_):
+          for sample in samples:
+              if sample.id == "fail":
+                  sample.done = False
+              else:
+                  sample.done = True
+          return samples.with_call_id("runner")
+      
+      @modules.post_hook(condition="always")
+      def always_hook(samples, **_):
+          ...
+
+      @modules.post_hook(condition="complete")
+      def complete_hook(samples, **_):
+          ...
+
+      @modules.post_hook(condition="failed")
+      def fail_hook(samples, **_):
+          ...
+  samples.yaml: |
+    - id: pass
+      files:
+      - input/pass.txt
+    - id: fail
+      files:
+      - input/fail.txt
+  input:
+    pass.txt: "PASS"
+    fail.txt: "FAIL"
+args:
+  --samples_file: samples.yaml
+  --logdir: logs
+  --outdir: out
+  --log_level: DEBUG
+logs:
+  - |
+    Found 3 hooks
+    Found 1 runners
+  - Running fail_hook hook
+  - Running always_hook hook
+  - Running complete_hook hook
