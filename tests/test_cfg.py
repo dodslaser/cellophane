@@ -102,7 +102,7 @@ class Test__Flag:
             ),
             param(
                 cfg._click.Flag(key=("a", "b"), type="boolean"),
-                click.option("--a_b/--no-a_b", type=bool, default=True),
+                click.option("--a_b/--a_no_b", type=bool, default=True),
                 id="boolean",
             ),
             param(

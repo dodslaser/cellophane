@@ -228,8 +228,6 @@ class Flag:
         """
         Constructs the flag name from the key.
 
-        The flag name is constructed by joining the key with underscores.
-
         Raises:
             ValueError: Raised when the key is None.
 
@@ -237,6 +235,19 @@ class Flag:
             str: The flag name.
         """
         return "_".join(self.key)
+
+    @property
+    def no_flag(self) -> str:
+        """
+        Constructs the no-flag name from the key.
+
+        Raises:
+            ValueError: Raised when the key is None.
+
+        Returns:
+            str: The flag name.
+        """
+        return f"{'_'.join(self.key[:-1])}_no_{self.key[-1]}"
 
     @property
     def click_option(self) -> Callable:
@@ -247,7 +258,7 @@ class Flag:
             Callable: A click.option decorator
         """
         return click.option(
-            f"--{self.flag}/--no-{self.flag}"
+            f"--{self.flag}/--{self.no_flag}"
             if self.type == "boolean"
             else f"--{self.flag}",
             type=self.click_type,
