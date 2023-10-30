@@ -267,6 +267,10 @@ class Test__get_flags:
                 LIB / "schema" / "flags" / "one_of.yaml",
                 id="one_of",
             ),
+            param(
+                LIB / "schema" / "flags" / "nested_conditional.yaml",
+                id="nested_conditional",
+            ),
         ],
     )
     def test__get_flags(definition):

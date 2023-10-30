@@ -203,7 +203,7 @@ def _(schema: frozendict, _data: frozendict | None = None) -> list[Flag]:
     _flags_mapping = {}
 
     while any(
-        keyword in _schema_thawed
+        keyword in (kw for node in util.map_nested_keys(_schema_thawed) for kw in node)
         for keyword in [
             "if",
             "anyOf",
@@ -216,7 +216,7 @@ def _(schema: frozendict, _data: frozendict | None = None) -> list[Flag]:
         _compile_conditional = extend(
             NullValidator,
             validators={
-                "properties": partial(properties, flags=None),
+                "properties": partial(properties, compiled=_compiled),
                 "if": partial(if_, compiled=_compiled),
                 "anyOf": partial(any_of, compiled=_compiled),
                 "oneOf": partial(one_of, compiled=_compiled),

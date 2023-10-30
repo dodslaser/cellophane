@@ -25,10 +25,18 @@ NullValidator = extend(
     validators={v: None for v in Draft7Validator.VALIDATORS},
 )
 
-def _uptate_validator_flags(validators: dict[str, Callable], flags):
+
+def _uptate_validators(
+    validators: dict[str, Callable],
+    flags: dict | None = None,
+    compiled: dict | None = None,
+):
     for _validator in validators.values():
-        if isinstance(_validator, partial) and "flags" in _validator.keywords:
-            _validator.keywords.update({"flags": flags})
+        if isinstance(_validator, partial):
+            if "flags" in _validator.keywords:
+                _validator.keywords.update({"flags": flags})
+            if "compiled" in _validator.keywords:
+                _validator.keywords.update({"compiled": compiled})
 
 
 def properties(
@@ -36,7 +44,8 @@ def properties(
     properties: dict[str, dict],
     instance: dict,
     schema: dict,
-    flags: dict,
+    flags: dict | None = None,
+    compiled: dict | None = None,
 ) -> Generator:
     for property, subschema in properties.items():
         _instance = instance or {}
@@ -45,16 +54,25 @@ def properties(
         if "properties" in subschema and subschema.get("type") != "mapping":
             if flags is not None:
                 flags[property] = flags.get(property, {})
-                _uptate_validator_flags(
-                    validator.VALIDATORS, (flags or {}).get(property)
-                )
+
+            _uptate_validators(
+                validator.VALIDATORS,
+                flags=(flags or {}).get(property),
+                compiled=(compiled or {}).get("properties", {}).get(property),
+            )
+
             yield from validator.descend(
                 _instance.get(property, {} if _required else None),
                 subschema,
                 path=property,
                 schema_path=property,
             )
-            _uptate_validator_flags(validator.VALIDATORS, flags)
+
+            _uptate_validators(
+                validator.VALIDATORS,
+                flags=flags,
+                compiled=compiled,
+            )
         elif flags is not None and "properties" not in subschema:
             _flag_kwargs = {
                 "default": _instance.get(property) or subschema.get("default", None),
@@ -79,19 +97,17 @@ def required(
 ) -> None:
     """Mark required flags as required"""
     del validator  # Unused
-    if instance is None:
-        return
-
-    for property in required:
-        subschema = schema.get("properties", {}).get(property)
-        if not (
-            subschema is None
-            or "default" in subschema
-            or "properties" in subschema
-            or property in instance
-        ):
-            flags[property] = flags.get(property, Flag())
-            flags[property].required = True
+    if instance is not None:
+        for property in required:
+            subschema = schema.get("properties", {}).get(property)
+            if not (
+                subschema is None
+                or "default" in subschema
+                or "properties" in subschema
+                or property in instance
+            ):
+                flags[property] = flags.get(property, Flag())
+                flags[property].required = True
 
 
 def dependent_required(
@@ -101,7 +117,7 @@ def dependent_required(
     schema: dict,
     flags: dict,
 ) -> None:
-    if instance is not  None:
+    if instance is not None:
         for dep, req in dependencies.items():
             if dep in instance:
                 required(validator, req, instance, schema, flags)
@@ -115,6 +131,7 @@ def dependent_schemas(
     compiled: dict,
 ) -> None:
     del validator, schema  # Unused
+
     if instance is not None:
         if _valid := [s for d, s in dependencies.items() if d in instance]:
             _subschema = reduce(util.merge_mappings, _valid)

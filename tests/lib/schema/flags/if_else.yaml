@@ -1,7 +1,7 @@
 schema:
   properties:
     a:
-      type: string
+      type: boolean
     b:
       type: object
       required: [x]
@@ -13,17 +13,19 @@ schema:
   if:
     properties:
       a:
-        const: A
+        const: true
   then:
     required: [b]
+  else:
+    required: [a]
 
 config:
-  a: A
+  a: true
 
 flags:
   - key: [a]
-    type: string
-    default: A
+    type: boolean
+    default: true
     required: false
   - key: [b, x]
     required: true
