@@ -12,7 +12,7 @@ from git.exc import InvalidGitRepositoryError
 from git.repo import Repo
 from questionary import Choice, checkbox, select
 
-from . import CELLOPHANE_ROOT, cfg, logs
+from cellophane import CELLOPHANE_ROOT, cfg, logs
 
 
 class InvalidModuleError(Exception):
