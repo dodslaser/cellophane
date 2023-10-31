@@ -74,7 +74,7 @@ class Schema(data.Container):
         elif isinstance(path, Sequence):
             schema: dict = {}
             for p in path:
-                schema = util.merge_mappings(schema, cls.from_file(p))
+                schema = util.merge_mappings(schema, data.as_dict(cls.from_file(p)))
             return cls(schema)
 
     @cached_property
@@ -106,7 +106,7 @@ class Schema(data.Container):
             return handle.getvalue()
 
 
-@define(slots=False, kw_only=True, init=False)
+@define
 class Config(data.Container):
     """
     Represents a configuration object based on a schema.
@@ -123,25 +123,10 @@ class Config(data.Container):
         ):
             Initializes the Config object with the given schema and data.
 
-        from_file(
-            path: str,
-            schema: Schema,
-            validate: bool = True,
-            allow_empty: bool = False,
-            **kwargs,
-        ):
-            Creates a Config object from a file.
-
-        as_dict:
-            Returns the configuration as a dictionary.
-
-        flags:
-            Returns the flags from the schema that depend on the configuration.
-
     Args:
         schema (Schema): The schema associated with the configuration.
         allow_empty (bool, optional): Allow empty configuration. Defaults to False.
-        _data (dict | None, optional): The data for the configuration. Defaults to None.
+        __data__ (dict | None, optional): The data for the configuration. Defaults to None.
         **kwargs: Additional keyword arguments for the configuration.
 
     Example:
@@ -152,16 +137,10 @@ class Config(data.Container):
         # Creating a configuration from a file
         path = "config.yaml"
         config = Config.from_file(path, schema)
-
-        # Accessing the configuration as a dictionary
-        data = config.as_dict()
-
-        # Getting the flags from the schema with config values used for defaults
-        flags = config.flags
         ```
     """
 
-    schema: Schema
+    __schema__: Schema = field(repr=False, factory=Schema, init=False)
 
     def __init__(
         self,
@@ -174,25 +153,22 @@ class Config(data.Container):
         if not _data and not kwargs and not allow_empty:
             raise ValueError("Empty configuration")
 
-        self.schema = schema
+        self.__schema__ = schema
 
         for flag in _get_flags(schema, _data):
             if flag.flag in kwargs or flag.default and include_defaults:
                 self[flag.key] = kwargs.get(flag.flag, flag.default)
 
-    def as_dict(self, exclude: list[str] | None = None) -> dict[str, Any]:
-        return super().as_dict(exclude=[*(exclude or []), "schema"])
 
-    def set_defaults(self) -> None:
-        """Updates the configuration from keyword arguments"""
-        for flag in _get_flags(self.schema):
-            if flag.default is not None:
-                self.setdefault(flag.key, flag.default)
-
+def _set_defaults(config) -> None:
+    """Updates the configuration from keyword arguments"""
+    for flag in _get_flags(config.__schema__):
+        if flag.default is not None and flag.key not in config:
+            config[flag.key] = flag.default
 
 @singledispatch
 def _get_flags(schema: Schema, _data: Mapping | None = None) -> list[Flag]:
-    return _get_flags(util.freeze(schema.as_dict()), util.freeze(_data or {}))
+    return _get_flags(util.freeze(data.as_dict(schema)), util.freeze(_data or {}))
 
 
 @_get_flags.register
@@ -311,11 +287,11 @@ def options(schema: Schema) -> Callable:
             config = ctx.obj
             callback = click.make_pass_decorator(Config)(callback)
             callback = click.command(callback)
-            for flag in _get_flags(schema, config.as_dict()):
+            for flag in _get_flags(schema, data.as_dict(config)):
                 callback = flag.click_option(callback)
             config.start_time = start_time
             config.timestamp = timestamp
-            config.set_defaults()
+            _set_defaults(config)
             ctx = callback.make_context(ctx.info_name, _args)
             ctx.obj = config
             ctx.forward(callback)

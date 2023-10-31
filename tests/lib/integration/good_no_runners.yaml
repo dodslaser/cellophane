@@ -12,7 +12,6 @@ structure:
           return samples
   samples.yaml: |
     - id: a
-      meta: x
       files:
       - input/a.txt
   input:

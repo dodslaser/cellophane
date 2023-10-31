@@ -7,7 +7,7 @@ from click.testing import CliRunner
 from pytest import mark, param, raises
 from ruamel.yaml import YAML
 
-from cellophane.src import cfg
+from cellophane.src import cfg, data
 
 _YAML = YAML(typ="unsafe")
 LIB = Path("__file__").parent / "tests" / "lib"
@@ -120,7 +120,7 @@ class Test__Flag:
                     ("string", str),
                     ("integer", int),
                     ("number", float),
-                    ("array", list),
+                    ("array", cfg._click.TypedArray("string")),
                     ("mapping", cfg._click.StringMapping()),
                     ("path", click.Path()),
                     (None, str),
@@ -191,7 +191,7 @@ class Test_Schema:
     )
     def test_from_file(schema, expected):
         _schema = cfg.Schema.from_file(schema)
-        assert _schema.as_dict() == expected
+        assert data.as_dict(_schema) == expected
 
     @staticmethod
     @mark.parametrize(
@@ -271,6 +271,10 @@ class Test__get_flags:
                 LIB / "schema" / "flags" / "nested_conditional.yaml",
                 id="nested_conditional",
             ),
+            param(
+                LIB / "schema" / "flags" / "typed_array.yaml",
+                id="typed_array",
+            ),
         ],
     )
     def test__get_flags(definition):
@@ -312,7 +316,7 @@ class Test_Config:
             self.schema,
             **self.kwargs,
         )
-        assert _config.as_dict() == self.expected
+        assert data.as_dict(_config) == self.expected
 
     def test_from_cli(self):
         runner = CliRunner()
@@ -367,4 +371,4 @@ class Test_Config:
         _schema = cfg.Schema(_definition["schema"])
         _config = cfg.Config(_schema, allow_empty=True, **kwargs)
 
-        assert cfg._get_flags(_schema, _config.as_dict()) == [expected]
+        assert cfg._get_flags(_schema, data.as_dict(_config)) == [expected]

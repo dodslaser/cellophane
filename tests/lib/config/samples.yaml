@@ -1,17 +1,14 @@
 - id: a
-  meta: x
   files:
   - a
   - b
 
 - id: a
-  meta: y
   files:
   - c
   - d
 
 - id: b
-  meta: y
   files:
   - e
   - f

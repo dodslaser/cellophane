@@ -11,28 +11,28 @@ from attrs import define, field, fields_dict, has, make_class
 from ruamel.yaml import YAML
 
 
-@define(slots=False)
-class Container(UserDict):
+class _BASE:
+    ...
+
+@define
+class Container:
     """Base container class for the Config, Sample, and Samples classes.
 
     The container supports attribute-style access to its data and allows nested key
     access using Sequence[str] keys.
 
     Args:
-        data (dict | None): The initial data for the container.
+        __data__ (dict | None): The initial data for the container.
             Defaults to an empty dictionary.
 
     Attributes:
-        data (dict): The dictionary that stores the data.
-
-    Methods:
-        as_dict: Returns the container's data as a dictionary.
+        __data__ (dict): The dictionary that stores the data.
     """
 
-    data: dict = field(factory=dict)
+    __data__: dict = field(factory=dict)
 
-    def __init__(self, data: dict | None = None, *args: Any, **kwargs: Any) -> None:
-        _data = data or {}
+    def __init__(self, __data__: dict | None = None, *args: Any, **kwargs: Any) -> None:
+        _data = __data__ or {}
         for key in [k for k in kwargs if k not in fields_dict(self.__class__)]:
             _data[key] = kwargs.pop(key)
         self.__attrs_init__(*args, **kwargs)
@@ -42,85 +42,8 @@ class Container(UserDict):
     def __new__(cls, *args: Any, **kwargs: Any) -> "Container":
         del args, kwargs  # unused
         instance = super().__new__(cls)
-        object.__setattr__(instance, "data", {})
+        object.__setattr__(instance, "__data__", {})
         return instance
-
-    def as_dict(self, exclude: list[str] | None = None) -> dict[str, Any]:
-        """Dictionary representation of the container.
-
-        The dictionary will have the same nested structure as the container.
-
-        Args:
-            exclude (list[str] | None): A list of keys to exclude from the returned
-                dictionary. Defaults to None.
-
-        Returns:
-            dict: A dictionary representation of the container object.
-
-        Example:
-            ```python
-            data = Container(
-                key_1 = "value_1",
-                key_2 = Container(
-                    key_3 = "value_3",
-                    key_4 = "value_4"
-                )
-            )
-            print(data.as_dict)
-            # {
-            #     "key_1": "value_1",
-            #     "key_2": {
-            #         "key_3": "value_3",
-            #         "key_4": "value_4"
-            #     }
-            # }
-            ```
-        """
-        return dict(
-            **{
-                k: v.as_dict() if isinstance(v, Container) else v
-                for k, v in self.data.items()
-                if k not in (exclude or [])
-            }
-        )
-
-    @property
-    def _container_attributes(self) -> list[str]:
-        return [*dir(self), *fields_dict(self.__class__)]
-
-    def keys(self) -> KeysView[str]:
-        """
-        Keys view of the container object.
-
-        Only returns keys on the top level of the container's data.
-
-        Returns:
-            KeysView: A view of the keys.
-        """
-        _fields = {k: None for k in fields_dict(self.__class__) if k != "data"}
-        return KeysView({**_fields, **self.data})  # pylint: disable=C0206
-
-    def values(self) -> ValuesView[Any]:
-        """
-        Values view of the container object.
-
-        Only returns values on the top level of the container's data.
-
-        Returns:
-            ValuesView: A view of the values.
-        """
-        return ValuesView({k: self[k] for k in self.keys()})  # pylint: disable=C0206
-
-    def items(self) -> ItemsView[str, Any]:
-        """
-        Items view of the container object.
-
-        Only returns keys-value pairs on the top level of the container's data.
-
-        Returns:
-            ItemsView: A view of the keys.
-        """
-        return ItemsView({k: self[k] for k in self.keys()})  # pylint: disable=C0206
 
     def __contains__(self, key: str | Sequence[str]) -> bool:
         try:
@@ -130,41 +53,45 @@ class Container(UserDict):
             return False
 
     def __setattr__(self, name: str, value: Any) -> None:
-        if name not in self._container_attributes:
+        if name not in fields_dict(self.__class__):
             self[name] = value
         else:
             super().__setattr__(name, value)
 
     def __setitem__(self, key: str | Sequence[str], item: Any) -> None:
         if isinstance(item, dict) and not isinstance(item, Container):
-            item = Container(item)
+            item = Container(item)  
 
         match key:
-            case k if k in self._container_attributes:
+            case str(k) if k in fields_dict(self.__class__):
                 self.__setattr__(k, item)
             case str(k) if k.isidentifier():
-                self.data[k] = item
+                self.__data__[k] = item
             case *k, if all(isinstance(k_, str) for k_ in k):
-                reduce(lambda d, k: d.setdefault(k, Container()), k[:-1], self.data)[
-                    k[-1]
-                ] = item
-            case _:
+                
+                def _set(d, k):
+                    if k not in d:
+                        d[k] = Container()
+                    return d[k]
+                
+                reduce(lambda d, k: _set(d, k), k[:-1], self.__data__)[k[-1]] = item
+            case k:
                 raise TypeError(f"Key {k} is not an string or a sequence of strings")
 
     def __getitem__(self, key: str | Sequence[str]) -> Any:
         match key:
-            case str(k) if k in self._container_attributes:
+            case str(k) if k in fields_dict(self.__class__):
                 return super().__getattribute__(k)
             case str(k):
-                return self.data[k]
+                return self.__data__[k]
             case *k,:
-                return reduce(lambda d, k: d[k], k, self.data)
+                return reduce(lambda d, k: d[k], k, self.__data__)
             case k:
                 raise TypeError(f"Key {k} is not a string or a sequence of strings")
 
     def __getattr__(self, key: str) -> Any:
-        if key in self.data:
-            return self.data[key]
+        if key in self.__data__:
+            return self.__data__[key]
         else:
             raise AttributeError(
                 f"'{self.__class__.__name__}' object has no attribute '{key}'"
@@ -174,7 +101,7 @@ class Container(UserDict):
         _instance = self.__class__(
             **{deepcopy(k): deepcopy(self[k]) for k in fields_dict(self.__class__)}
         )
-        _instance.data = deepcopy(self.data)
+        _instance.__data__ = deepcopy(self.__data__)
         return _instance
 
 
@@ -239,26 +166,63 @@ def _apply_mixins(
 ) -> type["Sample"]:
     ...  # pragma: no cover
 
-
 def _apply_mixins(
     cls: type, base: type, mixins: Sequence[type], name: str | None = None
 ) -> type:
     _name = cls.__name__
     for m in mixins:
-        _name += f"_{m.__name__}"
+        _name += f"_{m.__name__}"        
         m.__bases__ = (base,)
         m.__module__ = "__main__"
         if not has(m):
-            define(m, init=False, slots=False)
-
-    _cls = make_class(name or _name, (), (*mixins, cls), init=False, slots=False)
-    _cls.mixins = mixins
+            m = define(m, slots=False)
+    
+    _cls = make_class(name or _name, (), (cls, *mixins), slots=False)
     _cls.__module__ = "__main__"
+
     return _cls
 
+def as_dict(data: Container, exclude: list[str] | None = None) -> dict[str, Any]:
+    """Dictionary representation of a container.
 
-@define(slots=False, init=False)
-class Sample(Container):
+    The returned dictionary will have the same nested structure as the container.
+
+    Args:
+        exclude (list[str] | None): A list of keys to exclude from the returned
+            dictionary. Defaults to None.
+
+    Returns:
+        dict: A dictionary representation of the container object.
+
+    Example:
+        ```python
+        data = Container(
+            key_1 = "value_1",
+            key_2 = Container(
+                key_3 = "value_3",
+                key_4 = "value_4"
+            )
+        )
+        print(as_dict(data))
+        # {
+        #     "key_1": "value_1",
+        #     "key_2": {
+        #         "key_3": "value_3",
+        #         "key_4": "value_4"
+        #     }
+        # }
+        ```
+    """
+    return dict(
+        **{
+            k: as_dict(v) if isinstance(v, Container) else v
+            for k, v in data.__data__.items()
+            if k not in (exclude or [])
+        }
+    )
+
+@define(slots=False)
+class Sample(_BASE):
     """
     Base sample class represents a sample with an ID, a list of files, a flag indicating
     if it's done, and a list of Output objects.
@@ -279,15 +243,20 @@ class Sample(Container):
     files: list[str] = field(factory=list)
     done: bool | None = None
     output: list[Output] = field(factory=list)
-    mixins: ClassVar[list[type["Sample"]]] = []
 
     def __str__(self) -> str:
         return self.id
 
-    def __reduce__(self) -> tuple[Callable[..., "Sample"], tuple[Any, ...]]:
-        state = {k: self[k] for k in fields_dict(self.__class__)}
-        builder = partial(self.__class__, state.pop("data"), **state)
-        return (builder, ())
+    def __getitem__(self, key: str) -> Any:
+        return getattr(self, key)
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        setattr(self, key, value)
+
+    # def __reduce__(self) -> tuple[Callable[..., "Sample"], tuple[Any, ...]]:
+    #     state = {k: self[k] for k in fields_dict(self.__class__)}
+    #     builder = partial(self.__class__, state.pop("__data__"), **state)
+    #     return (builder, ())
 
     @classmethod
     def with_mixins(cls, mixins: Sequence[type["Sample"]]) -> type["Sample"]:
@@ -305,7 +274,7 @@ class Sample(Container):
         Returns:
             type: The new class with the mixins applied.
         """
-        return _apply_mixins(cls, UserDict, mixins)
+        return _apply_mixins(cls, _BASE, mixins)
 
 
 S = TypeVar("S", bound=Sample)

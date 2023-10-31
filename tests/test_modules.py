@@ -80,9 +80,6 @@ class Test__instance_or_subclass:
         "obj,cls,expected",
         [
             (SampleSub, data.Sample, True),
-            (SampleSub, data.Container, True),
-            (SampleSub, UserDict, True),
-            (SampleSub, dict, False),
             (SamplesSub, data.Samples, True),
             (SamplesSub, UserList, True),
             (SamplesSub, list, False),
@@ -97,8 +94,6 @@ class Test__instance_or_subclass:
     def test_instance_or_subclass(
         obj: type[SampleSub] | type[SamplesSub] | Any | Runner,
         cls: type[Sample]
-        | type[Container]
-        | type[UserDict]
         | type[dict]
         | type[Samples]
         | type[UserList]
