@@ -107,6 +107,83 @@ class StringMapping(click.ParamType):
             self.fail("Expected a comma separated mapping (a=b,x=y)", param, ctx)
 
 
+class TypedArray(click.ParamType):
+    name = "array"
+    items: Literal[
+        "string",
+        "number",
+        "integer",
+        "path",
+    ] | None = None
+
+    def __init__(
+        self,
+        items: Literal[
+            "string",
+            "number",
+            "integer",
+            "path",
+        ]
+        | None = None,
+    ) -> None:
+        if items not in [
+            "string",
+            "number",
+            "integer",
+            "path",
+            None,
+        ]:
+            raise ValueError(f"Invalid type: {items}")
+
+        self.items = items or "string"
+
+    def convert(
+        self,
+        value: list,
+        param: click.Parameter,
+        ctx: click.Context,
+    ) -> list:
+        _items = _click_type(self.items)
+        try:
+            return [_items(v) for v in value]
+        except Exception as exc:
+            self.fail(exc, param, ctx)
+
+
+def _click_type(
+    type,
+    enum: list | None = None,
+    items: str | None = None,
+) -> Type | click.Path | click.Choice | StringMapping | TypedArray:
+    """
+    Translate jsonschema type to Python type.
+
+    Returns:
+        type: The Python type corresponding to the property type.
+    """
+    match type:
+        case _ if enum:
+            _click_type = click.Choice(enum)
+        case "string":
+            _click_type = str
+        case "number":
+            _click_type = float
+        case "integer":
+            _click_type = int
+        case "boolean":
+            _click_type = bool
+        case "mapping":
+            _click_type = StringMapping()
+        case "array":
+            _click_type = TypedArray(items)
+        case "path":
+            _click_type = click.Path(path_type=Path)
+        case _:
+            _click_type = str
+
+    return _click_type
+
+
 @define(slots=False)
 class Flag:
     """
@@ -148,6 +225,12 @@ class Flag:
         "array",
         "path",
     ] | None = field(default=None)
+    items: Literal[
+        "string",
+        "number",
+        "integer",
+        "path",
+     ] | None = field(default=None)
     _key: list[str] | None = field(default=None)
     description: str | None = field(default=None)
     default: Any = field(default=None)
@@ -201,27 +284,7 @@ class Flag:
         Returns:
             type: The Python type corresponding to the property type.
         """
-        match self.type:
-            case _ if self.enum:
-                _click_type = click.Choice(self.enum)
-            case "string":
-                _click_type = str
-            case "number":
-                _click_type = float
-            case "integer":
-                _click_type = int
-            case "boolean":
-                _click_type = bool
-            case "mapping":
-                _click_type = StringMapping()
-            case "array":
-                _click_type = list
-            case "path":
-                _click_type = click.Path(path_type=Path)
-            case _:
-                _click_type = str
-
-        return _click_type
+        return _click_type(self.type, self.enum, self.items)
 
     @property
     def flag(self) -> str:

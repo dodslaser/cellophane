@@ -75,11 +75,12 @@ def properties(
             )
         elif flags is not None and "properties" not in subschema:
             _flag_kwargs = {
-                "default": _instance.get(property) or subschema.get("default", None),
-                "type": subschema.get("type", None),
-                "enum": subschema.get("enum", None),
-                "description": subschema.get("description", None),
+                "default": _instance.get(property) or subschema.get("default"),
+                "type": subschema.get("type"),
+                "enum": subschema.get("enum"),
+                "description": subschema.get("description"),
                 "secret": subschema.get("secret", False),
+                "items": subschema.get("items", {}).get("type"),
             }
             if property in flags:
                 for k, v in _flag_kwargs.items():

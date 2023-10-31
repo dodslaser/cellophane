@@ -1,0 +1,17 @@
+schema:
+  foo: bar
+  properties:
+    a:
+      type: array
+      items:
+        type: path
+
+
+config:
+  a: [a, b, c]
+
+flags:
+  - key: [a]
+    type: array
+    default: [a, b, c]
+    items: path
