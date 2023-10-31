@@ -1,6 +1,6 @@
-<div style="display: flex; align-items: center; flex-direction: column;">
-<img src="cellophane.png" height="600px" />
-</div>
+<p align="center">
+  <img src="cellophane.png" width="400px" />
+</p>
 
 # Cellophane
 
