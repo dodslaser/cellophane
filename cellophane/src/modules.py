@@ -94,6 +94,9 @@ class Runner:
         outdir = config.outdir / config.outprefix / self.label
         if self.individual_samples:
             outdir /= samples[0].id
+        
+        outdir.mkdir(parents=True, exist_ok=True)
+
         try:
             match self.main(
                 samples=deepcopy(samples),
