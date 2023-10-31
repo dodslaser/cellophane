@@ -29,7 +29,7 @@ git init my_awesome_wrapper
 cd my_awesome_wrapper
 
 # Initialize an empty cellophane project
-python -m cellophane init
+python -m cellophane init my_awesome_wrapper
 ```
 
 A wrapper directory structure should look something like this:
@@ -73,15 +73,26 @@ A wrapper directory structure should look something like this:
 └── my_awesome_wrapper.py
 ```
 
-Pre-made modules can also be added from git
+Cellophane includes a CLI to add/remove/update modules
 
 ```shell
-# Add the module repo as a remote and install a module as a subtree
-git remote add -f modules https://github.com/ClinicalGenomicsGBG/cellophane_modules
-git subtree add --prefix modules/slims modules slims --squash -m "Add SLIMS module"
+# Select modules to add from all available modules/versions
+python -m cellophane module add
 
-# Upgrading is done the same way as cellophane
-git subtree pull --prefix modules/slims modules slims --squash -m "Upgrade SLIMS module"
+# Add a module at the latest (non-dev) version
+python -m cellophane module add my_module@latest
+
+# Update all installed modules. Will individually ask for a branch for each module
+python -m cellophane module update
+
+# Update a specific module to a specific version (in this case the dev branch)
+python -m cellophane module update my_module@dev
+
+# Select modules to delete from all installed modules
+python -m cellophane module remove
+
+# Remove a specific module
+python -m cellophane module remove my_module
 ```
 
 A cellophane wrapper can be run as a script or as a module
@@ -96,9 +107,32 @@ python ./my_awesome_wrapper.py [...]
 
 ## Configuration
 
-Configuration options must be defined as a JSON Schema in a YAML file. By default, cellophane will use `schema.yaml` located in your project root. The schema will be merged with base schema (`schema.base.yaml` in this repo) which contains configuration options required by all cellophane wrappers (eg. SLIMS API user/key). **NOTE:** *Most features should be supported, but complex schemas may break the custom JSONSchema parisng done by cellophane*
+Configuration options must be defined as a JSON Schema in a YAML file. By default, cellophane will use `schema.yaml` located in your project root. The schema will be merged with base schema (`schema.base.yaml` in this repo) which contains configuration options required by all cellophane wrappers.
 
-CLI flags for all configuration options specified in the schema are generated automagically. A YAML config file can be passed with the `--config_file` / `-c` flag.
+**NOTES:**
+
+- Cellophane aims to be JSON Schema Draft 7 compliant, but complex schemas may break paring. Please open an issue if you encounter any problems.
+- The schema is used to generate the CLI, not to validate the configuration. Rather, the schama will be translated to a `click.Command` which will then parse the configuration.
+- These types are implemented in addition to the standard types
+  - `path` - Used to specify that a string should be converted to a `pathlib.Path` object.
+  - `mapping` - Used to denote `objects` that will be parsed when specified as a string (eg. `foo=bar,baz=qux` will be parsed as `{"foo": "bar", "baz": "qux"}`).
+- [Conditional validation](https://json-schema.org/understanding-json-schema/reference/conditionals.html) is supported but has a few caveats:
+  - `allOf` will simply combine the schemas without validating against current parameters.
+  - `oneOf` will select the *FIRST* schema that validates against current parameters.
+  - `anyOf` cannot be used to mark parameters as required, since validation will fail if the parameter is not present.
+  - It is possible to "hide" options using conditionals that define properties absent from the base schema (e.g. only expose flag `--a` if flag `--b` is set to `foo`). **This should be used with caution as it will be confusing to users.**
+
+CLI flags for all configuration options specified in the schema are generated automagically. A YAML config file can be passed with the `--config_file` / `-c` flag. Parameters from the config file will be used as defaults for CLI flags. CLI flags will override config file parameters. If a parameter is not specified in the config file or as a CLI flag, the default value specified in the schema will be used.
+
+Required parameters will be evaluated at runtime, using values from the config file or CLI flags. The `--help` flag can be used to list flags and to see what options are still required given the current configuration and flags.
+
+The configuration will be passed to the runners and hooks, via the config keyword argument, as a `Config` object. This object allows for normal dict-like access with string keys (e.g. `config["foo"]["bar"]`) or tuple keyes (e.g. `config["foo", "bar"]`). It also allows for attribute access (e.g. `config.foo.bar`).
+
+**NOTES:**
+- Attribute access to `__dunder__` keys works, but is considered as unsupported behaviour.
+- The `Config` object implements the `Mapping` protocol, so stuff like `**unpacking` works at any level. *HOWEVER* attribute access to does not work for keys that overlab with a `dict` method (e.g. `keys`, `items`, `values`, etc.). In these cases, use `config["keys"]` instead of `config.keys`.
+- The `cellophane.data.to_dict` function can be used to convert a `Config` object to a nested dict.
+
 
 ### Example schema
 ```yaml
@@ -110,6 +144,7 @@ required:
 properties:
   foo:
     # Nested parameters (type: object) are allowed.
+    type: object
     properties:
       baz:
         # Description will be used to generate help messages
@@ -126,9 +161,8 @@ properties:
         # Bools will result in on/off style flags
         type: boolean
     # required needs to be defined on the correct nesting level
-    required:
-      - baz
-    type: object
+    if: {properties: {skip: {const: false}}}
+    then: {required: [baz]}
 ```
 
 This is the resulting auto-generated CLI:
@@ -144,7 +178,7 @@ $ python -m my_awesome_wrapper
 │ --logdir                                PATH                                 Log directory                                                                                     │
 │ --log_level                             [DEBUG|INFO|WARNING|ERROR|CRITICAL]  Log level [INFO]                                                                                  │
 │ --samples_file                          PATH                                 Path YAML file with sample names and paths to fastq files (eg. sample: {files: [fastq1, fastq2]}) │
-│ --foo_skip                                                                   Skip foo                                                                                          │
+│ --foo_skip/--foo_no_skip                                                     Skip foo [foo_no_skip]                                                                            │
 │ --foo_baz                               [HELLO|WORLD]                        Some other parameter                                                                              │
 │ --config                                PATH                                 Path to config file                                                                               │
 │ --help                                                                       Show this message and exit.                                                                       │
@@ -155,7 +189,7 @@ $ python -m my_awesome_wrapper
 
 ## Defining pipeline modules
 
-At least one module must contain at least one `cellophane.modules.runner` decorated function. Runners are responsible for launching the pipeline with the provided samples. They are executed as separate processes in parallel. Optinally, if `individual_samples=True` is specified in the `runner` decorator cellophane will spawn one runner process per sample. A `runner` function will be called with `samples`, `config`, `timestamp`, `label`, `logger`, `root` and `outdir` as keyword arguments.
+Runners are functions decrated with `cellophane.modules.runner`, and are responsible for launching the pipeline with the provided samples. They are executed as separate processes in parallel. Optinally, if `individual_samples=True` is specified in the `runner` decorator cellophane will spawn one runner process per sample. A `runner` function will be called with `samples`, `config`, `timestamp`, `label`, `logger`, `root` and `outdir` as keyword arguments.
 
 A module may also define pre/post-hooks. These should be decorated with `cellophane.modules.pre_hook` or `cellophane.modules.post_hook`. Hooks will be executed before or after the whle pipeline completes. Each hook function will be called with `samples`, `config`, `timestamp`, `logger`, and `root` as arguments. 
 
@@ -251,7 +285,7 @@ def bar(samples, config, timestamp, logger, root, outdir):
 
 When writing a module, it is sometimes desirable to add functionality to the `cellophane.data.Sample`/`cellophane.data.Samples` classes. This can be achieved by subclassing `cellophane.data.Sample`/`cellophane.data.Sample` in a module. Cellophane will detect these mixins on runtime and, any methods and/or class variables will be added to the relevant class. This can be used to eg. add a `nfcore_samplesheet` method to the `Samples` class. Under the hood, the classes use the `attrs` library, so this most of the functionality of `attrs` is available. However, mixins should not define __init__ methods, as this will break the `attrs` machinery.
 
-**Note:** *Mixin attributes MUST specify a default value. Usually it is a good idea to use `None` as a sentinel value to indicate that the attribute is not set.*
+**NOTE:** Mixin attributes *MUST* specify a default value. Usually it is a good idea to use `None` as a sentinel value to indicate that the attribute is not set.
 
 ### Example mixin
 
@@ -270,7 +304,6 @@ class MySamplesMixin(data.Mixin):
 
 ## To-do:
 
-- Improve logging to file
-- Make exception handling less convoluted
+- Ensure common exceptions are handled
+- Implement missing JSON Schema features (e.g. pattern, format, etc.) if possible
 - Add functionality for generating `hydra-genetics` units.tsv/samples.tsv
-- Add functionality to cellophane for fetching modules from github
