@@ -1,3 +1,7 @@
+<div style="display: flex; align-items: center; flex-direction: column;">
+<img src="cellophane.png" height="600px" />
+</div>
+
 # Cellophane
 
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
