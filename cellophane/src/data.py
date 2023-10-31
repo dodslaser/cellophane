@@ -1,7 +1,7 @@
 """Utilities for interacting with SLIMS"""
 
 from collections import UserDict, UserList
-from collections.abc import ItemsView, KeysView, ValuesView
+from collections.abc import ItemsView, KeysView, Mapping, ValuesView
 from copy import deepcopy
 from functools import partial, reduce
 from pathlib import Path
@@ -15,7 +15,7 @@ class _BASE:
     ...
 
 @define
-class Container:
+class Container(Mapping):
     """Base container class for the Config, Sample, and Samples classes.
 
     The container supports attribute-style access to its data and allows nested key
@@ -57,6 +57,12 @@ class Container:
             self[name] = value
         else:
             super().__setattr__(name, value)
+    
+    def __delattr__(self, name: str) -> None:
+        if name in fields_dict(self.__class__):
+            super().__delattr__(name)
+        else:
+            del self[name]
 
     def __setitem__(self, key: str | Sequence[str], item: Any) -> None:
         if isinstance(item, dict) and not isinstance(item, Container):
@@ -77,6 +83,10 @@ class Container:
                 reduce(lambda d, k: _set(d, k), k[:-1], self.__data__)[k[-1]] = item
             case k:
                 raise TypeError(f"Key {k} is not an string or a sequence of strings")
+    
+    def __delitem__(self, key: Any) -> None:
+        if key in self.__data__:
+            del self.__data__[key]
 
     def __getitem__(self, key: str | Sequence[str]) -> Any:
         match key:
@@ -103,6 +113,13 @@ class Container:
         )
         _instance.__data__ = deepcopy(self.__data__)
         return _instance
+    
+    def __len__(self) -> int:
+        return len(self.__data__)
+    
+    def __iter__(self) -> Iterable[str]:
+        return iter(self.__data__)
+
 
 
 @define(frozen=True, slots=False)
