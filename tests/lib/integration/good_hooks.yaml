@@ -7,10 +7,8 @@ structure:
       def runner(samples, **_):
           for sample in samples:
               if sample.id == "fail":
-                  sample.done = False
-              else:
-                  sample.done = True
-          return samples.with_call_id("runner")
+                  sample.fail("DUMMY FAIL")
+          return samples
       
       @modules.post_hook(condition="always")
       def always_hook(samples, **_):
@@ -45,3 +43,4 @@ logs:
   - Running fail_hook hook
   - Running always_hook hook
   - Running complete_hook hook
+exception: null

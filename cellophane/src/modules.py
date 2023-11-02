@@ -109,28 +109,31 @@ class Runner:
             ):
                 case None:
                     logger.debug("Runner did not return any samples")
-                    for sample in samples:
-                        sample.done = True
 
                 case returned if isinstance(returned, data.Samples):
                     samples = returned
-                    for sample in samples:
-                        sample.done = True if sample.done is None else sample.done
 
                 case returned:
                     logger.warning(f"Unexpected return type {type(returned)}")
+
+            for sample in samples:
+                sample.processed = True
 
         except Exception as exc:  # pylint: disable=broad-except
             logger.critical(
                 f"Unhandled Exception: {repr(exc)}",
                 exc_info=config.log_level == "DEBUG",
             )
+            for sample in samples:
+                sample.fail(str(exc))
 
         finally:
-            if n_complete := len(samples.complete):
-                logger.debug(f"Completed {n_complete} samples")
-            if n_failed := len(samples.failed):
-                logger.warning(f"Failed for {n_failed} samples")
+            if samples.complete:
+                logger.debug(f"{len(samples.complete)} samples processed successfully")
+            for sample in samples.complete:
+                logger.debug(f"Sample {sample.id} processed successfully")
+            for sample in samples.failed:
+                logger.warning(f"Sample {sample.id} failed - {sample.failed}")
 
         return dumps(samples)
 

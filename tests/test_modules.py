@@ -149,50 +149,51 @@ class Test_Runner:
         assert dummy.link_by == kwargs.get("link_by")
 
     @mark.parametrize(
-        "runner_mock,runner_kwargs,expected_done,log_lines",
+        "runner_mock,runner_kwargs,expected_fail,log_lines",
         [
             param(
                 MagicMock(return_value=None),
                 {},
-                [True, True, True],
+                [False] * 3,
                 [["Runner did not return any samples"]],
                 id="None",
             ),
             param(
                 MagicMock(side_effect=RuntimeError),
                 {},
-                [None, None, None],
-                [["Failed for 3 samples"]],
+                ["Sample was not processed"] * 3,
+                [
+                    [
+                        "Unhandled Exception: RuntimeError()",
+                        "Sample a failed - Sample was not processed",
+                        "Sample b failed - Sample was not processed",
+                        "Sample c failed - Sample was not processed",
+                    ]
+                ],
                 id="Exception",
             ),
             param(
                 MagicMock(return_value=None),
                 {"individual_samples": True},
-                [True, True, True],
+                [False, False, False],
                 [["Runner did not return any samples"]],
                 id="individual_samples",
             ),
             param(
-                MagicMock(
-                    return_value=data.Samples(
-                        [
-                            data.Sample(id="a", done=False),  # type: ignore[call-arg]
-                            data.Sample(id="b", done=True),  # type: ignore[call-arg]
-                            data.Sample(id="c", done=True),  # type: ignore[call-arg]
-                        ]
-                    )
-                ),
+                lambda samples, **_: samples[0].fail("DUMMY") or samples,
                 {},
-                [False, True, True],
+                ["DUMMY", False, False],
                 [
-                    ["Completed 2 samples", "Failed for 1 samples"],
+                    ["Sample a failed - DUMMY"],
+                    ["Sample b processed successfully"],
+                    ["Sample c processed successfully"],
                 ],
                 id="failed_sample",
             ),
             param(
                 MagicMock(return_value="INVALID"),
                 {},
-                [None, None, None],
+                [False] * 3,
                 [["Unexpected return type <class 'str'>"]],
                 id="invalid_return",
             ),
@@ -205,11 +206,11 @@ class Test_Runner:
         mocker: MockerFixture,
         runner_mock: data.Samples,
         runner_kwargs: dict[str, Any],
-        expected_done: list[int],
+        expected_fail: list[int],
         log_lines: list[list[str]],
     ):
-        runner_mock.__setattr__("__name__", "runner_mock")
-        runner_mock.__setattr__("__qualname__", "runner_mock")
+        setattr(runner_mock, "__name__", "runner_mock")
+        setattr(runner_mock, "__qualname__", "runner_mock")
         _runner = modules.runner(**runner_kwargs)(runner_mock)
         _config_mock = MagicMock()
 
@@ -223,12 +224,12 @@ class Test_Runner:
                 config=MagicMock(timestamp="DUMMY", log_level=None),
                 root=tmp_path / "root",
                 root_logger=logging.getLogger(),
-                samples_pickle=dumps(self.samples)
+                samples_pickle=dumps(self.samples),
             )
 
             for line in log_lines:
                 assert "\n".join(line) in "\n".join(caplog.messages)
-        assert [s.done for s in loads(_ret)] == expected_done
+        assert [s.failed for s in loads(_ret)] == expected_fail
 
 
 class Test_Hook:
@@ -376,9 +377,8 @@ class Test_Hook:
                 samples=input_value,
                 config=MagicMock(outdir=tmp_path, timestamp="DUMMY", log_level=None),
                 root=Path(),
-
             )
-        
+
         for log_line in logs:
             assert log_line in "\n".join(caplog.messages)
         assert _ret.value == expected
@@ -505,9 +505,9 @@ class Test_load:
                     "hooks": {"pre_hook_basic", "post_hook_basic"},
                     "runners": {"runner_basic"},
                     "sample_mixins": {"SampleMixinBasic"},
-                    "samples_mixins": {"SamplesMixinBasic"}
+                    "samples_mixins": {"SamplesMixinBasic"},
                 },
-                id="basic"
+                id="basic",
             ),
             param(
                 LIB / "modules" / "mod_directory",
@@ -515,13 +515,13 @@ class Test_load:
                     "hooks": {"pre_hook_directory", "post_hook_directory"},
                     "runners": {"runner_directory"},
                     "sample_mixins": {"SampleMixinDirectory"},
-                    "samples_mixins": {"SamplesMixinDirectory"}
+                    "samples_mixins": {"SamplesMixinDirectory"},
                 },
-                id="directory"
-            )
-        ]
+                id="directory",
+            ),
+        ],
     )
-    def test_load(path,expected):
+    def test_load(path, expected):
         (
             _hooks,
             _runners,
@@ -531,13 +531,14 @@ class Test_load:
         assert {h.name for h in _hooks} == expected.get("hooks", {})
         assert {r.name for r in _runners} == expected.get("runners", {})
         assert {m.__name__ for m in _sample_mixins} == expected.get("sample_mixins", {})
-        assert {m.__name__ for m in _samples_mixins} == expected.get("samples_mixins", [])
+        assert {m.__name__ for m in _samples_mixins} == expected.get(
+            "samples_mixins", []
+        )
 
     @staticmethod
     def test_load_exception():
         with raises(ImportError):
             modules.load(LIB / "modules" / "mod_invalid")
-    
 
     @staticmethod
     def test_load_override_logging():

@@ -323,8 +323,10 @@ class Sample(_BASE):
 
     id: str = field(kw_only=True)
     files: set[str] = field(factory=set, converter=set)
+    processed: bool = False
     output: set[Output] = field(factory=set, converter=set)
     uuid: UUID = field(repr=False, default=uuid4())
+    _fail: str | None = field(default=None, repr=False)
     merge: ClassVar[_Merger] = _Merger()
 
     def __str__(self) -> str:
@@ -351,6 +353,15 @@ class Sample(_BASE):
     def _merge_output(this: set[Output], that: set[Output]) -> set[Output]:
         return this | that
 
+    @merge.register("_fail")
+    @staticmethod
+    def _merge_fail(this: str | None, that: str | None) -> str | None:
+        return f"{this}\n{that}"
+
+    @merge.register("_processed")
+    @staticmethod
+    def _merge_done(this: bool | None, that: bool | None) -> bool | None:
+        return this and that
 
     def __or__(self, other: "Sample") -> "Sample":
         if self.__class__ != other.__class__:
@@ -371,6 +382,24 @@ class Sample(_BASE):
                 ),
             )
         return _sample
+
+    def fail(self, reason: str) -> None:
+        """
+        Marks the sample as failed with the specified reason.
+        """
+        self._fail = reason
+
+    @property
+    def failed(self) -> str | Literal[False]:
+        """
+        Checks if the sample is failed by any runner
+        """
+        if self._fail:
+            return self._fail
+        elif not self.processed:
+            return "Sample was not processed"
+        else:
+            return False
 
     @classmethod
     def with_mixins(cls, mixins: Sequence[type["Sample"]]) -> type["Sample"]:
@@ -616,14 +645,7 @@ class Samples(UserList[S]):
             Class: A new instance of the class with only the completed samples.
         """
 
-        return self.__class__(
-            [
-                sample
-                for samples_by_id in self.split(link_by="id")
-                if all(sample.done for sample in samples_by_id)
-                for sample in samples_by_id
-            ]
-        )
+        return self.__class__([sample for sample in self if not sample.failed])
 
     @property
     def failed(self) -> "Samples":
@@ -636,14 +658,7 @@ class Samples(UserList[S]):
         Returns:
             Class: A new instance of the class with only the failed samples.
         """
-        return self.__class__(
-            [
-                sample
-                for samples_by_id in self.split(link_by="id")
-                if not all(sample.done for sample in samples_by_id)
-                for sample in samples_by_id
-            ]
-        )
+        return self.__class__([sample for sample in self if sample.failed])
 
     def __str__(self) -> str:
         return "\n".join([str(s) for s in self])

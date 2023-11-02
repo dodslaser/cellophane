@@ -170,7 +170,7 @@ class Test_Sample:
         assert _sample.id == "a"
         assert str(_sample) == "a"
         assert _sample.files == {"b"}
-        assert _sample.done is None
+        assert _sample.processed == False
         assert _sample.output == set()
 
     @staticmethod
@@ -278,14 +278,14 @@ class Test_Samples:
         assert not samples.complete
         assert samples.failed == samples
 
-        samples[0].done = True
-        samples[2].done = True
-        assert samples.failed == samples[:2]
-        assert samples.complete == samples[2:]
+        for s in samples:
+            s.processed = True
 
-        samples[1].done = True
         assert samples.complete == samples
-        assert not samples.failed
+
+        samples[1].fail("DUMMY")
+        assert samples[1] in samples.failed
+
 
     @staticmethod
     def test_str(samples):
