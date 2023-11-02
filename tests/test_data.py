@@ -169,9 +169,9 @@ class Test_Sample:
         _sample = data.Sample(id="a", files=["b"])
         assert _sample.id == "a"
         assert str(_sample) == "a"
-        assert _sample.files == ["b"]
+        assert _sample.files == {"b"}
         assert _sample.done is None
-        assert _sample.output == []
+        assert _sample.output == set()
 
     @staticmethod
     def test_pickle():

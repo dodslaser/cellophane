@@ -1,11 +1,22 @@
 """Utilities for interacting with SLIMS"""
 
-from collections import UserDict, UserList
-from collections.abc import ItemsView, KeysView, Mapping, ValuesView
+from collections import UserList
+from collections.abc import Mapping
 from copy import deepcopy
-from functools import partial, reduce
+from functools import reduce
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Iterable, Sequence, TypeVar, overload
+from typing import (
+    Any,
+    Callable,
+    ClassVar,
+    Iterable,
+    Iterator,
+    Literal,
+    Sequence,
+    TypeVar,
+    overload,
+)
+from uuid import UUID, uuid4
 
 from attrs import define, field, fields_dict, has, make_class
 from ruamel.yaml import YAML
@@ -13,6 +24,58 @@ from ruamel.yaml import YAML
 
 class _BASE:
     ...
+
+
+class _Merger:
+    _imps: dict[str, Callable]
+
+    def __init__(self) -> None:
+        self._impls: dict[str, Callable] = {}
+
+    def register(self, name: str) -> Callable:
+        """
+        Decorator for registering a new merge implementation for an attribute.
+
+        The decorated function should take the two values to merge as arguments
+        and return the merged value.
+
+        This function will be called via reduce, so the first argument will be
+        the result of the previous call to the function, or the first value if
+        no previous calls have been made.
+
+        Args:
+            name (str): The name of attribute to merge.
+
+        Returns:
+            Callable: A decorator that registers the decorated function as the
+                implementation for the specified name.
+        """
+
+        def wrapper(impl: Callable) -> Callable:
+            self._impls[name] = impl
+            return impl
+
+        return wrapper
+
+    def __call__(self, name: str, this: Any, that: Any) -> Any:
+        """
+        Reconciles two values based on their attribute name.
+
+        Args:
+            name (str): The name of the values (unused).
+            this (Any): The first value.
+            that (Any): The second value.
+
+        Returns:
+            Any: The reconciled value.
+        """
+        if name in self._impls:
+            return self._impls[name](this, that)
+        elif this is None or that is None:
+            return this or that
+        else:
+            return (this, that)
+
 
 @define
 class Container(Mapping):
@@ -257,9 +320,10 @@ class Sample(_BASE):
     """
 
     id: str = field(kw_only=True)
-    files: list[str] = field(factory=list)
-    done: bool | None = None
-    output: list[Output] = field(factory=list)
+    files: set[str] = field(factory=set, converter=set)
+    output: set[Output] = field(factory=set, converter=set)
+    uuid: UUID = field(repr=False, default=uuid4())
+    merge: ClassVar[_Merger] = _Merger()
 
     def __str__(self) -> str:
         return self.id
@@ -274,6 +338,37 @@ class Sample(_BASE):
     #     state = {k: self[k] for k in fields_dict(self.__class__)}
     #     builder = partial(self.__class__, state.pop("__data__"), **state)
     #     return (builder, ())
+
+    @merge.register("files")
+    @staticmethod
+    def _merge_files(this: set[str], that: set[str]) -> set[str]:
+        return this | that
+
+    @merge.register("output")
+    @staticmethod
+    def _merge_output(this: set[Output], that: set[Output]) -> set[Output]:
+        return this | that
+
+
+    def __or__(self, other: "Sample") -> "Sample":
+        if self.__class__ != other.__class__:
+            raise TypeError("Cannot merge samples of different types")
+        elif self.uuid != other.uuid:
+            raise ValueError("Cannot merge samples with different UUIDs")
+
+        _sample = deepcopy(self)
+        for _field in fields_dict(self.__class__):
+            if _field in ["id", "uuid"]:
+                continue
+            _sample.__setattr__(
+                _field,
+                self.merge(
+                    _field,
+                    self.__getattribute__(_field),
+                    other.__getattribute__(_field),
+                ),
+            )
+        return _sample
 
     @classmethod
     def with_mixins(cls, mixins: Sequence[type["Sample"]]) -> type["Sample"]:
@@ -318,11 +413,34 @@ class Samples(UserList[S]):
 
     data: list[S] = field(factory=list)
     sample_class: ClassVar[type[Sample]] = Sample
-    mixins: ClassVar[list[type["Samples"]]] = []
+    merge: ClassVar[_Merger] = _Merger()
 
     def __init__(self, data: list | None = None, /, **kwargs: Any) -> None:
         self.__attrs_init__(**kwargs)  # pylint: disable=no-member
         super().__init__(data or [])
+
+    @merge.register("data")
+    @staticmethod
+    def _merge_data(this: list[Sample], that: list[Sample]) -> list[Sample]:
+        return [a | next(b for b in that if b.uuid == a.uuid) for a in this]
+
+    def __or__(self, other: "Samples") -> "Samples":
+        if self.__class__ != other.__class__:
+            raise TypeError("Cannot merge samples of different types")
+
+        _samples = deepcopy(self)
+        for _field in fields_dict(self.__class__):
+            if _field == "sample_class":
+                continue
+            _samples.__setattr__(
+                _field,
+                self.merge(
+                    _field,
+                    self.__getattribute__(_field),
+                    other.__getattribute__(_field),
+                ),
+            )
+        return _samples
 
     @classmethod
     def from_file(cls, path: Path) -> "Samples":

@@ -2,6 +2,7 @@
 import logging
 import time
 from copy import deepcopy
+from functools import reduce
 from pathlib import Path
 from typing import Any, Literal, Sequence
 
@@ -82,9 +83,6 @@ def _start_runners(
                 results.append(result)
 
             pool.stop_and_join(keep_alive=True)
-
-            return samples.__class__([s for r in results for s in loads(r.get())])
-
         except KeyboardInterrupt:
             logger.critical("Received SIGINT, telling runners to shut down...")
             pool.terminate()
@@ -94,6 +92,13 @@ def _start_runners(
             logger.critical(f"Unhandled exception in runner: {exception}")
             pool.terminate()
             return samples
+        
+        try:
+            return reduce(lambda a, b: a | b, (loads(r.get()) for r in results))
+        except Exception as exception:  # pylint: disable=broad-except
+            logger.critical(f"Unhandled exception when collecting results: {exception}")
+            return samples
+
 
 
 def _main(

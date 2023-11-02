@@ -1,0 +1,60 @@
+structure:
+  modules:
+    a.py: |
+      from cellophane import modules, data
+
+      class SamplesMixinA(data.Samples):
+          a_1: int = 1
+          a_2: int = 2
+
+      class SampleMixinA(data.Sample):
+          a_1: int = 1
+          a_2: int = 2
+      
+      class SamplesMixinB(data.Samples):
+          b: int = 3
+
+      class SampleMixinB(data.Sample):
+          b: int = 3
+      
+      class SamplesMixinC(data.Samples):
+          c: int = 4
+
+      class SampleMixinC(data.Sample):
+          c: int = 4
+      
+      @data.Samples.merge.register("a_1")
+      @data.Sample.merge.register("a_1")
+      def merge_add(this, that):
+          return this + that
+      
+      @data.Samples.merge.register("a_2")
+      @data.Samples.merge.register("b")
+      @data.Sample.merge.register("a_2")
+      @data.Sample.merge.register("b")
+      def merge_multiply(this, that):
+          return this * that
+
+      @modules.runner()
+      def runner_a(samples, **_):
+          return samples
+      
+      @modules.runner()
+      def runner_b(samples, **_):
+          return samples
+
+  samples.yaml: |
+    - id: a
+      files:
+      - input/a.txt
+    - id: b
+      files:
+      - input/b.txt
+  input:
+    a.txt: "INPUT_A"
+    b.txt: "INPUT_B"
+args:
+  --samples_file: samples.yaml
+  --logdir: logs
+  --outdir: out
+  --log_level: DEBUG
