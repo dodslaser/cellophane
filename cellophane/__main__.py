@@ -2,10 +2,10 @@
 
 import logging
 import re
-from functools import cached_property, lru_cache
+from functools import cached_property, lru_cache, wraps
 from pathlib import Path
 from tempfile import mkdtemp
-from typing import Any, Literal, Sequence, overload
+from typing import Any, Callable, Literal, Sequence
 
 import rich_click as click
 from git.exc import InvalidGitRepositoryError
@@ -52,8 +52,8 @@ class NoModulesError(Exception):
     Exception raised when there are no modules to select from.
     """
 
-    def __init__(self) -> None:
-        super().__init__("No modules to select from")
+    def __init__(self, msg: str | None = None) -> None:
+        super().__init__(msg)
 
 
 class InvalidModulesRepoError(InvalidGitRepositoryError):
@@ -518,15 +518,19 @@ def _update_example_config(path: Path) -> None:
         handle.write(schema.example_config)
 
 
-def _ask_modules(valid_modules: Sequence[str]) -> list[str] | None:
+def _ask_modules(valid_modules: Sequence[str]) -> list[str]:
     if not valid_modules:
-        raise NoModulesError
-    return checkbox(
+        raise NoModulesError("No modules to select from")
+
+    if _modules := checkbox(
         "Select module(s)",
         choices=[Choice(title=m, value=(m, None)) for m in valid_modules],
         erase_when_done=True,
         validate=lambda x: len(x) > 0 or "Select at least one module",
-    ).ask()
+    ).ask():
+        return _modules
+    else:
+        raise NoModulesError("No modules selected")
 
 
 def _ask_branch(_module: str, modules_repo: ModulesRepo) -> str:
@@ -543,49 +547,37 @@ def _ask_branch(_module: str, modules_repo: ModulesRepo) -> str:
     return _branch
 
 
-@overload
-def _validate_modules(
-    modules: list[tuple[str, str | None]],
-    repo: CellophaneRepo,
-    valid_modules: list[str],
-    ignore_branch: Literal[True],
-) -> list[tuple[str, str | None]]:
-    ...  # pragma: no cover
 
+def _validate_modules(ignore_branch: bool = False) -> Callable:
+    
+    def wrapper(func: Callable) -> Callable:
+        @wraps(func)
+        def inner(
+            modules: list[tuple[str, str]] | list[tuple[str, None]] | None,
+            valid_modules: Sequence[str],
+            repo: CellophaneRepo,
+            **kwargs: Any,
+        ) -> None:
+            _modules = modules or [(m, None) for m in _ask_modules(valid_modules)]
+            for _module, _ in _modules:
+                if _module not in valid_modules:
+                    raise InvalidModuleError(_module)
+            
+            if ignore_branch:
+                _modules = [(m, None) for m, _ in _modules]
+            else:
+                _modules = [(m, b or _ask_branch(m, repo.external)) for m, b in _modules]
+                for idx, (m, b) in enumerate(_modules):
+                    if b == "latest":
+                        b = repo.external.latest_module_tag(m)
+                        _modules[idx] = (m, b)
+                    if b not in repo.external.module_branches(m):
+                        raise InvalidBranchError(m, b)    
+            
+            return func(repo, _modules, **kwargs)
 
-@overload
-def _validate_modules(
-    modules: list[tuple[str, str | None]],
-    repo: CellophaneRepo,
-    valid_modules: list[str],
-    ignore_branch: Literal[False],
-) -> list[tuple[str, str]]:
-    ...  # pragma: no cover
-
-
-def _validate_modules(
-    modules: list[tuple[str, str | None]],
-    repo: CellophaneRepo,
-    valid_modules: list[str],
-    ignore_branch: bool = False,
-) -> list[tuple[str, str | None]] | list[tuple[str, str]]:
-    _modules: list[tuple[str, str | None]] = []
-    for _module, branch in modules:
-        if _module not in valid_modules:
-            raise InvalidModuleError(_module)
-
-        if not ignore_branch and branch is None:
-            branch = _ask_branch(_module, repo.external)
-
-        if branch == "latest":
-            branch = repo.external.latest_module_tag(_module)
-
-        if not ignore_branch and branch not in repo.external.module_branches(_module):
-            raise InvalidBranchError(_module, branch)
-        else:
-            _modules.append((_module, branch))
-
-    return _modules
+        return inner
+    return wrapper
 
 
 @click.group(
@@ -651,7 +643,7 @@ def main(ctx: click.Context, path: Path, log_level: str, modules_repo_url: str) 
 def module(
     ctx: click.Context,
     command: Literal["add", "update", "rm"],
-    modules: list[tuple[str, str]] | None,
+    modules: list[tuple[str, str]] | list[tuple[str, None]] | None,
 ) -> None:
     """Manage modules
 
@@ -672,25 +664,21 @@ def module(
             raise SystemExit(1)
 
     try:
+        common_kwargs = dict(
+            modules=modules,
+            repo=_repo,
+            path=_path,
+            logger=_logger,
+            log_level=ctx.obj["log_level"],
+        )
+    
         match command:
             case "add":
-                _command = add
-                _modules = modules or _ask_modules(_repo.absent_modules)
+                add(**common_kwargs, valid_modules = _repo.absent_modules)
             case "rm":
-                _command = rm
-                _modules = modules or _ask_modules(_repo.present_modules)
+                rm(**common_kwargs, valid_modules = _repo.present_modules)
             case "update":
-                _command = update
-                _modules = modules or _ask_modules(_repo.present_modules)
-
-        _modules = _validate_modules(
-            modules=_modules,
-            repo=_repo,
-            ignore_branch=command == "rm",
-            valid_modules=(
-                _repo.absent_modules if command == "add" else _repo.present_modules
-            ),
-        )
+                update(**common_kwargs, valid_modules = _repo.present_modules)
 
     except NoModulesError as exc:
         _logger.warning(exc)
@@ -705,21 +693,15 @@ def module(
         )
         raise SystemExit(1) from exc
 
-    _command(
-        path=_path,
-        repo=_repo,
-        modules=_modules,
-        logger=_logger,
-        log_level=ctx.obj["log_level"],
-    )
 
 
+@_validate_modules()
 def add(
-    path: Path,
     repo: CellophaneRepo,
+    modules: list[tuple[str, str]],
+    path: Path,
     logger: logging.LoggerAdapter,
     log_level: str,
-    modules: list[tuple[str, str]],
 ) -> None:
     """Add module(s)"""
 
@@ -750,13 +732,13 @@ def add(
             repo.index.commit(f"feat(cellophane): Added '{_module}@{branch}'")
             logger.info(f"Added '{_module}@{branch}')")
 
-
+@_validate_modules()
 def update(
-    path: Path,
     repo: Repo,
+    modules: list[tuple[str, str]],
+    path: Path,
     logger: logging.LoggerAdapter,
     log_level: str,
-    modules: list[tuple[str, str]],
     **kwargs: Any,
 ) -> None:
     """Update module(s)"""
@@ -798,13 +780,13 @@ def update(
             repo.index.commit(f"chore(cellophane): Updated '{_module}->{branch}'")
             logger.info(f"Updated '{_module}->{branch}'")
 
-
+@_validate_modules(ignore_branch=True)
 def rm(
-    path: Path,
     repo: CellophaneRepo,
+    modules: list[tuple[str, str]],
+    path: Path,
     logger: logging.LoggerAdapter,
     log_level: str,
-    modules: list[tuple[str, str]],
     **kwargs: Any,
 ) -> None:
     """Remove module"""

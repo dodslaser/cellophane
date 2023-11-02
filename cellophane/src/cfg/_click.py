@@ -1,3 +1,5 @@
+"""Click related utilities for configuration."""
+
 import re
 from pathlib import Path
 from typing import Any, Callable, Literal, Mapping, Type
@@ -73,7 +75,6 @@ class StringMapping(click.ParamType):
         it is returned as is. Otherwise, an error is raised.
 
         Args:
-            self: The instance of the class.
             value (str | Mapping): The value to be converted.
             param (click.Parameter | None): The click parameter
                 associated with the value.
@@ -108,6 +109,32 @@ class StringMapping(click.ParamType):
 
 
 class TypedArray(click.ParamType):
+    """
+    A custom Click parameter type for representing typed arrays.
+
+    Args:
+        items (Literal["string", "number", "integer", "path"] | None):
+            The type of items in the array. Defaults to "string".
+
+    Raises:
+        ValueError: If the provided items type is invalid.
+
+    Returns:
+        list: The converted list of values.
+
+    Examples:
+        >>> @click.command()
+        ... @click.option("--values", type=TypedArray(items="number"))
+        ... def process_values(values):
+        ...     for value in values:
+        ...         print(value)
+        ...
+        >>> process_values(["1", "2", "3"])
+        1
+        2
+        3
+    """
+
     name = "array"
     items: Literal[
         "string",
@@ -143,15 +170,42 @@ class TypedArray(click.ParamType):
         param: click.Parameter,
         ctx: click.Context,
     ) -> list:
+        """
+        Converts a list of values using the specified item type.
+
+        Args:
+            value (list): The list of values to convert.
+            param (click.Parameter): The Click parameter associated with the conversion.
+            ctx (click.Context): The Click context.
+
+        Returns:
+            list: The converted list of values.
+
+        Raises:
+            Exception: If an error occurs during the conversion.
+
+        Examples:
+            >>> items = TypedArray(items="number")
+            >>> items.convert(["1", "2", "3"], param, ctx)
+            [1, 2, 3]
+        """
         _items = _click_type(self.items)
         try:
             return [_items(v) for v in value]
-        except Exception as exc:
-            self.fail(exc, param, ctx)
+        except Exception as exc:  # pylint: disable=broad-except
+            self.fail(str(exc), param, ctx)
 
 
-def _click_type(
-    type,
+def _click_type(  # type: ignore[return]
+    _type: Literal[
+        "string",
+        "number",
+        "integer",
+        "boolean",
+        "mapping",
+        "array",
+        "path",
+    ] | None = None,
     enum: list | None = None,
     items: str | None = None,
 ) -> Type | click.Path | click.Choice | StringMapping | TypedArray:
@@ -161,27 +215,25 @@ def _click_type(
     Returns:
         type: The Python type corresponding to the property type.
     """
-    match type:
+    match _type:
         case _ if enum:
-            _click_type = click.Choice(enum)
+            return click.Choice(enum)
         case "string":
-            _click_type = str
+            return str
         case "number":
-            _click_type = float
+            return float
         case "integer":
-            _click_type = int
+            return int
         case "boolean":
-            _click_type = bool
+            return bool
         case "mapping":
-            _click_type = StringMapping()
+            return StringMapping()
         case "array":
-            _click_type = TypedArray(items)
+            return TypedArray(items)
         case "path":
-            _click_type = click.Path(path_type=Path)
+            return click.Path(path_type=Path)
         case _:
-            _click_type = str
-
-    return _click_type
+            return str
 
 
 @define(slots=False)
@@ -277,7 +329,7 @@ class Flag:
         self._key = value
 
     @property
-    def click_type(self) -> Type | click.Path | click.Choice | StringMapping:
+    def click_type(self) -> Type | click.Path | click.Choice | StringMapping | TypedArray:
         """
         Translate jsonschema type to Python type.
 

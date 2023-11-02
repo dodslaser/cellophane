@@ -120,7 +120,7 @@ class Container(Mapping):
             self[name] = value
         else:
             super().__setattr__(name, value)
-    
+
     def __delattr__(self, name: str) -> None:
         if name in fields_dict(self.__class__):
             super().__delattr__(name)
@@ -129,7 +129,7 @@ class Container(Mapping):
 
     def __setitem__(self, key: str | Sequence[str], item: Any) -> None:
         if isinstance(item, dict) and not isinstance(item, Container):
-            item = Container(item)  
+            item = Container(item)
 
         match key:
             case str(k) if k in fields_dict(self.__class__):
@@ -137,16 +137,16 @@ class Container(Mapping):
             case str(k) if k.isidentifier():
                 self.__data__[k] = item
             case *k, if all(isinstance(k_, str) for k_ in k):
-                
-                def _set(d, k):
+
+                def _set(d: Container, k: str) -> Container:
                     if k not in d:
                         d[k] = Container()
                     return d[k]
-                
-                reduce(lambda d, k: _set(d, k), k[:-1], self.__data__)[k[-1]] = item
+
+                reduce(_set, k[:-1], self.__data__)[k[-1]] = item
             case k:
                 raise TypeError(f"Key {k} is not an string or a sequence of strings")
-    
+
     def __delitem__(self, key: Any) -> None:
         if key in self.__data__:
             del self.__data__[key]
@@ -176,13 +176,12 @@ class Container(Mapping):
         )
         _instance.__data__ = deepcopy(self.__data__)
         return _instance
-    
+
     def __len__(self) -> int:
         return len(self.__data__)
-    
-    def __iter__(self) -> Iterable[str]:
-        return iter(self.__data__)
 
+    def __iter__(self) -> Iterator[str]:
+        return iter(self.__data__)
 
 
 @define(frozen=True, slots=False)
@@ -246,21 +245,23 @@ def _apply_mixins(
 ) -> type["Sample"]:
     ...  # pragma: no cover
 
+
 def _apply_mixins(
     cls: type, base: type, mixins: Sequence[type], name: str | None = None
 ) -> type:
     _name = cls.__name__
     for m in mixins:
-        _name += f"_{m.__name__}"        
+        _name += f"_{m.__name__}"
         m.__bases__ = (base,)
         m.__module__ = "__main__"
         if not has(m):
             m = define(m, slots=False)
-    
+
     _cls = make_class(name or _name, (), (cls, *mixins), slots=False)
     _cls.__module__ = "__main__"
 
     return _cls
+
 
 def as_dict(data: Container, exclude: list[str] | None = None) -> dict[str, Any]:
     """Dictionary representation of a container.
@@ -300,6 +301,7 @@ def as_dict(data: Container, exclude: list[str] | None = None) -> dict[str, Any]
             if k not in (exclude or [])
         }
     )
+
 
 @define(slots=False)
 class Sample(_BASE):
@@ -646,7 +648,12 @@ class Samples(UserList[S]):
     def __str__(self) -> str:
         return "\n".join([str(s) for s in self])
 
-    def __setstate__(self, state):
+    def __repr__(self) -> str:
+        attribs = ",\n".join(f"{k=}" for k in fields_dict(self.__class__))
+        samples = ",\n".join([repr(s) for s in self])
+        return f"Samples({samples},\n{attribs})"
+
+    def __setstate__(self, state: dict) -> None:
         for k, v in state.items():
             self.__setattr__(k, v)
 

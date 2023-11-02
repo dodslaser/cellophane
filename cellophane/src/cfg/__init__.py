@@ -4,7 +4,7 @@ import time
 from copy import copy, deepcopy
 from functools import cache, cached_property, partial, singledispatch
 from pathlib import Path
-from typing import Any, Callable, Literal, Mapping, Sequence, Type
+from typing import Any, Callable, Mapping, Sequence
 
 import rich_click as click
 from attrs import define, field
@@ -126,7 +126,8 @@ class Config(data.Container):
     Args:
         schema (Schema): The schema associated with the configuration.
         allow_empty (bool, optional): Allow empty configuration. Defaults to False.
-        __data__ (dict | None, optional): The data for the configuration. Defaults to None.
+        __data__ (dict | None, optional): The data for the configuration.
+            Defaults to None.
         **kwargs: Additional keyword arguments for the configuration.
 
     Example:
@@ -160,11 +161,12 @@ class Config(data.Container):
                 self[flag.key] = kwargs.get(flag.flag, flag.default)
 
 
-def _set_defaults(config) -> None:
+def _set_defaults(config: Config) -> None:
     """Updates the configuration from keyword arguments"""
     for flag in _get_flags(config.__schema__):
         if flag.default is not None and flag.key not in config:
             config[flag.key] = flag.default
+
 
 @singledispatch
 def _get_flags(schema: Schema, _data: Mapping | None = None) -> list[Flag]:
@@ -176,7 +178,7 @@ def _get_flags(schema: Schema, _data: Mapping | None = None) -> list[Flag]:
 def _(schema: frozendict, _data: frozendict | None = None) -> list[Flag]:
     _data_thawed = util.unfreeze(_data)
     _schema_thawed = util.unfreeze(schema)
-    _flags_mapping = {}
+    _flags_mapping: dict = {}
 
     while any(
         keyword in (kw for node in util.map_nested_keys(_schema_thawed) for kw in node)
@@ -256,15 +258,15 @@ def options(schema: Schema) -> Callable:
             },
         )
         @click.pass_context
-        def inner(ctx):
+        def inner(ctx: click.Context) -> None:
             _args = deepcopy(ctx.args)
 
             @click.command(context_settings={"resilient_parsing": True})
-            def _update_ctx(**kwargs):
+            def _update_ctx(**kwargs: Any) -> None:
                 config_file: Path = kwargs.pop("config_file", None)
                 config_data = YAML(typ="safe").load(config_file) if config_file else {}
 
-                ctx.obj = Config(
+                ctx.obj = Config(  # type: ignore[call-arg]
                     schema=schema,
                     outprefix=kwargs.pop("outprefix", None) or timestamp,
                     include_defaults=False,
@@ -273,7 +275,8 @@ def options(schema: Schema) -> Callable:
                         k: v
                         for k, v in kwargs.items()
                         if v is not None
-                        and ctx.get_parameter_source(k).name != "DEFAULT"
+                        and (source := ctx.get_parameter_source(k))
+                        and source.name != "DEFAULT"
                     },
                 )
 
@@ -286,15 +289,15 @@ def options(schema: Schema) -> Callable:
             nonlocal callback
             config = ctx.obj
             callback = click.make_pass_decorator(Config)(callback)
-            callback = click.command(callback)
+            _callback = click.command(callback)
             for flag in _get_flags(schema, data.as_dict(config)):
-                callback = flag.click_option(callback)
+                _callback = flag.click_option(_callback)
             config.start_time = start_time
             config.timestamp = timestamp
             _set_defaults(config)
-            ctx = callback.make_context(ctx.info_name, _args)
+            ctx = _callback.make_context(ctx.info_name, _args)
             ctx.obj = config
-            ctx.forward(callback)
+            ctx.forward(_callback)
 
         return inner
 

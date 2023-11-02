@@ -140,7 +140,7 @@ def _main(
 def cellophane(
     label: str,
     root: Path,
-) -> click.BaseCommand:
+) -> click.Command:
     """
     Creates a click command for running the Cellophane application.
 
@@ -189,7 +189,7 @@ def cellophane(
         _SAMPLES = data.Samples.with_sample_class(_SAMPLE).with_mixins(samples_mixins)
 
         @cfg.options(schema)
-        def inner(config: cfg.Config, **_) -> None:
+        def inner(config: cfg.Config, **_: Any) -> None:
             """Run cellophane"""
             console_handler.setLevel(config.log_level)
             logger.debug(f"Found {len(hooks)} hooks")

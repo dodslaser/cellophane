@@ -1,11 +1,22 @@
 structure:
   modules:
     a.py: |
-      from cellophane import modules
+      from cellophane import modules, data
+
+      class TestSamples(data.Samples):
+          foo: int = 13
+
+      class TestSample(data.Sample):
+          bar: int = 37
 
       @modules.runner()
-      def runner(samples, **_):
-          return samples.with_call_id("runner")
+      def runner_a(samples, **_):
+          return samples
+      
+      @modules.runner()
+      def runner_b(samples, **_):
+          return samples
+
   samples.yaml: |
     - id: a
       files:
@@ -20,7 +31,7 @@ args:
 logs:
   - |
     Found 0 hooks
-    Found 1 runners
+    Found 2 runners
     Found 1 sample mixins
     Found 1 samples mixins
-  
+exception: null

@@ -1,3 +1,5 @@
+"""JSON Schema validators for Cellophane configuration files."""
+
 from functools import partial, reduce
 from pathlib import Path
 from typing import Callable, Generator, Mapping
@@ -30,7 +32,7 @@ def _uptate_validators(
     validators: dict[str, Callable],
     flags: dict | None = None,
     compiled: dict | None = None,
-):
+) -> None:
     for _validator in validators.values():
         if isinstance(_validator, partial):
             if "flags" in _validator.keywords:

@@ -138,49 +138,49 @@ class Test__ask_modules_branch:
         assert _select_mock.ask.call_count == 1
 
 
-class Test__validate_modules:
-    @mark.parametrize(
-        "modules,exception",
-        [
-            param([("rsync", "dev")], None, id="valid"),
-            param([("rsync", "latest")], None, id="latest"),
-            param([("rsync", None)], None, id="no_branch"),
-            param(
-                [("rsync", "__INVALID__")],
-                dev.InvalidBranchError,
-                id="invalid_branch",
-            ),
-            param(
-                [("__INVALID__", "dev")],
-                dev.InvalidModuleError,
-                id="invalid_module",
-            ),
-        ],
-    )
-    def test__validate_modules(
-        self,
-        mocker,
-        modules_repo,
-        cellophane_repo,
-        modules,
-        exception,
-    ):
-        _project_repo, _ = cellophane_repo
-        _ask_branch_mock = MagicMock(return_value="dev")
-        mocker.patch("cellophane.__main__._ask_branch", _ask_branch_mock)
-        assert (
-            raises(
-                exception,
-                dev._validate_modules,
-                modules,
-                _project_repo,
-                modules_repo.modules,
-                False,
-            )
-            if exception
-            else dev._validate_modules(modules, _project_repo, modules_repo.modules)
-            # and _ask_branch_mock.call_count == sum(m[1] is None for m in modules)
-        )
+# class Test__validate_modules:
+#     @mark.parametrize(
+#         "modules,exception",
+#         [
+#             param([("rsync", "dev")], None, id="valid"),
+#             param([("rsync", "latest")], None, id="latest"),
+#             param([("rsync", None)], None, id="no_branch"),
+#             param(
+#                 [("rsync", "__INVALID__")],
+#                 dev.InvalidBranchError,
+#                 id="invalid_branch",
+#             ),
+#             param(
+#                 [("__INVALID__", "dev")],
+#                 dev.InvalidModuleError,
+#                 id="invalid_module",
+#             ),
+#         ],
+#     )
+#     def test__validate_modules(
+#         self,
+#         mocker,
+#         modules_repo,
+#         cellophane_repo,
+#         modules,
+#         exception,
+#     ):
+#         _project_repo, _ = cellophane_repo
+#         _ask_branch_mock = MagicMock(return_value="dev")
+#         mocker.patch("cellophane.__main__._ask_branch", _ask_branch_mock)
+#         assert (
+#             raises(
+#                 exception,
+#                 dev._validate_modules,
+#                 modules,
+#                 _project_repo,
+#                 modules_repo.modules,
+#                 False,
+#             )
+#             if exception
+#             else dev._validate_modules(modules, _project_repo, modules_repo.modules)
+#             # and _ask_branch_mock.call_count == sum(m[1] is None for m in modules)
+#         )
 
 
 class Test_module_cli:
@@ -191,7 +191,7 @@ class Test_module_cli:
         [
             param(
                 "add rsync@dev",
-                {"_validate_modules": {"side_effect": Exception("DUMMY")}},
+                {"add": {"side_effect": Exception("DUMMY")}},
                 1,
                 ["Unhandled Exception: Exception('DUMMY')"],
                 id="module_unhandled_exception",
@@ -226,7 +226,7 @@ class Test_module_cli:
             ),
             param(
                 "update rsync@dev",
-                {"_add_requirements": {"side_effect": Exception("DUMMY")}},
+                {"t": {"side_effect": Exception("DUMMY")}},
                 0,
                 ["Unable to update 'rsync->dev': Exception('DUMMY')"],
                 id="update_unhandled_exception",
