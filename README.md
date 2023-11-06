@@ -167,14 +167,14 @@ properties:
 
 This is the resulting auto-generated CLI:
 
-```shell
+```
 $ python -m my_awesome_wrapper
 
 
  Usage: my_awesome_wrapper [OPTIONS]
 
 ╭─ Options ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ --outdir                                PATH                                 Output directory                                                                                  │
+│ --workdir                               PATH                                 Output directory                                                                                  │
 │ --logdir                                PATH                                 Log directory                                                                                     │
 │ --log_level                             [DEBUG|INFO|WARNING|ERROR|CRITICAL]  Log level [INFO]                                                                                  │
 │ --samples_file                          PATH                                 Path YAML file with sample names and paths to fastq files (eg. sample: {files: [fastq1, fastq2]}) │
@@ -189,7 +189,7 @@ $ python -m my_awesome_wrapper
 
 ## Defining pipeline modules
 
-Runners are functions decrated with `cellophane.modules.runner`, and are responsible for launching the pipeline with the provided samples. They are executed as separate processes in parallel. Optinally, if `individual_samples=True` is specified in the `runner` decorator cellophane will spawn one runner process per sample. A `runner` function will be called with `samples`, `config`, `timestamp`, `label`, `logger`, `root` and `outdir` as keyword arguments.
+Runners are functions decrated with `cellophane.modules.runner`, and are responsible for launching the pipeline with the provided samples. They are executed as separate processes in parallel. Optinally, if `individual_samples=True` is specified in the `runner` decorator cellophane will spawn one runner process per sample. A `runner` function will be called with `samples`, `config`, `timestamp`, `label`, `logger`, `root` and `workdir` as keyword arguments.
 
 A module may also define pre/post-hooks. These should be decorated with `cellophane.modules.pre_hook` or `cellophane.modules.post_hook`. Hooks will be executed before or after the whle pipeline completes. Each hook function will be called with `samples`, `config`, `timestamp`, `logger`, and `root` as arguments. 
 
@@ -222,7 +222,7 @@ def filter_missing(samples, config, timestamp, logger, root):
 
 
 @modules.runner()
-def foo(samples, config, timestamp, label, logger, root, outdir):
+def foo(samples, config, timestamp, label, logger, root, workdir):
 
     # config is a UserDict that allows attrubute access
     if not config.foo.skip:
@@ -232,7 +232,7 @@ def foo(samples, config, timestamp, label, logger, root, outdir):
 
         # Sample sheets for nf-core can be generated automatically
         sample_sheet = samples.nfcore_samplesheet(
-            location=outdir,
+            location=worktdir,
             # kwargs will be added as a column to the samplesheet
             # kwargs can also be a sample_id -> value mapping (i.e. a dict)
             strandedness=config.rnafusion.strandedness,
@@ -244,7 +244,7 @@ def foo(samples, config, timestamp, label, logger, root, outdir):
             str(root / "scripts" / "nextflow.sh"),
             # *args will be passed as arguments to the script
             *(
-                f"-log {outdir / 'logs' / 'foo.log'}",
+                f"-log {workdir / 'logs' / 'foo.log'}",
                 (
                     # Note that config still behaves as a dict
                     f"-config {config.nextflow.config}"
@@ -264,7 +264,7 @@ def foo(samples, config, timestamp, label, logger, root, outdir):
             name="foo",
             stderr=config.logdir / f"foo.err",
             stdout=config.logdir / f"foo.out",
-            cwd=outdir,
+            cwd=workdir,
         )
 
 # individual_samples=True will spawn one process for each sample
@@ -273,7 +273,7 @@ def foo(samples, config, timestamp, label, logger, root, outdir):
     individual_samples=True,
     label="My Fancy Label"
 )
-def bar(samples, config, timestamp, logger, root, outdir):
+def bar(samples, config, timestamp, logger, root, workdir):
 
     # samples is still a sequence but length is 1
     sample = samples[0]
