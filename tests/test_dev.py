@@ -226,7 +226,7 @@ class Test_module_cli:
             ),
             param(
                 "update rsync@dev",
-                {"t": {"side_effect": Exception("DUMMY")}},
+                {"_update_example_config": {"side_effect": Exception("DUMMY")}},
                 0,
                 ["Unable to update 'rsync->dev': Exception('DUMMY')"],
                 id="update_unhandled_exception",
