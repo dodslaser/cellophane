@@ -19,9 +19,7 @@ structure:
       - "input/a"
 args:
   --samples_file: samples.yaml
-  --logdir: logs
-  --outdir: out
-  --log_level: DEBUG
+  --workdir: out
 logs:
   - "Unable to resolve hook dependencies"
 exception: SystemExit(1)

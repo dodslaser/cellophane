@@ -382,7 +382,7 @@ class Test_Hook:
         with caplog.at_level("DEBUG"):
             _ret = _hook(
                 samples=input_value,
-                config=MagicMock(outdir=tmp_path, timestamp="DUMMY", log_level=None),
+                config=MagicMock(workdir=tmp_path, timestamp="DUMMY", log_level=None),
                 root=Path(),
             )
 

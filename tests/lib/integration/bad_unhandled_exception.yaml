@@ -1,7 +1,5 @@
 args:
-  --logdir: logs
-  --outdir: out
-  --log_level: DEBUG
+  --workdir: out
 logs:
   - "Unhandled exception: DUMMY"
 mocks:

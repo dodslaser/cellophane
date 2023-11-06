@@ -5,9 +5,7 @@ structure:
       - input/MISSING
 args:
   --samples_file: samples.yaml
-  --logdir: logs
-  --outdir: out
-  --log_level: DEBUG
+  --workdir: out
 logs:
   - |
     Removed invalid sample INVALID

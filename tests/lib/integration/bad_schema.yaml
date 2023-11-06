@@ -1,9 +1,7 @@
 structure:
   schema.yaml: "!INVALID!"
 args:
-  --logdir: logs
-  --outdir: out
-  --log_level: DEBUG
+  --workdir: out
 exception: SystemExit(1)
 logs:
   - "Failed to load schema: while parsing a tag"

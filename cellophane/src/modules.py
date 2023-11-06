@@ -94,11 +94,11 @@ class Runner:
         logger = logging.LoggerAdapter(logging.getLogger(), {"label": self.label})
 
         signal(SIGTERM, _cleanup(logger))
-        outdir = config.outdir / config.outprefix / self.label
+        workdir = config.workdir / config.tag / self.label
         if self.individual_samples:
-            outdir /= samples[0].id
+            workdir /= samples[0].id
 
-        outdir.mkdir(parents=True, exist_ok=True)
+        workdir.mkdir(parents=True, exist_ok=True)
 
         try:
             match self.main(
@@ -108,7 +108,7 @@ class Runner:
                 label=self.label,
                 logger=logger,
                 root=root,
-                outdir=outdir,
+                workdir=workdir,
             ):
                 case None:
                     logger.debug("Runner did not return any samples")
@@ -197,7 +197,7 @@ class Hook:
             timestamp=config.timestamp,
             logger=logger,
             root=root,
-            outdir=config.outdir / config.outprefix,
+            workdir=config.workdir / config.tag,
         ):
             case returned if isinstance(returned, data.Samples):
                 _ret = returned

@@ -33,9 +33,7 @@ structure:
     fail.txt: "FAIL"
 args:
   --samples_file: samples.yaml
-  --logdir: logs
-  --outdir: out
-  --log_level: DEBUG
+  --workdir: out
 logs:
   - |
     Found 3 hooks

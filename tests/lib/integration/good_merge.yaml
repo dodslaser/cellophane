@@ -55,6 +55,4 @@ structure:
     b.txt: "INPUT_B"
 args:
   --samples_file: samples.yaml
-  --logdir: logs
-  --outdir: out
-  --log_level: DEBUG
+  --workdir: out

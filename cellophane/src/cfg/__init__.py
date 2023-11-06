@@ -268,7 +268,9 @@ def options(schema: Schema) -> Callable:
 
                 ctx.obj = Config(  # type: ignore[call-arg]
                     schema=schema,
-                    outprefix=kwargs.pop("outprefix", None) or timestamp,
+                    tag=kwargs.pop("tag", None) or timestamp,
+                    resultdir=kwargs.pop("resultdir") or (kwargs["workdir"] / "results"),
+                    logdir=kwargs.pop("logdir") or (kwargs["workdir"] / "logs"),
                     include_defaults=False,
                     _data=config_data,
                     **{
@@ -286,8 +288,10 @@ def options(schema: Schema) -> Callable:
             ctx = _update_ctx.make_context(ctx.info_name, copy(ctx.args))
             ctx.forward(_update_ctx)
 
+
             nonlocal callback
             config = ctx.obj
+
             callback = click.make_pass_decorator(Config)(callback)
             _callback = click.command(callback)
             for flag in _get_flags(schema, data.as_dict(config)):

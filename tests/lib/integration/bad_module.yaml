@@ -3,9 +3,7 @@ structure:
     a.py: |
       INVALID
 args:
-  --logdir: logs
-  --outdir: out
-  --log_level: DEBUG
+  --workdir: out
 logs:
   - "Unable to import module 'a': name 'INVALID' is not defined"
 exception: SystemExit(1)

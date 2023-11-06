@@ -5,8 +5,7 @@ structure:
         type: number
 args:
   --a: "INVALID"
-  --logdir: logs
-  --outdir: out
+  --workdir: out
 output:
   - "Invalid value for '--a': 'INVALID' is not a valid float."
 exception: SystemExit(2)

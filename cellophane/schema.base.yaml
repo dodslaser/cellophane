@@ -1,6 +1,5 @@
 required:
-  - logdir
-  - outdir
+  - workdir
 
 properties:
   log_level:
@@ -22,12 +21,16 @@ properties:
     description: Log directory
     type: path
 
-  outdir:
-    description: Output directory
+  workdir:
+    description: Working directory where intermediate files are stored
+    type: path
+  
+  resultdir:
+    description: Results base directory where output files are copied
     type: path
 
-  outprefix:
-    description: Output prefix (defaults to a timestamp)
+  tag:
+    description: Tag identifying the pipeline run (defaults to a timestamp - YYMMDDHHMMSS)
     type: string
 
   samples_file:
