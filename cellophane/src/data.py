@@ -616,7 +616,7 @@ class Samples(UserList[S]):
             Class: A new instance of the class with only the completed samples.
         """
 
-        return self.__class__([sample for sample in self if not sample.failed])
+        return self.__class__([sample for sample in self if not sample.failed], output=self.output)
 
     @property
     def failed(self) -> "Samples":
