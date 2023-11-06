@@ -706,7 +706,7 @@ def output(
 
             _patterns = set()
 
-            for sample in samples:
+            for sample in [s for s in samples if not s._fail]:
                 _meta = {
                     "samples": samples,
                     "sample": sample,
