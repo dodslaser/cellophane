@@ -67,9 +67,9 @@ def _execute_from_structure(
     # Extract --flag value pairs from args. If a value is None, the flag is
     # considered to be a flag without a value.
     _args = [p for f in (args or {}).items() for p in f if p is not None]
-
     try:
-        mocker.patch("cellophane.logs.setup_logging")
+        mocker.patch("cellophane.logs.RichHandler", return_value=logging.NullHandler())
+        mocker.patch("cellophane.logs.add_file_handler")
         _main = cellophane.cellophane("DUMMY", root=root)
         for target, mock in (mocks or {}).items():
             _side_effect = (
@@ -90,7 +90,6 @@ def _execute_from_structure(
     except (SystemExit, Exception) as e:  # pylint: disable=broad-except
         _exception = e
         _result = None
-
 
     if repr(_exception) != (exception or repr(None)):
         _fail_from_click_result(
@@ -150,7 +149,6 @@ def run_definition(
     _runner = CliRunner()
     _handlers = logging.getLogger().handlers
     _extenal_root = Path(request.fspath).parent  # type: ignore[attr-defined]
-    logging.getLogger().handlers = []
 
     def inner(definition: dict) -> None:
         with (

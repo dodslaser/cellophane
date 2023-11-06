@@ -5,6 +5,7 @@ import sys
 from copy import deepcopy
 from graphlib import TopologicalSorter
 from importlib.util import module_from_spec, spec_from_file_location
+from multiprocessing import Queue
 from pathlib import Path
 from signal import SIGTERM, signal
 from typing import Any, Callable, Literal
@@ -12,7 +13,7 @@ from typing import Any, Callable, Literal
 import psutil
 from cloudpickle import dumps, loads
 
-from . import cfg, data
+from . import cfg, data, logs
 
 
 def _cleanup(logger: logging.LoggerAdapter) -> Callable:
@@ -82,13 +83,15 @@ class Runner:
 
     def __call__(
         self,
+        log_queue: Queue,
+        /,
         config: cfg.Config,
         root: Path,
-        root_logger: logging.Logger,
         samples_pickle: str,
     ) -> None:
         samples = loads(samples_pickle)
-        logger = logging.LoggerAdapter(root_logger, {"label": self.label})
+        logs.setup_queue_logging(log_queue)
+        logger = logging.LoggerAdapter(logging.getLogger(), {"label": self.label})
 
         signal(SIGTERM, _cleanup(logger))
         outdir = config.outdir / config.outprefix / self.label
@@ -120,20 +123,18 @@ class Runner:
                 sample.processed = True
 
         except Exception as exc:  # pylint: disable=broad-except
-            logger.critical(
-                f"Unhandled Exception: {repr(exc)}",
-                exc_info=config.log_level == "DEBUG",
-            )
             for sample in samples:
                 sample.fail(str(exc))
 
         finally:
             if samples.complete:
-                logger.debug(f"{len(samples.complete)} samples processed successfully")
+                logger.info(f"{len(samples.complete)} samples processed successfully")
             for sample in samples.complete:
                 logger.debug(f"Sample {sample.id} processed successfully")
+            if samples.failed:
+                logger.error(f"{len(samples.failed)} samples failed")
             for sample in samples.failed:
-                logger.warning(f"Sample {sample.id} failed - {sample.failed}")
+                logger.debug(f"Sample {sample.id} failed - {sample.failed}")
 
         return dumps(samples)
 

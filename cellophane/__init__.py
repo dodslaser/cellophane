@@ -3,6 +3,7 @@ import logging
 import time
 from copy import deepcopy
 from functools import reduce
+from multiprocessing import Queue
 from pathlib import Path
 from typing import Any, Literal, Sequence
 
@@ -54,13 +55,16 @@ def _start_runners(
     runners: Sequence[modules.Runner],
     samples: data.Samples,
     logger: logging.LoggerAdapter,
+    log_queue: Queue,
     **kwargs: Any,
 ) -> data.Samples:
     if not runners:
         logger.warning("No runners to execute")
         return samples
 
-    with WorkerPool(use_dill=True, daemon=False, start_method="fork") as pool:
+    with WorkerPool(
+        use_dill=True, daemon=False, start_method="fork", shared_objects=log_queue
+    ) as pool:
         try:
             results = []
             for runner, _samples in (
@@ -74,10 +78,9 @@ def _start_runners(
             ):
                 result = pool.apply_async(
                     runner,
-                    kwargs=kwargs
-                    | {
+                    kwargs={
+                        **kwargs,
                         "samples_pickle": dumps(_samples),
-                        "root_logger": logging.getLogger(),
                     },
                 )
                 results.append(result)
@@ -92,7 +95,7 @@ def _start_runners(
             logger.critical(f"Unhandled exception in runner: {exception}")
             pool.terminate()
             return samples
-        
+
         try:
             return reduce(lambda a, b: a | b, (loads(r.get()) for r in results))
         except Exception as exception:  # pylint: disable=broad-except
@@ -100,12 +103,29 @@ def _start_runners(
             return samples
 
 
+def _copy_outputs(
+    outputs: list[data.Output], logger: logging.LoggerAdapter, config: cfg.Config
+) -> None:
+    logger.info(f"Copying {len(outputs)} outputs")
+    for output in outputs:
+        if not output.dst.is_relative_to(config.resultdir):
+            logger.error(f"{output.dst} is not relative to {config.resultdir}")
+        elif output.dst.exists():
+            logger.warning(f"{output.dst} already exists")
+        elif not output.src.exists():
+            logger.error(f"{output.src} does not exist")
+        else:
+            logger.debug(f"Copying {output.src} to {output.dst}")
+            output.dst.parent.mkdir(parents=True, exist_ok=True)
+            copyfile(output.src, output.dst)
+
 
 def _main(
     hooks: list[modules.Hook],
     runners: list[modules.Runner],
     samples_class: type[data.Samples],
     logger: logging.LoggerAdapter,
+    log_queue: Queue,
     config: cfg.Config,
     root: Path,
 ) -> None:
@@ -133,8 +153,12 @@ def _main(
         logger.info("No samples to process")
         raise SystemExit(0)
 
-    samples = _start_runners(runners, samples, logger, **common_kwargs)
+    samples = _start_runners(runners, samples, logger, log_queue, **common_kwargs)
     samples = _run_hooks(hooks, "post", samples, **common_kwargs)
+
+    # If not post-hook has copied the outputs, do it here
+    if missing_outputs := [o for o in samples.output if not o.dst.exists()]:
+        _copy_outputs(missing_outputs, logger, config)
 
 
 def cellophane(
@@ -184,7 +208,6 @@ def cellophane(
             samples_mixins,
         ) = modules.load(root / "modules")
 
-
         _SAMPLE = data.Sample.with_mixins(sample_mixins)
         _SAMPLES = data.Samples.with_sample_class(_SAMPLE).with_mixins(samples_mixins)
 
@@ -199,8 +222,9 @@ def cellophane(
 
             config.analysis = label  # type: ignore[attr-defined]
             logs.add_file_handler(
-                logger, path=config.logdir / f"{label}.{config.outprefix}.log"
+                config.logdir / f"{label}.{config.tag}.log", logger.logger
             )
+            log_queue = logs.start_queue_listener()
             try:
                 _main(
                     hooks=hooks,
@@ -208,6 +232,7 @@ def cellophane(
                     samples_class=_SAMPLES,
                     config=config,
                     logger=logger,
+                    log_queue=log_queue,
                     root=root,
                 )
 
@@ -218,7 +243,7 @@ def cellophane(
             else:
                 time_elapsed = format_timespan(time.time() - config.start_time)
                 logger.info(f"Execution complete in {time_elapsed}")
-                raise SystemExit(0)
+
     except Exception as exc:
         logger.critical(exc)
         raise SystemExit(1) from exc

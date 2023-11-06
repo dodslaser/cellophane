@@ -12,7 +12,7 @@ class Test_logs:
         logger = logging.LoggerAdapter(logging.getLogger(), {"label": "DUMMY"})
 
         _path = tmp_path / "test.log"
-        logs.add_file_handler(logger, _path)
+        logs.add_file_handler(_path, logger.logger)
 
         logger.info("TEST")
         assert _path.exists()

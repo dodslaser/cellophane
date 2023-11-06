@@ -1,8 +1,10 @@
 import logging
 import subprocess as sp
-from collections import UserDict, UserList
+from collections import UserList
 from copy import copy
 from graphlib import CycleError
+from logging.handlers import QueueListener
+from multiprocessing import Queue
 from pathlib import Path
 from typing import Any, Callable
 from unittest.mock import MagicMock
@@ -13,7 +15,7 @@ from pytest import LogCaptureFixture, mark, param, raises
 from pytest_mock import MockerFixture
 
 from cellophane.src import data, modules
-from cellophane.src.data import Container, Sample, Samples
+from cellophane.src.data import Sample, Samples
 from cellophane.src.modules import Hook, Runner
 
 LIB = Path(__file__).parent / "lib"
@@ -164,7 +166,7 @@ class Test_Runner:
                 ["Sample was not processed"] * 3,
                 [
                     [
-                        "Unhandled Exception: RuntimeError()",
+                        "3 samples failed",
                         "Sample a failed - Sample was not processed",
                         "Sample b failed - Sample was not processed",
                         "Sample c failed - Sample was not processed",
@@ -214,18 +216,23 @@ class Test_Runner:
         _runner = modules.runner(**runner_kwargs)(runner_mock)
         _config_mock = MagicMock()
 
+
         mocker.patch(
             "cellophane.src.modules._cleanup",
             return_value=_config_mock,
         )
 
         with caplog.at_level("DEBUG"):
+            _log_queue: Queue = Queue()
+            _listener = QueueListener(_log_queue, *logging.getLogger().handlers)
+            _listener.start()
             _ret = _runner(
+                _log_queue,
                 config=MagicMock(timestamp="DUMMY", log_level=None),
                 root=tmp_path / "root",
-                root_logger=logging.getLogger(),
                 samples_pickle=dumps(self.samples),
             )
+            _listener.stop()
 
             for line in log_lines:
                 assert "\n".join(line) in "\n".join(caplog.messages)
