@@ -51,22 +51,6 @@ class Test_Container:
         assert _container.a == 1337
         assert raises(AttributeError, lambda: _container.b)
 
-    # @staticmethod
-    # def test_views() -> None:
-    #     _dummy = Dummy(b=1338)  # type: ignore[call-arg]
-
-    #     assert _dummy.__data__ == {"b": 1338}
-    #     assert _dummy.a == 1337
-    #     assert _dummy.b == 1338
-    #     assert [*_dummy.keys()] == ["a", "b"]
-    #     assert [*_dummy.values()] == [1337, 1338]
-    #     assert [*_dummy.items()] == [("a", 1337), ("b", 1338)]
-
-    #     with raises(ValueError):
-    #         _dummy["a"] = 9001
-    #     with raises(ValueError):
-    #         _dummy.a = 9001
-
     @staticmethod
     def test_deepcopy() -> None:
         _dummy = Dummy(a={"b": 1338})  # type: ignore[call-arg]
