@@ -80,73 +80,6 @@ class Test_Container:
         assert "b" in _dummy.a
         assert "c" not in _dummy
 
-
-class Test_Output:
-    @staticmethod
-    @mark.parametrize(
-        "src,dest_dir,parent_id",
-        [
-            param("a", "b", None, id="str"),
-            param(["a", "b"], "c", None, id="list"),
-            param(["a", "a", "b"], "c", None, id="duplicate"),
-            param(Path("a"), Path("b"), None, id="path"),
-            param("a", "b", "c", id="parent_id"),
-        ],
-    )
-    def test_init(src, dest_dir, parent_id):
-        _src = {Path(p) for p in src} if isinstance(src, list) else {Path(src)}
-        _output = data.Output(src=src, dest_dir=dest_dir, parent_id=parent_id)
-        assert _output.src == _src
-        assert _output.dest_dir == Path(dest_dir)
-        assert _output.parent_id == parent_id
-
-    @staticmethod
-    def test_set_parent_id():
-        _output = data.Output(src="a", dest_dir="b")
-        _output.set_parent_id("c")
-        assert _output.parent_id == "c"
-
-    @staticmethod
-    @mark.parametrize(
-        "a,b,expected",
-        [
-            param(
-                data.Output(src={Path("a")}, dest_dir=Path("b")),
-                data.Output(src={Path("a")}, dest_dir=Path("b")),
-                True,
-                id="equal",
-            ),
-            param(
-                data.Output(src={Path("a")}, dest_dir=Path("b")),
-                data.Output(src={Path("a")}, dest_dir=Path("c")),
-                False,
-                id="not_equal",
-            ),
-            param(
-                data.Output(src={Path("a")}, dest_dir=Path("b")),
-                data.Output(src={Path("a")}, dest_dir=Path("b"), parent_id="c"),
-                False,
-                id="not_equal_parent_id",
-            ),
-        ],
-    )
-    def test_hash(a, b, expected):
-        assert (hash(a) == hash(b)) == expected
-
-    @staticmethod
-    @mark.parametrize(
-        "src,expected",
-        [
-            param(["a"], 1, id="1"),
-            param(["a", "b"], 2, id="2"),
-            param(["a", "a", "b"], 2, id="duplicate"),
-        ],
-    )
-    def test_len(src, expected):
-        _output = data.Output(src=src, dest_dir="b")
-        assert len(_output) == expected
-
-
 class Test_Sample:
     @staticmethod
     def test_init():
@@ -155,7 +88,6 @@ class Test_Sample:
         assert str(_sample) == "a"
         assert _sample.files == {"b"}
         assert _sample.processed == False
-        assert _sample.output == set()
 
     @staticmethod
     def test_pickle():

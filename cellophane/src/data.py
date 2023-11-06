@@ -3,7 +3,9 @@
 from collections import UserList
 from collections.abc import Mapping
 from copy import deepcopy
-from functools import reduce
+from functools import reduce, wraps
+from glob import glob
+from logging import LoggerAdapter
 from pathlib import Path
 from typing import (
     Any,
@@ -184,48 +186,17 @@ class Container(Mapping):
         return iter(self.__data__)
 
 
-@define(frozen=True, slots=False)
+@define
 class Output:
     """
-    Output class represents an output file or directory.
-
-    Attributes:
-        src (set[Path]): The set of source paths.
-        dest_dir (Path): The destination directory.
-        parent_id (str | None): The optional parent ID. Defaults to None.
-
-    Methods:
-        set_parent_id(value: str): Sets the parent ID to the specified value.
+    Define an output file to be copied to the another directory.
     """
 
-    src: set[Path]
-    dest_dir: Path
-    parent_id: str | None = None
+    src: Path = field(kw_only=True, converter=Path)
+    dst: Path = field(kw_only=True, converter=Path)
 
-    def __attrs_post_init__(self) -> None:
-        object.__setattr__(self, "dest_dir", Path(self.dest_dir))
-        if not isinstance(self.src, Iterable):
-            object.__setattr__(self, "src", {Path(self.src)})
-        else:
-            object.__setattr__(self, "src", {Path(s) for s in self.src})
-
-    def set_parent_id(self, value: str) -> None:
-        """
-        Sets the value of the "parent_id" attribute to the specified value.
-
-        Args:
-            value (str): The value to set for the "parent_id" attribute.
-
-        Returns:
-            None
-        """
-        object.__setattr__(self, "parent_id", value)
-
-    def __hash__(self) -> int:
-        return hash((*self.src, self.dest_dir, self.parent_id))
-
-    def __len__(self) -> int:
-        return len(self.src)
+    def __hash__(self):
+        return hash((self.src, self.dst))
 
 
 @overload
@@ -324,7 +295,6 @@ class Sample(_BASE):
     id: str = field(kw_only=True)
     files: set[str] = field(factory=set, converter=set)
     processed: bool = False
-    output: set[Output] = field(factory=set, converter=set)
     uuid: UUID = field(repr=False, default=uuid4())
     _fail: str | None = field(default=None, repr=False)
     merge: ClassVar[_Merger] = _Merger()
@@ -346,11 +316,6 @@ class Sample(_BASE):
     @merge.register("files")
     @staticmethod
     def _merge_files(this: set[str], that: set[str]) -> set[str]:
-        return this | that
-
-    @merge.register("output")
-    @staticmethod
-    def _merge_output(this: set[Output], that: set[Output]) -> set[Output]:
         return this | that
 
     @merge.register("_fail")
@@ -445,6 +410,7 @@ class Samples(UserList[S]):
     data: list[S] = field(factory=list)
     sample_class: ClassVar[type[Sample]] = Sample
     merge: ClassVar[_Merger] = _Merger()
+    output: set[Output] = field(factory=set, converter=set)
 
     def __init__(self, data: list | None = None, /, **kwargs: Any) -> None:
         self.__attrs_init__(**kwargs)  # pylint: disable=no-member
@@ -472,6 +438,11 @@ class Samples(UserList[S]):
                 ),
             )
         return _samples
+
+    @merge.register("output")
+    @staticmethod
+    def _merge_output(this: set[Output], that: set[Output]) -> set[Output]:
+        return this | that
 
     @classmethod
     def from_file(cls, path: Path) -> "Samples":
@@ -678,3 +649,115 @@ class Samples(UserList[S]):
             (self.data,),
             {k: self.__getattribute__(k) for k in fields_dict(self.__class__)},
         )
+
+
+def output(
+    pattern: str,
+    /,
+    dest_dir: str | None = None,
+    dest_name: str | None = None,
+) -> Callable:
+    """
+    Decorator to mark output files of a runner.
+
+    Files matching the given pattern will be added to the output of the runner.
+
+    Celophane does not handle the copying of the files. Instead, it is expected
+    that a post-hook will be used to copy the files to the output directory.
+
+    Args:
+        pattern: A glob pattern to match files to be added to the output.
+            The pattern will be formatted with the following variables:
+            - `samples`: The samples being processed.
+            - `sample`: The current sample being processed.
+            - `config`: The configuration object.
+            - `runner`: The runner being executed.
+            - `workdir`: The working directory, with tag 
+                (and sample ID for individual_samples runenrs)
+        dest_dir: The directory to copy the files to. If not specified, the
+            directory of the matched file will be used. If the matched file is
+        dest_name: The name to copy the files to. If not specified, the name
+            of the matched file will be used.
+    """
+
+    def wrapper(runner: Callable) -> Callable:
+        @wraps(runner)
+        def inner(
+            *args: Any,
+            samples: Samples,
+            workdir: Path,
+            config: Container,
+            logger: LoggerAdapter,
+            **kwargs: Any,
+        ) -> Samples:
+            nonlocal pattern, dest_dir, dest_name            
+            match runner(
+                *args,
+                samples=samples,
+                workdir=workdir,
+                config=config,
+                logger=logger,
+                **kwargs,
+            ):
+                case _samples if isinstance(_samples, Samples):
+                    samples = _samples
+                case _:
+                    pass
+
+            _patterns = set()
+
+            for sample in samples:
+                _meta = {
+                    "samples": samples,
+                    "sample": sample,
+                    "config": config,
+                    "workdir": workdir,
+                }
+                _pattern = pattern.format(**_meta)
+                _pattern = (
+                    _pattern
+                    if Path(_pattern).is_absolute()
+                    or Path(_pattern).is_relative_to(workdir)
+                    else str(workdir / _pattern)
+                )
+                _patterns.add(_pattern)
+
+            for _pattern in _patterns:
+                matches = [Path(p) for p in glob(_pattern)]
+                if not matches:
+                    logger.warning(f"No files matched pattern '{_pattern}'")
+                elif len(matches) > 1 and dest_name is not None:
+                    dest_name = None
+                    logger.warning(
+                        "Destination name will be ignored as "
+                        f"'{pattern}' matched multiple files"
+                    )
+
+                for match in matches:
+                    _dest_dir = (
+                        config.resultdir / Path(dest_dir.format(**_meta))
+                        if dest_dir is not None
+                        and not Path(dest_dir).is_absolute()
+                        else Path(dest_dir.format(**_meta))
+                        if dest_dir is not None
+                        else match.parent
+                        if match.is_absolute() or not match.is_relative_to(workdir)
+                        else config.resultdir / match.relative_to(config.workdir / config.tag).parent
+                    )
+                    _dest_name = (
+                        dest_name.format(**_meta)
+                        if dest_name is not None
+                        else match.name
+                    )
+                    samples.output.add(
+                        Output(
+                            src=match,
+                            dst=Path(_dest_dir) / _dest_name,
+                        )
+                    )
+   
+            return samples
+
+        return inner
+
+    return wrapper

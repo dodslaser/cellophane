@@ -19,6 +19,7 @@ class Test_cellophane:
             LIB / "integration" / "good_no_runners.yaml",
             LIB / "integration" / "good_hooks.yaml",
             LIB / "integration" / "good_merge.yaml",
+            LIB / "integration" / "good_outputs.yaml",
             LIB / "integration" / "bad_missing_file.yaml",
             LIB / "integration" / "bad_hook_order.yaml",
             LIB / "integration" / "bad_unhandled_exception.yaml",

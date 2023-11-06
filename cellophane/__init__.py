@@ -5,6 +5,7 @@ from copy import deepcopy
 from functools import reduce
 from multiprocessing import Queue
 from pathlib import Path
+from shutil import copyfile, copytree
 from typing import Any, Literal, Sequence
 
 import rich_click as click
@@ -114,6 +115,10 @@ def _copy_outputs(
             logger.warning(f"{output.dst} already exists")
         elif not output.src.exists():
             logger.error(f"{output.src} does not exist")
+        elif output.src.is_dir():
+            logger.debug(f"Copying {output.src} to {output.dst}")
+            copytree(output.src, output.dst)
+
         else:
             logger.debug(f"Copying {output.src} to {output.dst}")
             output.dst.parent.mkdir(parents=True, exist_ok=True)

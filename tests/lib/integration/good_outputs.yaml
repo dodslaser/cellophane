@@ -1,0 +1,65 @@
+structure:
+  modules:
+    a.py: |
+      from cellophane import modules, data
+
+      @modules.runner()
+      @data.output("single.txt")
+      @data.output("sample_{sample.id}.txt")
+      @data.output("missing.txt")
+      @data.output("glob/*.txt", dest_name="invalid_rename.txt")
+      @data.output("single.txt", dest_name="rename.txt")
+      @data.output("overwrite_a.txt", dest_name="overwrite.txt")
+      @data.output("overwrite_b.txt", dest_name="overwrite.txt")
+      @data.output("nested/**/*.txt")
+      @data.output("nested", dest_dir="directory")
+      def runner_a(samples, workdir, config, **_):
+          for sample in samples:
+              (workdir / f"sample_{sample.id}.txt").touch()
+          (workdir / "glob").mkdir()
+          (workdir / "glob" / "a.txt").write_text("GLOB_A")
+          (workdir / "glob" / "b.txt").write_text("GLOB_B")
+          (workdir / "nested" / "a").mkdir(parents=True)
+          (workdir / "nested" / "a" / "x.txt").touch()
+          (workdir / "nested" / "a" / "y.txt").touch()
+          (workdir / "nested" / "b").mkdir(parents=True)
+          (workdir / "nested" / "b" / "z.txt").touch()
+          (workdir / "single.txt").write_text("SINGLE")
+          (workdir / "overwrite_a.txt").write_text("OVERWRITE")
+          (workdir / "overwrite_b.txt").write_text("OVERWRITE")
+
+          samples.output |= {
+            data.Output(src="I_DO_NOT_EXIST", dst="I_AM_NOT_RELATIVE"),
+            data.Output(src="I_DO_NOT_EXIST", dst=config.resultdir / "somepath")
+          }
+
+          return samples
+
+  samples.yaml: |
+    - id: a
+      files:
+      - input/a.txt
+    - id: b
+      files:
+      - input/b.txt
+  input:
+    a.txt: "INPUT_A"
+    b.txt: "INPUT_B"
+args:
+  --samples_file: samples.yaml
+  --workdir: out
+  --tag: DUMMY
+logs:
+- Destination name will be ignored as 'glob/*.txt' matched multiple files
+- No files matched pattern 'out/DUMMY/runner_a/missing.txt'
+- Copying 14 outputs
+- Copying out/DUMMY/runner_a/glob/b.txt to out/results/runner_a/glob/b.txt
+- Copying out/DUMMY/runner_a/single.txt to out/results/runner_a/single.txt
+- Copying out/DUMMY/runner_a/sample_a.txt to out/results/runner_a/sample_a.txt
+- Copying out/DUMMY/runner_a/sample_b.txt to out/results/runner_a/sample_b.txt
+- Copying out/DUMMY/runner_a/glob/a.txt to out/results/runner_a/glob/a.txt
+- Copying out/DUMMY/runner_a/single.txt to out/results/runner_a/rename.txt
+- out/results/runner_a/overwrite.txt already exists
+- I_AM_NOT_RELATIVE is not relative to out/results
+- I_DO_NOT_EXIST does not exist
+- Copying out/DUMMY/runner_a/nested to out/results/directory/nested
