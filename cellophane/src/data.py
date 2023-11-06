@@ -23,6 +23,8 @@ from uuid import UUID, uuid4
 from attrs import define, field, fields_dict, has, make_class
 from ruamel.yaml import YAML
 
+from . import util
+
 
 class _BASE:
     ...
@@ -296,6 +298,7 @@ class Sample(_BASE):
     files: set[str] = field(factory=set, converter=set)
     processed: bool = False
     uuid: UUID = field(repr=False, default=uuid4())
+    meta: Container = field(default=Container())
     _fail: str | None = field(default=None, repr=False)
     merge: ClassVar[_Merger] = _Merger()
 
@@ -317,6 +320,11 @@ class Sample(_BASE):
     @staticmethod
     def _merge_files(this: set[str], that: set[str]) -> set[str]:
         return this | that
+
+    @merge.register("meta")
+    @staticmethod
+    def _merge_files(this: set[str], that: set[str]) -> set[str]:
+        return Container(util.merge_mappings(this, that))
 
     @merge.register("_fail")
     @staticmethod
