@@ -40,11 +40,9 @@ def _run_hooks(
     for hook in [h for h in hooks if h.when == when]:
         match hook.condition:
             case "complete":
-                _samples = samples.complete
+                _samples = _samples.complete
             case "failed":
-                _samples = samples.failed
-            case "always":
-                _samples = samples
+                _samples = _samples.failed
 
         if _samples or when == "pre":
             _samples = hook(samples=_samples, **kwargs)
