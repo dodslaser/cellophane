@@ -298,7 +298,7 @@ class Sample(_BASE):
     files: set[str] = field(factory=set, converter=set)
     processed: bool = False
     uuid: UUID = field(repr=False, default=uuid4())
-    meta: Container = field(default=Container())
+    meta: Container = field(default=Container(), converter=Container)
     _fail: str | None = field(default=None, repr=False)
     merge: ClassVar[_Merger] = _Merger()
 
