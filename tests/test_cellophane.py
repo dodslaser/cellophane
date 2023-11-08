@@ -13,23 +13,7 @@ class Test_cellophane:
     """
 
     @staticmethod
-    @testing.parametrize_from_yaml(
-        [
-            LIB / "integration" / "good_basic.yaml",
-            LIB / "integration" / "good_no_runners.yaml",
-            LIB / "integration" / "good_hooks.yaml",
-            LIB / "integration" / "good_merge.yaml",
-            LIB / "integration" / "good_outputs.yaml",
-            LIB / "integration" / "bad_missing_file.yaml",
-            LIB / "integration" / "bad_hook_order.yaml",
-            LIB / "integration" / "bad_unhandled_exception.yaml",
-            LIB / "integration" / "bad_runner_unhandled_exception.yaml",
-            LIB / "integration" / "bad_schema.yaml",
-            LIB / "integration" / "bad_args.yaml",
-            LIB / "integration" / "bad_module.yaml",
-            LIB / "integration" / "bad_keyboard_interrupt.yaml",
-        ],
-    )
+    @testing.parametrize_from_yaml([*LIB.glob("integration/*.yaml")])
     def test_cellophane(
         definition: Path,
         run_definition,

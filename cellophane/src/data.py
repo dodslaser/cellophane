@@ -655,9 +655,6 @@ class Samples(UserList[S]):
         _samples = deepcopy(self)
         for sample in other:
             _samples[sample.uuid] = sample
-        for key in fields_dict(self.__class__):
-            if key not in ("data", "sample_class", "merge"):
-                setattr(_samples, key, getattr(other, key))
 
         return _samples
 
