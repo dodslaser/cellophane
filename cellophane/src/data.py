@@ -336,7 +336,7 @@ class Sample(_BASE):
     def _merge_done(this: bool | None, that: bool | None) -> bool | None:
         return this and that
 
-    def __or__(self, other: "Sample") -> "Sample":
+    def __and__(self, other: "Sample") -> "Sample":
         if self.__class__ != other.__class__:
             raise TypeError("Cannot merge samples of different types")
         elif self.uuid != other.uuid:
@@ -451,7 +451,7 @@ class Samples(UserList[S]):
     def _merge_data(this: list[Sample], that: list[Sample]) -> list[Sample]:
         return [a | next(b for b in that if b.uuid == a.uuid) for a in this]
 
-    def __and__(self, other: "Samples") -> "Samples":
+    def __or__(self, other: "Samples") -> "Samples":
         _samples = deepcopy(self)
         if _samples.__class__ != other.__class__:
             raise TypeError("Cannot merge samples of different types")
@@ -461,7 +461,7 @@ class Samples(UserList[S]):
 
         return _samples
 
-    def __or__(self, other: "Samples") -> "Samples":
+    def __and__(self, other: "Samples") -> "Samples":
         if self.__class__ != other.__class__:
             raise TypeError("Cannot merge samples of different types")
 

@@ -45,7 +45,7 @@ def _run_hooks(
             if hook.condition == "failed"
             else samples
         ) or when == "pre":
-            samples &= hook(samples=s, **kwargs)
+            samples |= hook(samples=s, **kwargs)
 
     return samples
 
@@ -96,7 +96,7 @@ def _start_runners(
             return samples
 
         try:
-            return reduce(lambda a, b: a | b, (loads(r.get()) for r in results))
+            return reduce(lambda a, b: a & b, (loads(r.get()) for r in results))
         except Exception as exception:  # pylint: disable=broad-except
             logger.critical(f"Unhandled exception when collecting results: {exception}")
             return samples
