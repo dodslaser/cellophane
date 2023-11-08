@@ -456,34 +456,6 @@ class Samples(UserList[S]):
     def _merge_data(this: list[Sample], that: list[Sample]) -> list[Sample]:
         return [a | next(b for b in that if b.uuid == a.uuid) for a in this]
 
-    def __or__(self, other: "Samples") -> "Samples":
-        _samples = deepcopy(self)
-        if _samples.__class__ != other.__class__:
-            raise TypeError("Cannot merge samples of different types")
-
-        for sample in other:
-            _samples[sample.uuid] = sample
-
-        return _samples
-
-    def __and__(self, other: "Samples") -> "Samples":
-        if self.__class__ != other.__class__:
-            raise TypeError("Cannot merge samples of different types")
-
-        _samples = deepcopy(self)
-        for _field in fields_dict(self.__class__):
-            if _field == "sample_class":
-                continue
-            _samples.__setattr__(
-                _field,
-                self.merge(
-                    _field,
-                    self.__getattribute__(_field),
-                    other.__getattribute__(_field),
-                ),
-            )
-        return _samples
-
     @merge.register("output")
     @staticmethod
     def _merge_output(this: set[Output], that: set[Output]) -> set[Output]:
@@ -589,44 +561,6 @@ class Samples(UserList[S]):
             for sample in self:
                 yield self.__class__([sample])
 
-    def remove_invalid(self) -> None:
-        """
-        Removes invalid samples from the calling Samples object.
-
-        Invalid samples are defined as samples that have:
-        - None or missing files
-        - None values in the files list
-        - Files that do not exist
-        - Non-string ID values
-
-        Example:
-            ```python
-            data = Samples(
-                [
-                    Sample(id="sample1", files=["file1.txt"]),
-                    Sample(id="sample2", files=[None, "file2.txt"]),
-                    Sample(id="sample3", files=["file3.txt"]),
-                ]
-            )
-
-            # Removing invalid samples
-            data.remove_invalid()
-            print(data)
-            # Samples(
-            #     Sample(id='sample1', files=['file1.txt']),
-            #     Sample(id='sample3', files=['file3.txt'])
-            # )
-            ```
-        """
-        self.data = [
-            sample
-            for sample in self
-            if sample.files is not None
-            and None not in sample.files
-            and all(Path(f).exists() for f in sample.files)
-            and isinstance(sample.id, str)
-        ]
-
     @property
     def unique_ids(self) -> set[str]:
         """
@@ -650,6 +584,22 @@ class Samples(UserList[S]):
         return {s.id for s in self}
 
     @property
+    def with_files(self):
+        """
+        Get only samples with existing files from a Samples object.
+
+        Returns:
+            Class: A new instance of the class with only the samples with files.
+        """
+        return self.__class__(
+            [
+                sample
+                for sample in self
+                if sample.files and all(Path(f).exists() for f in sample.files)
+            ]
+        )
+
+    @property
     def complete(self) -> "Samples":
         """
         Get only completed samples from a Samples object.
@@ -661,7 +611,9 @@ class Samples(UserList[S]):
             Class: A new instance of the class with only the completed samples.
         """
 
-        return self.__class__([sample for sample in self if not sample.failed], output=self.output)
+        return self.__class__(
+            [sample for sample in self if not sample.failed], output=self.output
+        )
 
     @property
     def failed(self) -> "Samples":
@@ -695,6 +647,34 @@ class Samples(UserList[S]):
             {k: self.__getattribute__(k) for k in fields_dict(self.__class__)},
         )
 
+    def __or__(self, other: "Samples") -> "Samples":
+        if self.__class__ != other.__class__:
+            raise TypeError("Cannot merge samples of different types")
+
+        _samples = deepcopy(self)
+        for sample in other:
+            _samples[sample.uuid] = sample
+        for key in fields_dict(self.__class__):
+            if key not in ("data", "sample_class", "merge"):
+                setattr(_samples, key, getattr(other, key))
+
+        return _samples
+
+    def __and__(self, other: "Samples") -> "Samples":
+        if self.__class__ != other.__class__:
+            raise TypeError("Cannot merge samples of different types")
+
+        _samples = deepcopy(self)
+        for _field in fields_dict(self.__class__):
+            if _field == "sample_class":
+                continue
+            setattr(
+                _samples,
+                _field,
+                self.merge(_field, getattr(self, _field), getattr(other, _field)),
+            )
+        return _samples
+
 
 def output(
     pattern: str,
@@ -717,7 +697,7 @@ def output(
             - `sample`: The current sample being processed.
             - `config`: The configuration object.
             - `runner`: The runner being executed.
-            - `workdir`: The working directory, with tag 
+            - `workdir`: The working directory, with tag
                 (and sample ID for individual_samples runenrs)
         dest_dir: The directory to copy the files to. If not specified, the
             directory of the matched file will be used. If the matched file is
@@ -735,7 +715,7 @@ def output(
             logger: LoggerAdapter,
             **kwargs: Any,
         ) -> Samples:
-            nonlocal pattern, dest_dir, dest_name            
+            nonlocal pattern, dest_dir, dest_name
             match runner(
                 *args,
                 samples=samples,
@@ -781,13 +761,13 @@ def output(
                 for match in matches:
                     _dest_dir = (
                         config.resultdir / Path(dest_dir.format(**_meta))
-                        if dest_dir is not None
-                        and not Path(dest_dir).is_absolute()
+                        if dest_dir is not None and not Path(dest_dir).is_absolute()
                         else Path(dest_dir.format(**_meta))
                         if dest_dir is not None
                         else match.parent
                         if match.is_absolute() or not match.is_relative_to(workdir)
-                        else config.resultdir / match.relative_to(config.workdir / config.tag).parent
+                        else config.resultdir
+                        / match.relative_to(config.workdir / config.tag).parent
                     )
                     _dest_name = (
                         dest_name.format(**_meta)
@@ -800,7 +780,7 @@ def output(
                             dst=Path(_dest_dir) / _dest_name,
                         )
                     )
-   
+
             return samples
 
         return inner

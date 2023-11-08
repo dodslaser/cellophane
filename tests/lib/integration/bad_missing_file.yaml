@@ -8,5 +8,5 @@ args:
   --workdir: out
 logs:
   - |
-    Removed invalid sample INVALID
+    Sample INVALID will be skipped as it has no files
     No samples to process

@@ -146,17 +146,16 @@ def _main(
     # Run pre-hooks
     samples = _run_hooks(hooks, "pre", samples, **common_kwargs)
 
-    # Validate samples
-    _samples_orig = deepcopy(samples)
-    samples.remove_invalid()
-    for removed in {s.id for s in _samples_orig} ^ {s.id for s in samples}:
-        logger.warning(f"Removed invalid sample {removed}")
+    # Validate sample files
+    for sample in samples:
+        if sample not in samples.with_files:
+            logger.warning(f"Sample {sample} will be skipped as it has no files")
 
-    if not samples:
+    if not samples.with_files:
         logger.info("No samples to process")
         raise SystemExit(0)
 
-    samples = _start_runners(runners, samples, logger, log_queue, **common_kwargs)
+    samples = _start_runners(runners, samples.with_files, logger, log_queue, **common_kwargs)
     samples = _run_hooks(hooks, "post", samples, **common_kwargs)
 
     # If not post-hook has copied the outputs, do it here

@@ -178,14 +178,6 @@ class Test_Samples:
             assert group == data.Samples([samples[i] for i in expected])
 
     @staticmethod
-    def test_validate(samples, valid_samples):
-        samples.remove_invalid()
-        assert len(samples) == 0
-
-        valid_samples.remove_invalid()
-        assert len(valid_samples) == 2
-
-    @staticmethod
     def test_unique_ids(samples):
         assert samples.unique_ids == {"a", "b"}
 
@@ -202,6 +194,10 @@ class Test_Samples:
         samples[1].fail("DUMMY")
         assert samples[1] in samples.failed
 
+    @staticmethod
+    def test_with_files(samples, valid_samples):
+        assert len(samples.with_files) == 0
+        assert len(valid_samples.with_files) == 2
 
     @staticmethod
     def test_str(samples):
