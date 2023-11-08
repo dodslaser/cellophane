@@ -36,18 +36,18 @@ def _run_hooks(
     samples: data.Samples,
     **kwargs: Any,
 ) -> data.Samples:
-    _samples = deepcopy(samples)
+    samples = deepcopy(samples)
     for hook in [h for h in hooks if h.when == when]:
-        match hook.condition:
-            case "complete":
-                _samples = _samples.complete
-            case "failed":
-                _samples = _samples.failed
+        if (
+            s := samples.complete
+            if hook.condition == "complete"
+            else samples.failed
+            if hook.condition == "failed"
+            else samples
+        ) or when == "pre":
+            samples &= hook(samples=s, **kwargs)
 
-        if _samples or when == "pre":
-            _samples = hook(samples=_samples, **kwargs)
-
-    return _samples
+    return samples
 
 
 def _start_runners(

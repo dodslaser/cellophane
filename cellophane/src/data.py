@@ -297,7 +297,7 @@ class Sample(_BASE):
     id: str = field(kw_only=True)
     files: set[str] = field(factory=set, converter=set)
     processed: bool = False
-    uuid: UUID = field(repr=False, default=uuid4())
+    uuid: UUID = field(repr=False, factory=uuid4, init=False)
     meta: Container = field(default=Container(), converter=Container)
     _fail: str | None = field(default=None, repr=False)
     merge: ClassVar[_Merger] = _Merger()
@@ -424,10 +424,42 @@ class Samples(UserList[S]):
         self.__attrs_init__(**kwargs)  # pylint: disable=no-member
         super().__init__(data or [])
 
+    def __getitem__(self, key: int | UUID):
+        if isinstance(key, int):
+            return super().__getitem__(key)
+        elif isinstance(key, UUID) and key in self:
+            return next(s for s in self if s.uuid == key)
+        else:
+            raise KeyError(f"Sample with UUID {key.hex} not found")
+
+    def __setitem__(self, key: int | UUID, value: S) -> None:
+        if isinstance(key, int):
+            super().__setitem__(key, value)
+        elif isinstance(key, UUID) and key in self:
+            self[self.index(self[key])] = value
+        else:
+            self.append(value)
+
+    def __contains__(self, item: S | UUID) -> bool:
+        if isinstance(item, UUID):
+            return any(s.uuid == item for s in self)
+        else:
+            return super().__contains__(item)
+
     @merge.register("data")
     @staticmethod
     def _merge_data(this: list[Sample], that: list[Sample]) -> list[Sample]:
         return [a | next(b for b in that if b.uuid == a.uuid) for a in this]
+
+    def __and__(self, other: "Samples") -> "Samples":
+        _samples = deepcopy(self)
+        if _samples.__class__ != other.__class__:
+            raise TypeError("Cannot merge samples of different types")
+
+        for sample in other:
+            _samples[sample.uuid] = sample
+
+        return _samples
 
     def __or__(self, other: "Samples") -> "Samples":
         if self.__class__ != other.__class__:

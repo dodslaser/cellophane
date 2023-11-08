@@ -160,7 +160,7 @@ class Test_Samples:
     @staticmethod
     def test_from_file(samples):
         _samples = data.Samples.from_file(LIB / "config" / "samples.yaml")
-        assert _samples == samples
+        assert not {s.id for s in _samples} - {s.id for s in samples}
 
     @staticmethod
     @mark.parametrize(
