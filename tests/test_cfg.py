@@ -4,7 +4,7 @@ from pathlib import Path
 
 import rich_click as click
 from click.testing import CliRunner
-from pytest import mark, param, raises
+from pytest import fail, mark, param, raises
 from ruamel.yaml import YAML
 
 from cellophane.src import cfg, data
@@ -294,6 +294,8 @@ class Test_Config:
         "number": 13.37,
         "boolean": True,
         "array": ["one", "two", "three"],
+        "typed_array": [1.0, 2.0, 3.0],
+        "mapping_array": [{"a": "X"}, {"b": "Y"}],
         "mapping": {"a": "X", "b": "Y"},
         "nested": {"a": {"b": {"c": "Z"}}},
     }
@@ -304,6 +306,8 @@ class Test_Config:
         "number": 13.37,
         "boolean": True,
         "array": ["one", "two", "three"],
+        "typed_array": [1.0, 2.0, 3.0],
+        "mapping_array": [{"a": "X"}, {"b": "Y"}],
         "mapping": {"a": "X", "b": "Y"},
         "nested_a_b_c": "Z",
     }
@@ -331,23 +335,25 @@ class Test_Config:
         result = runner.invoke(
             _cli,
             [
-                "--string",
-                "STRING",
-                "--integer",
-                "1337",
-                "--number",
-                "13.37",
-                "--boolean",
-                "--array",
-                ["one", "two", "three"],
-                "--mapping",
-                "a=X,b=Y",
-                "--nested_a_b_c",
-                "Z",
+                *("--string", "STRING"),
+                *("--integer", "1337"),
+                *("--number", "13.37"),
+                *("--boolean",),
+                *("--array", ["one", "two", "three"]),
+                *("--typed_array", ["1.0", "2.0", "3.0"]),
+                *("--mapping_array", ["a=X", "b=Y"]),
+                *("--mapping", "a=X,b=Y"),
+                *("--nested_a_b_c", "Z"),
             ],
         )
 
-        assert _YAML.load(result.stdout) == self.kwargs
+        try:
+            result_parsed = _YAML.load(result.stdout)
+        except Exception:
+            fail(msg=result.stdout)
+        else:
+            assert result_parsed == self.kwargs, result.output
+
 
     @mark.parametrize(
         "kwargs,expected",

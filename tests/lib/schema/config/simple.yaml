@@ -13,6 +13,14 @@ properties:
     type: array
     items:
       type: string
+  typed_array:
+    type: array
+    items:
+      type: number
+  mapping_array:
+    type: array
+    items:
+      type: mapping
   mapping:
     type: mapping
   nested:

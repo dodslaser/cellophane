@@ -2,11 +2,28 @@
 
 import re
 from pathlib import Path
-from typing import Any, Callable, Literal, Mapping, Type
+from typing import Any, Callable, Literal, Mapping, Type, get_args
 
 import rich_click as click
 from attrs import define, field
 
+ITEMS_TYPES = Literal[
+    "string",
+    "number",
+    "integer",
+    "path",
+    "mapping",
+]
+
+SCHEMA_TYPES = Literal[
+    "string",
+    "number",
+    "integer",
+    "boolean",
+    "mapping",
+    "array",
+    "path",
+]
 
 class StringMapping(click.ParamType):
     """
@@ -136,30 +153,10 @@ class TypedArray(click.ParamType):
     """
 
     name = "array"
-    items: Literal[
-        "string",
-        "number",
-        "integer",
-        "path",
-    ] | None = None
+    items: ITEMS_TYPES | None = None
 
-    def __init__(
-        self,
-        items: Literal[
-            "string",
-            "number",
-            "integer",
-            "path",
-        ]
-        | None = None,
-    ) -> None:
-        if items not in [
-            "string",
-            "number",
-            "integer",
-            "path",
-            None,
-        ]:
+    def __init__(self, items: ITEMS_TYPES | None = None) -> None:
+        if items not in [*get_args(ITEMS_TYPES), None]:
             raise ValueError(f"Invalid type: {items}")
 
         self.items = items or "string"
@@ -189,25 +186,20 @@ class TypedArray(click.ParamType):
             >>> items.convert(["1", "2", "3"], param, ctx)
             [1, 2, 3]
         """
-        _items = _click_type(self.items)
         try:
-            return [_items(v) for v in value]
+            _type = _click_type(self.items)
+            if isinstance(_type, click.ParamType):
+                return [_type.convert(v, param, ctx) for v in value]
+            else:
+                return [_type(v) for v in value]
         except Exception as exc:  # pylint: disable=broad-except
             self.fail(str(exc), param, ctx)
 
 
 def _click_type(  # type: ignore[return]
-    _type: Literal[
-        "string",
-        "number",
-        "integer",
-        "boolean",
-        "mapping",
-        "array",
-        "path",
-    ] | None = None,
+    _type: SCHEMA_TYPES | None = None,
     enum: list | None = None,
-    items: str | None = None,
+    items: ITEMS_TYPES | None = None,
 ) -> Type | click.Path | click.Choice | StringMapping | TypedArray:
     """
     Translate jsonschema type to Python type.
@@ -268,21 +260,8 @@ class Flag:
         ```
     """
 
-    type: Literal[
-        "string",
-        "number",
-        "integer",
-        "boolean",
-        "mapping",
-        "array",
-        "path",
-    ] | None = field(default=None)
-    items: Literal[
-        "string",
-        "number",
-        "integer",
-        "path",
-     ] | None = field(default=None)
+    type: SCHEMA_TYPES | None = field(default=None)
+    items: ITEMS_TYPES | None = field(default=None)
     _key: list[str] | None = field(default=None)
     description: str | None = field(default=None)
     default: Any = field(default=None)
@@ -294,16 +273,7 @@ class Flag:
     def _type(self, attribute: str, value: str | None) -> None:
         del attribute  # Unused
 
-        if value not in [
-            "string",
-            "number",
-            "integer",
-            "boolean",
-            "mapping",
-            "array",
-            "path",
-            None,
-        ]:
+        if value not in [*get_args(SCHEMA_TYPES), None]:
             raise ValueError(f"Invalid type: {value}")
 
     @property
@@ -329,7 +299,9 @@ class Flag:
         self._key = value
 
     @property
-    def click_type(self) -> Type | click.Path | click.Choice | StringMapping | TypedArray:
+    def click_type(
+        self,
+    ) -> Type | click.Path | click.Choice | StringMapping | TypedArray:
         """
         Translate jsonschema type to Python type.
 
