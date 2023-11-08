@@ -21,6 +21,7 @@ from typing import (
 from uuid import UUID, uuid4
 
 from attrs import define, field, fields_dict, has, make_class
+from attrs.setters import convert, frozen
 from ruamel.yaml import YAML
 
 from . import util
@@ -300,10 +301,10 @@ class Sample(_BASE):
     """
 
     id: str = field(kw_only=True)
-    files: set[str] = field(factory=set, converter=set)
+    files: set[str] = field(factory=set, converter=set, on_setattr=convert)
     processed: bool = False
-    uuid: UUID = field(repr=False, factory=uuid4, init=False)
-    meta: Container = field(default=Container(), converter=Container)
+    uuid: UUID = field(repr=False, factory=uuid4, init=False, on_setattr=frozen)
+    meta: Container = field(default=Container(), converter=Container, on_setattr=convert)
     _fail: str | None = field(default=None, repr=False)
     merge: ClassVar[_Merger] = _Merger()
 
@@ -423,7 +424,7 @@ class Samples(UserList[S]):
     data: list[S] = field(factory=list)
     sample_class: ClassVar[type[Sample]] = Sample
     merge: ClassVar[_Merger] = _Merger()
-    output: set[Output] = field(factory=set, converter=set)
+    output: set[Output] = field(factory=set, converter=set, on_setattr=convert)
 
     def __init__(self, data: list | None = None, /, **kwargs: Any) -> None:
         self.__attrs_init__(**kwargs)  # pylint: disable=no-member
