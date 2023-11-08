@@ -98,6 +98,11 @@ class Container(Mapping):
 
     __data__: dict = field(factory=dict)
 
+    def __or__(self, other: "Container") -> "Container":
+        if self.__class__ != other.__class__:
+            raise TypeError("Cannot merge containers of different types")
+        return self.__class__(util.merge_mappings(self, other))
+
     def __init__(self, __data__: dict | None = None, *args: Any, **kwargs: Any) -> None:
         _data = __data__ or {}
         for key in [k for k in kwargs if k not in fields_dict(self.__class__)]:
