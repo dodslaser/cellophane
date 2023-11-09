@@ -265,7 +265,7 @@ def options(schema: Schema) -> Callable:
             def _update_ctx(**kwargs: Any) -> None:
                 config_file: Path = kwargs.pop("config_file", None)
                 config_data = YAML(typ="safe").load(config_file) if config_file else {}
-
+                kwargs["workdir"] = kwargs["workdir"] or Path.cwd()
                 ctx.obj = Config(  # type: ignore[call-arg]
                     schema=schema,
                     tag=kwargs.pop("tag", None) or timestamp,
