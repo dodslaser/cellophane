@@ -728,6 +728,7 @@ def add(
             continue
         else:
             repo.index.add("config.example.yaml")
+            repo.index.add("modules/requirements.txt")
             repo.index.write()
             repo.index.commit(f"feat(cellophane): Added '{_module}@{branch}'")
             logger.info(f"Added '{_module}@{branch}')")
@@ -776,6 +777,7 @@ def update(
             continue
         else:
             repo.index.add("config.example.yaml")
+            repo.index.add("modules/requirements.txt")
             repo.index.write()
             repo.index.commit(f"chore(cellophane): Updated '{_module}->{branch}'")
             logger.info(f"Updated '{_module}->{branch}'")
@@ -813,6 +815,7 @@ def rm(
                 )
         else:
             repo.index.add("config.example.yaml")
+            repo.index.add("modules/requirements.txt")
             repo.index.write()
             repo.index.commit(f"feat(cellophane): Removed '{_module}'")
             logger.info(f"Removed '{_module}'")
