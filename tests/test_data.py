@@ -86,7 +86,7 @@ class Test_Sample:
         _sample = data.Sample(id="a", files=["b"])
         assert _sample.id == "a"
         assert str(_sample) == "a"
-        assert _sample.files == {"b"}
+        assert _sample.files == [Path("b")]
         assert _sample.processed == False
 
     @staticmethod

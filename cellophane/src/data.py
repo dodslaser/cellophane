@@ -301,7 +301,7 @@ class Sample(_BASE):
     """
 
     id: str = field(kw_only=True)
-    files: set[str] = field(factory=set, converter=set, on_setattr=convert)
+    files: list[Path] = field(factory=list, converter=lambda v: [Path(p) for p in v], on_setattr=convert)
     processed: bool = False
     uuid: UUID = field(repr=False, factory=uuid4, init=False, on_setattr=frozen)
     meta: Container = field(default=Container(), converter=Container, on_setattr=convert)
@@ -324,7 +324,7 @@ class Sample(_BASE):
 
     @merge.register("files")
     @staticmethod
-    def _merge_files(this: set[str], that: set[str]) -> set[str]:
+    def _merge_files(this: list[Path], that: list[Path]) -> set[str]:
         return this | that
 
     @merge.register("meta")
@@ -361,6 +361,25 @@ class Sample(_BASE):
                 ),
             )
         return _sample
+
+    def __or__(self, other: "Sample") -> "Sample":
+        if self.__class__ != other.__class__:
+            raise TypeError("Cannot merge samples of different types")
+
+        _sample = deepcopy(self)
+        for _field in fields_dict(self.__class__):
+            if _field in ["id", "uuid"]:
+                continue
+            _sample.__setattr__(
+                _field,
+                self.merge(
+                    _field,
+                    self.__getattribute__(_field),
+                    other.__getattribute__(_field),
+                ),
+            )
+        return _sample
+
 
     def fail(self, reason: str) -> None:
         """
