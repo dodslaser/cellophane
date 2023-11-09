@@ -25,6 +25,9 @@ SCHEMA_TYPES = Literal[
     "path",
 ]
 
+from . import data
+
+
 class StringMapping(click.ParamType):
     """
     Represents a click parameter type for comma-separated mappings.
@@ -69,7 +72,7 @@ class StringMapping(click.ParamType):
         [
             (r'"[^"]*"', lambda _, token: token[1:-1]),
             (r"'[^']*'", lambda _, token: token[1:-1]),
-            (r"\w+(?==)", lambda _, token: token.strip()),
+            (r"[\w.]+(?==)", lambda _, token: token.strip()),
             (r"(?<==)[^,]+", lambda _, token: token.strip()),
             (r"\s*[=,]\s*", lambda *_: None),
         ]
@@ -113,14 +116,14 @@ class StringMapping(click.ParamType):
         """
 
         if not value:
-            return {}
+            return data._dict()
         elif isinstance(value, str):
             _tokens, _extra = self.scanner.scan(value)
             if len(_tokens) % 2 == 0:
-                value = dict(zip(_tokens[::2], _tokens[1::2]))
+                value = data._dict(zip(_tokens[::2], _tokens[1::2]))
 
         if isinstance(value, Mapping) and not _extra:
-            return value
+            return data._dict(value)
         else:
             self.fail("Expected a comma separated mapping (a=b,x=y)", param, ctx)
 

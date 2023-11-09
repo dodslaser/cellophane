@@ -138,7 +138,7 @@ class Container(Mapping):
             del self[name]
 
     def __setitem__(self, key: str | Sequence[str], item: Any) -> None:
-        if isinstance(item, dict) and not isinstance(item, Container):
+        if isinstance(item, dict) and not isinstance(item, (Container, _dict)):
             item = Container(item)
 
         match key:
@@ -241,6 +241,8 @@ def _apply_mixins(
 
     return _cls
 
+class _dict(dict):
+    """Dict subclass to allow dict inside Container"""
 
 def as_dict(data: Container, exclude: list[str] | None = None) -> dict[str, Any]:
     """Dictionary representation of a container.
@@ -301,10 +303,14 @@ class Sample(_BASE):
     """
 
     id: str = field(kw_only=True)
-    files: list[Path] = field(factory=list, converter=lambda v: [Path(p) for p in v], on_setattr=convert)
+    files: list[Path] = field(
+        factory=list, converter=lambda v: [Path(p) for p in v], on_setattr=convert
+    )
     processed: bool = False
     uuid: UUID = field(repr=False, factory=uuid4, init=False, on_setattr=frozen)
-    meta: Container = field(default=Container(), converter=Container, on_setattr=convert)
+    meta: Container = field(
+        factory=Container, converter=Container, on_setattr=convert
+    )
     _fail: str | None = field(default=None, repr=False)
     merge: ClassVar[_Merger] = _Merger()
 
@@ -349,28 +355,11 @@ class Sample(_BASE):
             raise ValueError("Cannot merge samples with different UUIDs")
 
         _sample = deepcopy(self)
-        for _field in fields_dict(self.__class__):
-            if _field in ["id", "uuid"]:
-                continue
-            _sample.__setattr__(
-                _field,
-                self.merge(
-                    _field,
-                    self.__getattribute__(_field),
-                    other.__getattribute__(_field),
-                ),
-            )
-        return _sample
-
-    def __or__(self, other: "Sample") -> "Sample":
-        if self.__class__ != other.__class__:
-            raise TypeError("Cannot merge samples of different types")
-
-        _sample = deepcopy(self)
-        for _field in fields_dict(self.__class__):
-            if _field in ["id", "uuid"]:
-                continue
-            _sample.__setattr__(
+        for _field in (
+            f for f in fields_dict(self.__class__) if f not in ["id", "uuid"]
+        ):
+            setattr(
+                _sample,
                 _field,
                 self.merge(
                     _field,
