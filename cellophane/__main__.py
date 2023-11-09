@@ -495,9 +495,8 @@ def _add_requirements(path: Path, _module: str) -> None:
 
 def _remove_requirements(path: Path, _module: str) -> None:
     requirements_path = path / "modules" / "requirements.txt"
-    module_path = path / "modules" / _module
 
-    if (spec := f"-r {module_path / 'requirements.txt'}\n") in (
+    if (spec := f"-r {Path(_module) / 'requirements.txt'}\n") in (
         requirements := requirements_path.read_text()
     ):
         with open(requirements_path, "w", encoding="utf-8") as handle:
