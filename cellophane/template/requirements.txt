@@ -2,4 +2,4 @@
 # Requirements for modules added via 'cellophane module add' are automatically managed by cellophane
 
 ### DO NOT REMOVE OR EDIT THE FOLLOWING LINE ###
--r module_requirements.txt
+-r modules/requirements.txt
