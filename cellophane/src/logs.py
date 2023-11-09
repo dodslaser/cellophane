@@ -6,7 +6,6 @@ from logging.handlers import QueueHandler, QueueListener
 from multiprocessing import Queue
 from pathlib import Path
 
-from _pytest.logging import LogCaptureHandler
 from rich.logging import RichHandler
 
 
@@ -54,7 +53,7 @@ def setup_logging(logger: logging.Logger = logging.getLogger()) -> RichHandler:
     )
 
     logger.setLevel(logging.DEBUG)
-    logger.handlers = [console_handler, *(h for h in logger.handlers if isinstance(h, LogCaptureHandler))]
+    logger.handlers = [console_handler]
     return console_handler
 
 

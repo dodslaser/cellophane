@@ -68,7 +68,14 @@ def _execute_from_structure(
     # considered to be a flag without a value.
     _args = [p for f in (args or {}).items() for p in f if p is not None]
     try:
-        mocker.patch("cellophane.logs.RichHandler", return_value=logging.NullHandler())
+        mocker.patch(
+            "cellophane.logs.setup_logging",
+            side_effect=lambda: setattr(
+                logging.getLogger(), "handlers", logging.getLogger().handlers[1:]
+            )
+            or logging.NullHandler(),
+        )
+        # mocker.patch("cellophane.logs.RichHandler", return_value=logging.NullHandler())
         mocker.patch("cellophane.logs.add_file_handler")
         _main = cellophane.cellophane("DUMMY", root=root)
         for target, mock in (mocks or {}).items():
