@@ -486,8 +486,8 @@ def _add_requirements(path: Path, _module: str) -> None:
 
     if (
         module_path.is_dir()
-        and (module_requirements := module_path / "requirements.txt").exists()
-        and (spec := f"-r {module_requirements}\n") not in requirements_path.read_text()
+        and (module_path / "requirements.txt").exists()
+        and (spec := f"-r {_module}/requirements.txt\n") not in requirements_path.read_text()
     ):
         with open(requirements_path, "a", encoding="utf-8") as handle:
             handle.write(spec)
@@ -496,7 +496,7 @@ def _add_requirements(path: Path, _module: str) -> None:
 def _remove_requirements(path: Path, _module: str) -> None:
     requirements_path = path / "modules" / "requirements.txt"
 
-    if (spec := f"-r {Path(_module) / 'requirements.txt'}\n") in (
+    if (spec := f"-r {_module}/requirements.txt\n") in (
         requirements := requirements_path.read_text()
     ):
         with open(requirements_path, "w", encoding="utf-8") as handle:
@@ -557,7 +557,7 @@ def _validate_modules(ignore_branch: bool = False) -> Callable:
             repo: CellophaneRepo,
             **kwargs: Any,
         ) -> None:
-            _modules = modules or [(m, None) for m in _ask_modules(valid_modules)]
+            _modules = modules or _ask_modules(valid_modules)
             for _module, _ in _modules:
                 if _module not in valid_modules:
                     raise InvalidModuleError(_module)
