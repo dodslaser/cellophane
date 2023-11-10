@@ -13,7 +13,7 @@ def setup_queue_logging(
     queue: Queue, logger: logging.Logger = logging.getLogger()
 ) -> QueueHandler:
     queue_handler = QueueHandler(queue)
-    logger.handlers =  [queue_handler]
+    logger.handlers = [queue_handler]
 
     return queue_handler
 
@@ -32,7 +32,9 @@ def start_queue_listener() -> Queue:
     """
 
     queue: Queue = Queue()
-    listener = QueueListener(queue, *logging.getLogger().handlers, respect_handler_level=True)
+    listener = QueueListener(
+        queue, *logging.getLogger().handlers, respect_handler_level=True
+    )
     listener.start()
     atexit.register(listener.stop)
     return queue
@@ -49,7 +51,11 @@ def setup_logging(logger: logging.Logger = logging.getLogger()) -> RichHandler:
 
     console_handler = RichHandler(show_path=True)
     console_handler.setFormatter(
-        logging.Formatter("%(label)s: %(message)s", datefmt="%H:%M:%S")
+        logging.Formatter(
+            "%(label)s: %(message)s",
+            datefmt="%H:%M:%S",
+            defaults={"label": "external"},
+        )
     )
 
     logger.setLevel(logging.DEBUG)
@@ -71,7 +77,10 @@ def add_file_handler(path: Path, logger: logging.Logger = logging.getLogger()) -
     path.parent.mkdir(parents=True, exist_ok=True)
     file_handler = logging.FileHandler(path)
     file_handler.setFormatter(
-        logging.Formatter("%(asctime)s : %(label)s : %(message)s")
+        logging.Formatter(
+            "%(asctime)s : %(label)s : %(message)s",
+            defaults={"label": "external"},
+        )
     )
     file_handler.setLevel(logging.DEBUG)
     logger.addHandler(file_handler)
