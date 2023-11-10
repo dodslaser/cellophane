@@ -12,6 +12,7 @@ class Test_cellophane:
     basic functionality works as expected from the command line interface.
     """
 
+    # FIXME: Add a test for getting config from file
     @staticmethod
     @testing.parametrize_from_yaml([*LIB.glob("integration/*.yaml")])
     def test_cellophane(
