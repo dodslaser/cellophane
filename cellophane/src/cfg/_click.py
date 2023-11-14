@@ -115,6 +115,7 @@ class StringMapping(click.ParamType):
             ```
         """
 
+        _extra = None
         if not value:
             return data._dict()
         elif isinstance(value, str):
@@ -124,6 +125,7 @@ class StringMapping(click.ParamType):
 
         if isinstance(value, Mapping) and not _extra:
             return data._dict(value)
+
         else:
             self.fail("Expected a comma separated mapping (a=b,x=y)", param, ctx)
 
@@ -268,6 +270,7 @@ class Flag:
     _key: list[str] | None = field(default=None)
     description: str | None = field(default=None)
     default: Any = field(default=None)
+    value: Any = field(default=None)
     enum: list[Any] | None = field(default=None)
     required: bool = field(default=False)
     secret: bool = field(default=False)
@@ -355,7 +358,7 @@ class Flag:
             default=(
                 True
                 if self.type == "boolean" and self.default is None
-                else self.default
+                else self.value or self.default
             ),
             required=self.required,
             help=self.description,

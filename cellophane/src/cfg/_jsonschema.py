@@ -77,7 +77,8 @@ def properties(
             )
         elif flags is not None and "properties" not in subschema:
             _flag_kwargs = {
-                "default": _instance.get(property) or subschema.get("default"),
+                "default": subschema.get("default"),
+                "value": _instance.get(property),
                 "type": subschema.get("type"),
                 "enum": subschema.get("enum"),
                 "description": subschema.get("description"),
@@ -101,16 +102,16 @@ def required(
     """Mark required flags as required"""
     del validator  # Unused
     if instance is not None:
-        for property in required:
-            subschema = schema.get("properties", {}).get(property)
+        for prop in required:
+            subschema = schema.get("properties", {}).get(prop)
             if not (
                 subschema is None
                 or "default" in subschema
                 or "properties" in subschema
-                or property in instance
+                or prop in instance
             ):
-                flags[property] = flags.get(property, Flag())
-                flags[property].required = True
+                flags[prop] = flags.get(prop, Flag())
+                flags[prop].required = True
 
 
 def dependent_required(

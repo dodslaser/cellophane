@@ -360,13 +360,18 @@ class Test_Config:
         [
             param(
                 {"a": "CONFIG"},
-                cfg._click.Flag(key=["a"], type="string", default="CONFIG"),
+                cfg._click.Flag(key=["a"], type="string", default="SCHEMA", value="CONFIG"),
                 id="from_config",
             ),
             param(
                 {},
-                cfg._click.Flag(key=["a"], type="string", default="SCHEMA"),
+                cfg._click.Flag(key=["a"], type="string", default="SCHEMA", value="SCHEMA"),
                 id="from_schema",
+            ),
+            param(
+                {"include_defaults": False},
+                cfg._click.Flag(key=["a"], type="string", default="SCHEMA", value=None),
+                id="no_include_defaults",
             ),
         ],
     )

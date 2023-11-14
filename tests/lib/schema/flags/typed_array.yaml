@@ -13,5 +13,5 @@ config:
 flags:
   - key: [a]
     type: array
-    default: [a, b, c]
+    value: [a, b, c]
     items: path

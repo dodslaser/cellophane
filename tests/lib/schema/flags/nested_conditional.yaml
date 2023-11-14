@@ -36,12 +36,12 @@ config:
 flags:
   - key: [a, b]
     type: boolean
-    default: true
+    value: true
   - key: [a, c]
     required: true
   - key: [a, d, f]
     type: boolean
-    default: true
+    value: true
   - key: [a, d, x]
     required: true
   - key: [a, d, y]

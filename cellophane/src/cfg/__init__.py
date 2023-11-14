@@ -156,10 +156,13 @@ class Config(data.Container):
 
         self.__schema__ = schema
 
-        _data_keys = util.map_nested_keys(_data or {})
         for flag in _get_flags(schema, _data):
-            if flag.flag in kwargs or flag.default and (include_defaults or flag.key in _data_keys):
-                self[flag.key] = kwargs.get(flag.flag, flag.default)
+            if flag.value is not None:
+                self[flag.key] = flag.value
+            elif flag.flag in kwargs:
+                self[flag.key] = kwargs[flag.flag]
+            elif flag.default is not None and include_defaults:
+                self[flag.key] = flag.default
 
 
 def _set_defaults(config: Config) -> None:

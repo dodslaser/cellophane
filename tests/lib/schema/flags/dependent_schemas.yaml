@@ -20,7 +20,7 @@ config:
 flags:
   - key: ["a"]
     type: boolean
-    default: true
+    value: true
   - key: ["c"]
     type: boolean
   - key: ["b"]
