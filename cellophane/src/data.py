@@ -102,7 +102,7 @@ class Container(Mapping):
     def __or__(self, other: "Container") -> "Container":
         if self.__class__ != other.__class__:
             raise TypeError("Cannot merge containers of different types")
-        return self.__class__(util.merge_mappings(self, other))
+        return self.__class__(**util.merge_mappings(self, other))
 
     def __init__(self, __data__: dict | None = None, *args: Any, **kwargs: Any) -> None:
         _data = __data__ or {}
@@ -131,12 +131,6 @@ class Container(Mapping):
         else:
             super().__setattr__(name, value)
 
-    def __delattr__(self, name: str) -> None:
-        if name in fields_dict(self.__class__):
-            super().__delattr__(name)
-        else:
-            del self[name]
-
     def __setitem__(self, key: str | Sequence[str], item: Any) -> None:
         if isinstance(item, dict) and not isinstance(item, (Container, _dict)):
             item = Container(item)
@@ -156,10 +150,6 @@ class Container(Mapping):
                 reduce(_set, k[:-1], self.__data__)[k[-1]] = item
             case k:
                 raise TypeError(f"Key {k} is not an string or a sequence of strings")
-
-    def __delitem__(self, key: Any) -> None:
-        if key in self.__data__:
-            del self.__data__[key]
 
     def __getitem__(self, key: str | Sequence[str]) -> Any:
         match key:
@@ -241,8 +231,10 @@ def _apply_mixins(
 
     return _cls
 
+
 class _dict(dict):
     """Dict subclass to allow dict inside Container"""
+
 
 def as_dict(data: Container, exclude: list[str] | None = None) -> dict[str, Any]:
     """Dictionary representation of a container.
@@ -275,13 +267,11 @@ def as_dict(data: Container, exclude: list[str] | None = None) -> dict[str, Any]
         # }
         ```
     """
-    return dict(
-        **{
-            k: as_dict(v) if isinstance(v, Container) else v
-            for k, v in data.__data__.items()
-            if k not in (exclude or [])
-        }
-    )
+    return {
+        k: as_dict(v) if isinstance(v, Container) else v
+        for k, v in data.__data__.items()
+        if k not in (exclude or [])
+    }
 
 
 @define(slots=False)
@@ -308,9 +298,7 @@ class Sample(_BASE):
     )
     processed: bool = False
     uuid: UUID = field(repr=False, factory=uuid4, init=False, on_setattr=frozen)
-    meta: Container = field(
-        factory=Container, converter=Container, on_setattr=convert
-    )
+    meta: Container = field(factory=Container, converter=Container, on_setattr=convert)
     _fail: str | None = field(default=None, repr=False)
     merge: ClassVar[_Merger] = _Merger()
 
@@ -321,17 +309,15 @@ class Sample(_BASE):
         return getattr(self, key)
 
     def __setitem__(self, key: str, value: Any) -> None:
-        setattr(self, key, value)
-
-    # def __reduce__(self) -> tuple[Callable[..., "Sample"], tuple[Any, ...]]:
-    #     state = {k: self[k] for k in fields_dict(self.__class__)}
-    #     builder = partial(self.__class__, state.pop("__data__"), **state)
-    #     return (builder, ())
+        if key in fields_dict(self.__class__):
+            setattr(self, key, value)
+        else:
+            raise KeyError(f"Sample has no attribute '{key}'")
 
     @merge.register("files")
     @staticmethod
     def _merge_files(this: list[Path], that: list[Path]) -> set[str]:
-        return this | that
+        return [*dict.fromkeys((*this, *that))]
 
     @merge.register("meta")
     @staticmethod
@@ -343,7 +329,7 @@ class Sample(_BASE):
     def _merge_fail(this: str | None, that: str | None) -> str | None:
         return f"{this}\n{that}"
 
-    @merge.register("_processed")
+    @merge.register("processed")
     @staticmethod
     def _merge_done(this: bool | None, that: bool | None) -> bool | None:
         return this and that
@@ -368,7 +354,6 @@ class Sample(_BASE):
                 ),
             )
         return _sample
-
 
     def fail(self, reason: str) -> None:
         """
@@ -443,16 +428,20 @@ class Samples(UserList[S]):
             return super().__getitem__(key)
         elif isinstance(key, UUID) and key in self:
             return next(s for s in self if s.uuid == key)
-        else:
+        elif isinstance(key, UUID):
             raise KeyError(f"Sample with UUID {key.hex} not found")
+        else:
+            raise TypeError(f"Key {key} is not an int or a UUID")
 
     def __setitem__(self, key: int | UUID, value: S) -> None:
         if isinstance(key, int):
             super().__setitem__(key, value)
         elif isinstance(key, UUID) and key in self:
             self[self.index(self[key])] = value
-        else:
+        elif isinstance(key, UUID):
             self.append(value)
+        else:
+            raise TypeError(f"Key {key} is not an int or a UUID")
 
     def __contains__(self, item: S | UUID) -> bool:
         if isinstance(item, UUID):
@@ -463,7 +452,12 @@ class Samples(UserList[S]):
     @merge.register("data")
     @staticmethod
     def _merge_data(this: list[Sample], that: list[Sample]) -> list[Sample]:
-        return [a | next(b for b in that if b.uuid == a.uuid) for a in this]
+        return [
+            (a & next(b for b in that if b.uuid == a.uuid))
+            if a.uuid in [s.uuid for s in that]
+            else a
+            for a in this
+        ]
 
     @merge.register("output")
     @staticmethod
@@ -640,11 +634,6 @@ class Samples(UserList[S]):
     def __str__(self) -> str:
         return "\n".join([str(s) for s in self])
 
-    def __repr__(self) -> str:
-        attribs = ",\n".join(f"{k=}" for k in fields_dict(self.__class__))
-        samples = ",\n".join([repr(s) for s in self])
-        return f"Samples({samples},\n{attribs})"
-
     def __setstate__(self, state: dict) -> None:
         for k, v in state.items():
             self.__setattr__(k, v)
@@ -672,8 +661,6 @@ class Samples(UserList[S]):
 
         _samples = deepcopy(self)
         for _field in fields_dict(self.__class__):
-            if _field == "sample_class":
-                continue
             setattr(
                 _samples,
                 _field,

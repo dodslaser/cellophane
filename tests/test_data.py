@@ -6,6 +6,7 @@ import cloudpickle
 import dill
 from attrs import define, field
 from pytest import fixture, mark, param, raises
+from uuid import uuid4
 
 from cellophane.src import data
 
@@ -44,6 +45,11 @@ class Test_Container:
         with raises(TypeError):
             _container[1337]  # pylint: disable=pointless-statement
 
+    def test_setitem_attr(self):
+        _dummy = Dummy()
+        _dummy["a"] = 42
+        assert _dummy.a == 42
+
     @staticmethod
     def test_setattr_getattr():
         _container = data.Container()
@@ -80,6 +86,20 @@ class Test_Container:
         assert "b" in _dummy.a
         assert "c" not in _dummy
 
+    @staticmethod
+    def test_or():
+        _dummy_a = Dummy(b={"c": 1338})
+        _dummy_b = Dummy(b={"d": 1339})
+        _dummy_a_or_b = _dummy_a | _dummy_b
+        assert _dummy_a_or_b == Dummy(b={"c": 1338, "d": 1339})
+
+    @staticmethod
+    def test_invalid_or():
+        _dummy_a = Dummy(b={"c": 1338})
+        _dummy_b = data.Container(b={"d": 1339})
+        with raises(TypeError):
+            _dummy_a | _dummy_b
+        
 class Test_Sample:
     @staticmethod
     def test_init():
@@ -88,6 +108,42 @@ class Test_Sample:
         assert str(_sample) == "a"
         assert _sample.files == [Path("b")]
         assert _sample.processed == False
+
+    @staticmethod
+    def test_setitem():
+        @define
+        class SampleSub(data.Sample):
+            a: int = 1337
+        
+        _sample = SampleSub(id="a", files=["b"])
+        assert _sample.a == 1337
+        _sample["a"] = 42
+        assert _sample.a == 42
+
+        with raises(KeyError):
+            _sample["b"] = 42
+    
+    @staticmethod
+    def test_and():
+        class _SampleSubA(data.Sample):
+            ...
+        
+        class _SampleSubB(data.Sample):
+            ...
+        
+        _sample_a1 = _SampleSubA(id="a1", files=["a1"])
+        _sample_a2 = _SampleSubA(id="a2", files=["a2"])
+        _sample_a1_2 = deepcopy(_sample_a1)
+        _sample_a1_2.files = ["a1_2"]
+        _sample_b = _SampleSubB(id="b", files=["d"])
+
+        _sample_a1_merge = _sample_a1 & _sample_a1_2
+
+        assert  _sample_a1_merge.files == [Path("a1"), Path("a1_2")]
+        with raises(TypeError):
+            _sample_a1 & _sample_b
+        with raises(ValueError):
+            _sample_a1 & _sample_a2
 
     @staticmethod
     def test_pickle():
@@ -233,3 +289,101 @@ class Test_Samples:
         _samples_unpickle = cloudpickle.loads(_samples_pickle)
 
         assert samples == _samples_unpickle
+    
+    @staticmethod
+    def test_getitem_setitem():
+        samples = data.Samples(
+            [
+                data.Sample(id="a", files=["a", "b"]),
+                data.Sample(id="b", files=["c", "d"]),
+            ]
+        )
+        assert samples[samples[0].uuid] == samples[0]
+
+        sample_c = data.Sample(id="c", files=["e", "f"])
+        with raises(KeyError):
+            samples[sample_c.uuid]
+        
+        sample_c.processed = True
+        samples[sample_c.uuid] = sample_c
+        assert samples[sample_c.uuid].processed == True
+        
+        samples[sample_c.uuid] = sample_c
+        assert samples[sample_c.uuid] == sample_c
+
+        sample_d = data.Sample(id="d", files=["g", "h"])
+        samples[0] = sample_d
+        assert samples[sample_d.uuid] == samples[0] == sample_d
+
+        with raises(TypeError):
+            samples["INVALID"] = sample_d
+
+        with raises(TypeError):
+            samples["INVALID"]
+
+    @staticmethod
+    def test_contains():
+        sample_a = data.Sample(id="a", files=["a", "b"])
+        sample_b = data.Sample(id="b", files=["c", "d"])
+        samples = data.Samples([sample_a, sample_b])
+
+        assert sample_a in samples
+        assert sample_b in samples
+        assert sample_a.uuid in samples
+        assert sample_b.uuid in samples
+
+    @staticmethod
+    def test_and():
+        class _SamplesSubA(data.Samples):
+            ...
+        
+        class _SamplesSubB(data.Samples):
+            ...
+        
+        _samples_a1 = _SamplesSubA(
+            [
+                data.Sample(id="a1_1", files=["a1_1"]),
+                data.Sample(id="a1_2", files=["a1_2"]),
+            ]
+        )
+
+        _samples_a2 = _SamplesSubA(
+            [
+                data.Sample(id="a2_1", files=["a2_1"]),
+                data.Sample(id="a2_2", files=["a2_2"]),
+            ]
+        )
+
+        _samples_b = _SamplesSubB(
+            [
+                data.Sample(id="b1", files=["b1"]),
+                data.Sample(id="b2", files=["b2"]),
+            ]
+        )
+
+        _samples_a_merge = _samples_a1 & _samples_a2
+
+        # assert  _sample_a1_merge.files == [Path("a1"), Path("a1_2")]
+        with raises(TypeError):
+            _samples_a1 & _samples_b
+    
+    @staticmethod
+    def test_or():
+        class SamplesSub(data.Samples):
+            ...
+        
+        _sample_a = data.Sample(id="a", files=["a", "b"])
+        _sample_b = data.Sample(id="b", files=["c", "d"])
+        _sample_c = data.Sample(id="c", files=["e", "f"])
+
+        _samples_1 = data.Samples([_sample_a, _sample_b])
+        _samples_2 = data.Samples([_sample_b, _sample_c])
+        _samples_3 = SamplesSub([_sample_c])
+
+
+        _samples_1_or_2 = _samples_1 | _samples_2
+
+        assert _samples_1_or_2 == data.Samples([_sample_a, _sample_b, _sample_c])
+
+        with raises(TypeError):
+            _samples_1 | _samples_3

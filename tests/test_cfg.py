@@ -75,6 +75,46 @@ class Test_StringMapping:
         with raises(click.BadParameter):
             _mapping.convert(value, None, None)
 
+class Test_TypedArray:
+    @staticmethod
+    @mark.parametrize(
+        "value,expected,item_type",
+        [
+            param(
+                ["1", "3", "3", "7"],
+                [1.0, 3.0, 3.0, 7.0],
+                "number",
+                id="float",
+            ),
+        ],
+    )
+    def test_convert(value, item_type, expected):
+        _array = cfg._click.TypedArray(item_type)
+        assert _array.convert(value, None, None) == expected
+
+    @staticmethod
+    @mark.parametrize(
+        "value,item_type,exception",
+        [
+            param(
+                ["DUMMY"],
+                "INVALID",
+                ValueError,
+                id="invalid type",
+            ),
+            param(
+                ["INVALID"],
+                "number",
+                click.BadParameter,
+                id="invalid value",
+            ),
+        ],
+    )
+    def test_convert_exception(value,item_type,exception):
+        with raises(exception):
+            _array = cfg._click.TypedArray(item_type)
+            _array.convert(value, None, None)
+
 
 class Test__Flag:
     @staticmethod
@@ -286,73 +326,48 @@ class Test__get_flags:
 
 
 class Test_Config:
-    schema = cfg.Schema.from_file(LIB / "schema" / "config" / "simple.yaml")
-
-    expected = {
-        "string": "STRING",
-        "integer": 1337,
-        "number": 13.37,
-        "boolean": True,
-        "array": ["one", "two", "three"],
-        "typed_array": [1.0, 2.0, 3.0],
-        "mapping_array": [{"a": "X"}, {"b": "Y"}],
-        "mapping": {"a": "X", "b": "Y"},
-        "nested": {"a": {"b": {"c": "Z"}}},
-    }
-
-    kwargs = {
-        "string": "STRING",
-        "integer": 1337,
-        "number": 13.37,
-        "boolean": True,
-        "array": ["one", "two", "three"],
-        "typed_array": [1.0, 2.0, 3.0],
-        "mapping_array": [{"a": "X"}, {"b": "Y"}],
-        "mapping": {"a": "X", "b": "Y"},
-        "nested_a_b_c": "Z",
-    }
 
     def test_empty(self):
-        assert raises(ValueError, cfg.Config, self.schema)
+        assert raises(ValueError, cfg.Config, {})
 
-    def test_from_kwargs(self):
-        _config = cfg.Config(
-            self.schema,
-            **self.kwargs,
-        )
-        assert data.as_dict(_config) == self.expected
+    @staticmethod
+    @mark.parametrize(
+        "definition",
+        [
+            param(LIB / "schema" / "config" / "from_data.yaml", id="from_data"),
+            param(LIB / "schema" / "config" / "from_cli.yaml", id="from_cli"),
+            param(LIB / "schema" / "config" / "from_kwargs.yaml", id="from_kwargs"),
+        ]
+    )
+    def test_config(definition):
+        _definition = _YAML.load(definition.read_text())
+        _schema = cfg.Schema(_definition["schema"])
+        _config = _definition["config"]
 
-    def test_from_cli(self):
-        runner = CliRunner()
+        if _data := _definition.get("data"):
+            assert _config == data.as_dict(cfg.Config(_schema, _data=_data))
+        
+        if _kwargs := _definition.get("kwargs"):
+            assert _config == data.as_dict(cfg.Config(_schema, **_kwargs))
 
-        @click.command()
-        def _cli(**kwargs):
-            kwargs.pop("config_file")
-            _YAML.dump(kwargs, sys.stdout)
+        if _cli := _definition.get("cli"):
+            @click.command()
+            def _cli(**kwargs):
+                kwargs.pop("config_file")
+                _config = cfg.Config(_schema, **kwargs)
+                _YAML.dump(data.as_dict(_config), sys.stdout)
 
-        _cli = reduce(lambda x, y: y.click_option(x), cfg._get_flags(self.schema), _cli)
+            _cli = reduce(lambda x, y: y.click_option(x), cfg._get_flags(_schema), _cli)
+            runner = CliRunner()
 
-        result = runner.invoke(
-            _cli,
-            [
-                *("--string", "STRING"),
-                *("--integer", "1337"),
-                *("--number", "13.37"),
-                *("--boolean",),
-                *("--array", ["one", "two", "three"]),
-                *("--typed_array", ["1.0", "2.0", "3.0"]),
-                *("--mapping_array", ["a=X", "b=Y"]),
-                *("--mapping", "a=X,b=Y"),
-                *("--nested_a_b_c", "Z"),
-            ],
-        )
+            result = runner.invoke(_cli, _definition["cli"])
 
-        try:
-            result_parsed = _YAML.load(result.stdout)
-        except Exception:
-            fail(msg=result.stdout)
-        else:
-            assert result_parsed == self.kwargs, result.output
+            try:
+                result_parsed = _YAML.load(result.stdout)
+            except Exception:
+                fail(msg=result.stdout)
+            else:
+                assert result_parsed == _config, result.output
 
 
     @mark.parametrize(

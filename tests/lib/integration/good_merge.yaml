@@ -19,9 +19,11 @@ structure:
       
       class SamplesMixinC(data.Samples):
           c: int = 4
+          d: int = 5
 
       class SampleMixinC(data.Sample):
           c: int = 4
+          d: int = 5
       
       @data.Samples.merge.register("a_1")
       @data.Sample.merge.register("a_1")
@@ -37,11 +39,28 @@ structure:
 
       @modules.runner()
       def runner_a(samples, **_):
+          samples.d = None
           return samples
       
       @modules.runner()
       def runner_b(samples, **_):
           return samples
+      
+      @modules.post_hook(condition="always")
+      def validate(samples, logger, **_):
+          for sample in samples:
+            logger.debug(f"{sample.id} {sample.a_1=}")
+            logger.debug(f"{sample.id} {sample.a_2=}")
+            logger.debug(f"{sample.id} {sample.b=}")
+            logger.debug(f"{sample.id} {sample.c=}")
+            logger.debug(f"{sample.id} {sample.d=}")
+          logger.info(f"{samples.a_1=}")
+          logger.info(f"{samples.a_2=}")
+          logger.info(f"{samples.b=}")
+          logger.info(f"{samples.c=}")
+          logger.info(f"{samples.d=}")
+        
+        
 
   samples.yaml: |
     - id: a
@@ -56,3 +75,20 @@ structure:
 args:
   --samples_file: samples.yaml
   --workdir: out
+
+logs:
+- a sample.a_1=2
+- a sample.a_2=4
+- a sample.b=9
+- a sample.c=(4, 4)
+- a sample.d=(5, 5)
+- b sample.a_1=2
+- b sample.a_2=4
+- b sample.b=9
+- b sample.c=(4, 4)
+- b sample.d=(5, 5)
+- samples.a_1=2
+- samples.a_2=4
+- samples.b=9
+- samples.c=(4, 4)
+- samples.d=5

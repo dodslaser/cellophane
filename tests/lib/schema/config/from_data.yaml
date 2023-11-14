@@ -1,0 +1,51 @@
+schema:
+  properties:
+    config_file:
+      type: path
+    string:
+      type: string
+    integer:
+      type: integer
+    number:
+      type: number
+    boolean:
+      type: boolean
+    array:
+      type: array
+      items:
+        type: string
+    typed_array:
+      type: array
+      items:
+        type: number
+    mapping_array:
+      type: array
+      items:
+        type: mapping
+    mapping:
+      type: mapping
+    nested:
+      type: object
+      properties:
+        a:
+          type: object
+          properties:
+            b:
+              type: object
+              properties:
+                c:
+                  type: string
+
+data: &data
+  string: "STRING"
+  integer: 1337
+  number: 13.37
+  boolean: True
+  array: ["one", "two", "three"]
+  typed_array: [1.0, 2.0, 3.0]
+  mapping_array: [{"a": "X"}, {"b": "Y"}]
+  mapping: {"a": "X", "b": "Y"}
+  nested: {"a": {"b": {"c": "Z"}}}
+
+config:
+  <<: *data
