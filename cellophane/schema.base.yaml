@@ -1,6 +1,7 @@
 required:
   - workdir
 
+
 properties:
   log_level:
     default: INFO
@@ -12,7 +13,23 @@ properties:
       - ERROR
       - CRITICAL
     type: string
-  
+
+  executor:
+    type: object
+    properties:
+      name:
+        type: string
+        description: Name of the executor to use
+        default: subprocess
+      cpus:
+        type: integer
+        description: Number of CPUs to allocate to jobs started (if supported by the executor)
+        default: 1
+      memory:
+        type: size
+        description: Ammount of memory to allocate to jobs started (if supported by the executor)
+        default: 2 GiB
+
   config_file:
     description: Path to config file
     type: path
@@ -36,19 +53,4 @@ properties:
   samples_file:
     description: "Path YAML file with samples - eg [{id: ID, files: [F1, F2]}, ...]"
     type: path
-  
-  sge:
-    type: object
-    properties:
-      queue:
-        description: SGE queue
-        type: string
-        default: all.q
-      pe:
-        description: SGE parallel environment
-        type: string
-        default: mpi
-      slots:
-        description: Default number of slots
-        type: integer
-        default: 1
+

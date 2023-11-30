@@ -16,6 +16,7 @@ from pytest_mock import MockerFixture
 
 from cellophane.src import data, modules
 from cellophane.src.data import Sample, Samples
+from cellophane.src.executors import SubprocesExecutor
 from cellophane.src.modules import Hook, Runner
 
 LIB = Path(__file__).parent / "lib"
@@ -231,6 +232,7 @@ class Test_Runner:
                 config=MagicMock(timestamp="DUMMY", log_level=None),
                 root=tmp_path / "root",
                 samples_pickle=dumps(self.samples),
+                executor_cls=SubprocesExecutor,
             )
             _listener.stop()
 
@@ -384,6 +386,7 @@ class Test_Hook:
                 samples=input_value,
                 config=MagicMock(workdir=tmp_path, timestamp="DUMMY", log_level=None),
                 root=Path(),
+                executor_cls=SubprocesExecutor,
             )
 
         for log_line in logs:
@@ -534,6 +537,7 @@ class Test_load:
             _runners,
             _sample_mixins,
             _samples_mixins,
+            _executors,
         ) = modules.load(path)
         assert {h.name for h in _hooks} == expected.get("hooks", {})
         assert {r.name for r in _runners} == expected.get("runners", {})
@@ -579,6 +583,7 @@ class Test_mixins:
             _,
             _sample_mixins,
             _samples_mixins,
+            _,
         ) = modules.load(LIB / "modules" / "mod_mixin")
 
         _mixins = {m.__name__: m for m in (*_sample_mixins, *_samples_mixins)}

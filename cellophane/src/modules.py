@@ -13,7 +13,7 @@ from typing import Any, Callable, Literal
 import psutil
 from cloudpickle import dumps, loads
 
-from . import cfg, data, logs
+from . import cfg, data, executors, logs
 
 
 def _cleanup(logger: logging.LoggerAdapter) -> Callable:
@@ -88,6 +88,7 @@ class Runner:
         config: cfg.Config,
         root: Path,
         samples_pickle: str,
+        executor_cls: type[executors.Executor],
     ) -> None:
         samples = loads(samples_pickle)
         logs.setup_queue_logging(log_queue)
@@ -109,6 +110,7 @@ class Runner:
                 logger=logger,
                 root=root,
                 workdir=workdir,
+                executor=executor_cls(config=config),
             ):
                 case None:
                     logger.debug("Runner did not return any samples")
@@ -187,6 +189,7 @@ class Hook:
         samples: data.Samples,
         config: cfg.Config,
         root: Path,
+        executor_cls: type[executors.Executor],
     ) -> data.Samples:
         logger = logging.LoggerAdapter(logging.getLogger(), {"label": self.label})
         logger.debug(f"Running {self.label} hook")
@@ -198,6 +201,8 @@ class Hook:
             logger=logger,
             root=root,
             workdir=config.workdir / config.tag,
+            executor=executor_cls(config=config)
+
         ):
             case returned if isinstance(returned, data.Samples):
                 _ret = returned
@@ -250,6 +255,7 @@ def load(
     list[Runner],
     list[type[data.Sample]],
     list[type[data.Samples]],
+    list[type[executors.Executor]]
 ]:
     """
     Loads module(s) from the specified path and returns the hooks, runners,
@@ -272,6 +278,7 @@ def load(
     runners: list[Runner] = []
     sample_mixins: list[type[data.Sample]] = []
     samples_mixins: list[type[data.Samples]] = []
+    executors_: list[type[executors.Executor]] = [executors.SubprocesExecutor]
 
     for file in [*path.glob("*.py"), *path.glob("*/__init__.py")]:
         base = file.stem if file.stem != "__init__" else file.parent.name
@@ -302,12 +309,14 @@ def load(
                 samples_mixins.append(obj)
             elif _is_instance_or_subclass(obj, Runner):
                 runners.append(obj)
+            elif _is_instance_or_subclass(obj, executors.Executor):
+                executors_.append(obj)
     try:
         hooks = _resolve_hook_dependencies(hooks)
     except Exception as exc:  # pylint: disable=broad-except
         raise ImportError(f"Unable to resolve hook dependencies: {exc}") from exc
 
-    return hooks, runners, sample_mixins, samples_mixins
+    return hooks, runners, sample_mixins, samples_mixins, executors_
 
 
 def pre_hook(

@@ -14,7 +14,7 @@ from humanfriendly import format_timespan
 from mpire import WorkerPool
 from ruamel.yaml.scanner import ScannerError
 
-from .src import cfg, data, logs, modules, sge, util
+from .src import cfg, data, executors, logs, modules, util
 
 __all__ = [
     "CELLOPHANE_ROOT",
@@ -23,8 +23,8 @@ __all__ = [
     "data",
     "logs",
     "modules",
-    "sge",
     "util",
+    "executors",
 ]
 
 CELLOPHANE_ROOT = Path(__file__).parent
@@ -38,7 +38,7 @@ def _run_hooks(
 ) -> data.Samples:
     samples = deepcopy(samples)
 
-    for hook in [h for h in hooks if h.when == when]:    
+    for hook in [h for h in hooks if h.when == when]:
         if hook.when == "pre" or hook.condition == "always":
             samples = hook(samples=samples, **kwargs)
         elif hook.condition == "complete" and (s := samples.complete):
@@ -130,9 +130,10 @@ def _main(
     log_queue: Queue,
     config: cfg.Config,
     root: Path,
+    executor_cls: type[executors.Executor],
 ) -> None:
     """Run cellophane"""
-    common_kwargs = {"config": config, "root": root}
+    common_kwargs = {"config": config, "root": root, "executor_cls": executor_cls}
 
     # Load samples from file, or create empty samples object
     if "samples_file" in config:
@@ -154,7 +155,13 @@ def _main(
         logger.info("No samples to process")
         raise SystemExit(0)
 
-    samples = _start_runners(runners, samples.with_files, logger, log_queue, **common_kwargs)
+    samples = _start_runners(
+        runners,
+        samples.with_files,
+        logger,
+        log_queue,
+        **common_kwargs,
+    )
     samples = _run_hooks(hooks, "post", samples, **common_kwargs)
 
     # If not post-hook has copied the outputs, do it here
@@ -207,10 +214,12 @@ def cellophane(
             runners,
             sample_mixins,
             samples_mixins,
+            executors_,
         ) = modules.load(root / "modules")
 
         _SAMPLE = data.Sample.with_mixins(sample_mixins)
         _SAMPLES = data.Samples.with_sample_class(_SAMPLE).with_mixins(samples_mixins)
+        schema.properties.executor.properties.name.enum = [e.name for e in executors_]
 
         @cfg.options(schema)
         def inner(config: cfg.Config, **_: Any) -> None:
@@ -220,6 +229,10 @@ def cellophane(
             logger.debug(f"Found {len(runners)} runners")
             logger.debug(f"Found {len(sample_mixins)} sample mixins")
             logger.debug(f"Found {len(samples_mixins)} samples mixins")
+            logger.debug(f"Found {len(executors_)} executors")
+
+            executor_cls = next(e for e in executors_ if e.name == config.executor)
+            logger.debug(f"Using {executor_cls.name} executor")
 
             config.analysis = label  # type: ignore[attr-defined]
             logs.add_file_handler(
@@ -235,6 +248,7 @@ def cellophane(
                     logger=logger,
                     log_queue=log_queue,
                     root=root,
+                    executor_cls=executor_cls,
                 )
 
             except Exception as exception:

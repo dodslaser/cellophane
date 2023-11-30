@@ -6,6 +6,7 @@ from typing import Any, Callable, Literal, Mapping, Type, get_args
 
 import rich_click as click
 from attrs import define, field
+from humanfriendly import parse_size
 
 ITEMS_TYPES = Literal[
     "string",
@@ -13,6 +14,7 @@ ITEMS_TYPES = Literal[
     "integer",
     "path",
     "mapping",
+    "size",
 ]
 
 SCHEMA_TYPES = Literal[
@@ -23,6 +25,7 @@ SCHEMA_TYPES = Literal[
     "mapping",
     "array",
     "path",
+    "size",
 ]
 
 from . import data
@@ -201,11 +204,46 @@ class TypedArray(click.ParamType):
             self.fail(str(exc), param, ctx)
 
 
+class ParsedSize(click.ParamType):
+    name: str = "size"
+
+    def convert(
+        self,
+        value: str | int,
+        param: click.Parameter | None,
+        ctx: click.Context | None,
+    ) -> int:
+        """
+        Converts a string value to an integer.
+
+        Args:
+            value (str): The value to be converted.
+            param (click.Parameter | None): The click parameter
+                associated with the value.
+            ctx (click.Context | None): The click context associated with the value.
+
+        Returns:
+            int: The converted integer value.
+
+        Raises:
+            ValueError: Raised when the value is not a valid integer.
+
+        Example:
+            ```python
+            converter = Converter()
+            value = "1"
+            result = converter.convert(value, None, None)
+            print(result)
+        """
+        del param, ctx  # Unused
+        return parse_size(str(value))
+
+
 def _click_type(  # type: ignore[return]
     _type: SCHEMA_TYPES | None = None,
     enum: list | None = None,
     items: ITEMS_TYPES | None = None,
-) -> Type | click.Path | click.Choice | StringMapping | TypedArray:
+) -> Type | click.Path | click.Choice | StringMapping | TypedArray | ParsedSize:
     """
     Translate jsonschema type to Python type.
 
@@ -229,6 +267,8 @@ def _click_type(  # type: ignore[return]
             return TypedArray(items)
         case "path":
             return click.Path(path_type=Path)
+        case "size":
+            return ParsedSize()
         case _:
             return str
 

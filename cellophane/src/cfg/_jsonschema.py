@@ -14,6 +14,7 @@ _cellophane_type_checker = Draft7Validator.TYPE_CHECKER.redefine_many(
     {
         "mapping": lambda _, instance: isinstance(instance, Mapping),
         "path": lambda _, instance: isinstance(instance, Path | str),
+        "size": lambda _, instance: isinstance(instance, str | int),
     }
 )
 
