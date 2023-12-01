@@ -24,12 +24,12 @@ class Executor:
     config: cfg.Config
     jobs: dict[UUID, mp.Process] = field(factory=dict, init=False)
 
-    def __init_subclass__(cls, *args, name: str, **kwargs) -> None:
+    def __init_subclass__(cls, *args: Any, name: str, **kwargs: Any) -> None:
         """Register the class in the registry."""
         super().__init_subclass__(*args, **kwargs)
         cls.name = name or cls.__name__.lower()
 
-    def target(self, *args, **kwargs) -> int | None:  # pragma: no cover
+    def target(self, *args: Any, **kwargs: Any) -> int | None:  # pragma: no cover
         del args, kwargs  # Unused
         raise NotImplementedError
 
@@ -38,7 +38,7 @@ class Executor:
         *args: str | Path,
         name: str = __name__,
         wait: bool = False,
-        uuid: UUID = None,
+        uuid: UUID | None = None,
         workdir: Path | None = None,
         env: dict | None = None,
         os_env: bool = True,
@@ -112,6 +112,8 @@ class Executor:
             uuid (UUID): The UUID of the job pending termination.
             logger (logging.LoggerAdapter): A logger adapter for the job.
         """
+        del uuid, logger  # Unused
+        return 143  # SIGTERM
 
     def terminate(self, uuid: UUID | None = None) -> None:
         """Terminating a specific job or all jobs."""
@@ -178,3 +180,6 @@ class SubprocesExecutor(Executor, name="subprocess"):
             self.procs[uuid].send_signal(SIGTERM)
             pid, code = os.waitpid(self.procs[uuid].pid, 0)
             logger.debug(f"Child process (pid={pid}) exited with code {code}")
+            return code
+        else:
+            return None

@@ -21,7 +21,7 @@ class Test_SubprocessExecutor:
         spe.terminate(uuid)
         spe.join(uuid)
         assert not proc.is_alive()
-        assert proc.exitcode == 143
+        assert proc.exitcode == 15  # SIGTERM
 
     def test_executor_terminate_all(self, tmp_path):
         config = MagicMock(workdir=tmp_path, logdir=tmp_path)

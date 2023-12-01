@@ -347,7 +347,7 @@ class Flag:
     @property
     def click_type(
         self,
-    ) -> Type | click.Path | click.Choice | StringMapping | TypedArray:
+    ) -> Type | click.Path | click.Choice | StringMapping | TypedArray | ParsedSize:
         """
         Translate jsonschema type to Python type.
 
