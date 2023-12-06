@@ -2,7 +2,7 @@
 
 import re
 from pathlib import Path
-from typing import Any, Callable, Literal, Mapping, Type, get_args
+from typing import Any, Callable, Literal, Mapping, MutableMapping, Type, get_args
 
 import rich_click as click
 from attrs import define, field
@@ -27,6 +27,8 @@ SCHEMA_TYPES = Literal[
     "path",
     "size",
 ]
+
+from ast import literal_eval
 
 from . import data
 
@@ -83,10 +85,10 @@ class StringMapping(click.ParamType):
 
     def convert(
         self,
-        value: str | Mapping,
+        value: str | MutableMapping,
         param: click.Parameter | None,
         ctx: click.Context | None,
-    ) -> Mapping:
+    ) -> data._dict:
         """
         Converts a string value to a mapping.
 
@@ -118,19 +120,37 @@ class StringMapping(click.ParamType):
             ```
         """
 
-        _extra = None
         if not value:
             return data._dict()
-        elif isinstance(value, str):
-            _tokens, _extra = self.scanner.scan(value)
-            if len(_tokens) % 2 == 0:
-                value = data._dict(zip(_tokens[::2], _tokens[1::2]))
 
-        if isinstance(value, Mapping) and not _extra:
+        if isinstance(value, Mapping):
             return data._dict(value)
 
-        else:
-            self.fail("Expected a comma separated mapping (a=b,x=y)", param, ctx)
+        try:
+            tokens, extra = self.scanner.scan(value)
+            if extra or len(tokens) % 2 != 0:
+                raise ValueError
+            parsed = data._dict(zip(tokens[::2], tokens[1::2]))
+        except:  # pylint: disable=bare-except
+            self.fail(f"Expected a comma separated mapping (a=b,x=y), got {value}", param, ctx)
+
+        for k, v in parsed.items():
+            try:
+                parsed[k] = literal_eval(v)
+            except ValueError:
+                pass
+
+        while True:
+            try:
+                key: str = next(k for k in parsed if "." in k)
+                parts = key.rsplit(".", maxsplit=1)
+                parsed[parts[0]] = {parts[1]: parsed.pop(key)}
+            except StopIteration:
+                break
+
+        return data._dict(parsed)
+
+            
 
 
 class TypedArray(click.ParamType):

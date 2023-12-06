@@ -157,12 +157,17 @@ class Config(data.Container):
         self.__schema__ = schema
 
         for flag in _get_flags(schema, _data):
-            if flag.value is not None:
-                self[flag.key] = flag.value
-            elif flag.flag in kwargs:
-                self[flag.key] = kwargs[flag.flag]
+            _converter: partial | Callable = (
+                partial(flag.click_type.convert, ctx=None, param=None)
+                if isinstance(flag.click_type, click.ParamType)
+                else flag.click_type
+            )
+            if flag.flag in kwargs:
+                self[flag.key] = _converter(kwargs[flag.flag])
+            elif flag.value is not None:
+                self[flag.key] = _converter(flag.value)
             elif flag.default is not None and include_defaults:
-                self[flag.key] = flag.default
+                self[flag.key] = _converter(flag.default)
 
 
 def _set_defaults(config: Config) -> None:
