@@ -274,12 +274,14 @@ def options(schema: Schema) -> Callable:
             def _update_ctx(**kwargs: Any) -> None:
                 config_file: Path = kwargs.pop("config_file", None)
                 config_data = YAML(typ="safe").load(config_file) if config_file else {}
-                kwargs["workdir"] = kwargs["workdir"] or Path.cwd()
+
+                if kwargs.get("workdir") is not None:
+                    kwargs["resultdir"] = kwargs["resultdir"] or  (kwargs["workdir"] / "results")
+                    kwargs["logdir"] = kwargs["logdir"] or (kwargs["workdir"] / "logs")
+
                 ctx.obj = Config(  # type: ignore[call-arg]
                     schema=schema,
                     tag=kwargs.pop("tag", None) or timestamp,
-                    resultdir=kwargs.pop("resultdir") or (kwargs["workdir"] / "results"),
-                    logdir=kwargs.pop("logdir") or (kwargs["workdir"] / "logs"),
                     include_defaults=False,
                     _data=config_data,
                     **{
@@ -288,7 +290,9 @@ def options(schema: Schema) -> Callable:
                         if v is not None
                         and (source := ctx.get_parameter_source(k))
                         and source.name != "DEFAULT"
-                    },
+                        or k in ("resultdir", "logdir")
+                        and v is not None
+                    }
                 )
 
             for flag in _get_flags(schema):
@@ -296,7 +300,6 @@ def options(schema: Schema) -> Callable:
 
             ctx = _update_ctx.make_context(ctx.info_name, copy(ctx.args))
             ctx.forward(_update_ctx)
-
 
             nonlocal callback
             config = ctx.obj
