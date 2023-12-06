@@ -800,7 +800,7 @@ def rm(
         try:
             submodule = repo.submodule(_module)
             _path = submodule.path
-            submodule.remove()
+            submodule.remove(force=True)
             _update_example_config(path)
             _remove_requirements(path, _module)
         except Exception as exc:  # pylint: disable=broad-except
