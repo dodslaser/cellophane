@@ -730,7 +730,7 @@ def add(
             repo.index.add("modules/requirements.txt")
             repo.index.write()
             repo.index.commit(f"feat(cellophane): Added '{_module}@{branch}'")
-            logger.info(f"Added '{_module}@{branch}')")
+            logger.info(f"Added '{_module}@{branch}'")
 
 @_validate_modules()
 def update(
