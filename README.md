@@ -6,9 +6,9 @@
 
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-Cellophane is a library for creating modular wrappers.
+Cellophane is a library for creating modular wrappers. The purpose is both to facilitate wrapping a pipeline with a common framework, and also to simplify the process of porting the wrapper to a different HPC environment, LIMS, long term storage, etc.
 
-# ❗️ HERE BE DRAGONS 🐉 ❗️
+**❗️ HERE BE DRAGONS ❗️**
 
 Cellophane is not battle tested and may break, blow up, and/or eat your pet(s), etc.
 
@@ -25,7 +25,7 @@ A generic project structure can be generated with `cellophane init`.
 
 ```shell
 # Initialize an empty git repo
-git init my_awesome_wrapper
+mkdir my_awesome_wrapper
 cd my_awesome_wrapper
 
 # Initialize an empty cellophane project
@@ -37,9 +37,6 @@ A wrapper directory structure should look something like this:
 ```
 ./my_awesome_wrapper/
 ├── __init__.py
-│   # Cellophane module subtree
-├── cellophane
-│   └── ...
 │
 │   # Directory containing cellophane modules
 ├── modules
@@ -58,10 +55,6 @@ A wrapper directory structure should look something like this:
 │   # Directory containing scripts to be submitted by Popen, SGE, etc.
 ├── scripts
 │   └── my_script.sh
-│
-│   # Directory containing misc. files used by the wrapper.
-├── scripts
-│   └── some_more_data.txt
 │
 │   # JSON Schema defining configuration options
 ├── schema.yaml
@@ -89,10 +82,10 @@ python -m cellophane module update
 python -m cellophane module update my_module@dev
 
 # Select modules to delete from all installed modules
-python -m cellophane module remove
+python -m cellophane module rm
 
 # Remove a specific module
-python -m cellophane module remove my_module
+python -m cellophane module rm my_module
 ```
 
 A cellophane wrapper can be run as a script or as a module
@@ -115,7 +108,8 @@ Configuration options must be defined as a JSON Schema in a YAML file. By defaul
 - The schema is used to generate the CLI, not to validate the configuration. Rather, the schama will be translated to a `click.Command` which will then parse the configuration.
 - These types are implemented in addition to the standard types
   - `path` - Used to specify that a string should be converted to a `pathlib.Path` object.
-  - `mapping` - Used to denote `objects` that will be parsed when specified as a string (eg. `foo=bar,baz=qux` will be parsed as `{"foo": "bar", "baz": "qux"}`).
+  - `size` - Used to specify that a string should be converted to bytes (eg. `1G` -> `1000000000`, `10 MiB` -> `10485760`).
+  - `mapping` - Used to denote JSON objects that will be parsed when specified as a string (eg. `foo=bar,baz=qux` will be parsed as `{"foo": "bar", "baz": "qux"}`).
 - [Conditional validation](https://json-schema.org/understanding-json-schema/reference/conditionals.html) is supported but has a few caveats:
   - `allOf` will simply combine the schemas without validating against current parameters.
   - `oneOf` will select the *FIRST* schema that validates against current parameters.
@@ -189,7 +183,7 @@ $ python -m my_awesome_wrapper
 
 ## Defining pipeline modules
 
-Runners are functions decrated with `cellophane.modules.runner`, and are responsible for launching the pipeline with the provided samples. They are executed as separate processes in parallel. Optinally, if `individual_samples=True` is specified in the `runner` decorator cellophane will spawn one runner process per sample. A `runner` function will be called with `samples`, `config`, `timestamp`, `label`, `logger`, `root` and `workdir` as keyword arguments.
+Runners are functions decrated with `cellophane.modules.runner`, and are responsible for launching the pipeline with the provided samples. They are executed as separate processes in parallel. Optinally, if `individual_samples=True` is specified in the `runner` decorator cellophane will spawn one runner process per sample. A `runner` function will be called with `samples`, `config`, `timestamp`, `label`, `logger`, `root`, `workdir` and `executor` as keyword arguments.
 
 A module may also define pre/post-hooks. These should be decorated with `cellophane.modules.pre_hook` or `cellophane.modules.post_hook`. Hooks will be executed before or after the whle pipeline completes. Each hook function will be called with `samples`, `config`, `timestamp`, `logger`, and `root` as arguments. 
 
@@ -213,7 +207,7 @@ Post-hooks cannot modify the samples object, and so the order in which they are 
 
 from pathlib import Path
 
-from cellophane import sge, modules
+from cellophane import modules
 
 @modules.pre_hook(priority=10)
 def filter_missing(samples, config, timestamp, logger, root):
@@ -222,7 +216,7 @@ def filter_missing(samples, config, timestamp, logger, root):
 
 
 @modules.runner()
-def foo(samples, config, timestamp, label, logger, root, workdir):
+def foo(samples, config, timestamp, label, logger, root, workdir, executor):
 
     # config is a UserDict that allows attrubute access
     if not config.foo.skip:
@@ -240,7 +234,7 @@ def foo(samples, config, timestamp, label, logger, root, workdir):
 
 
         # sge.submit submits scripts jobs to an SGE cluster (via DRMAA)
-        sge.submit(
+        executor.submit(
             str(root / "scripts" / "nextflow.sh"),
             # *args will be passed as arguments to the script
             *(
@@ -254,17 +248,12 @@ def foo(samples, config, timestamp, label, logger, root, workdir):
                 f"run {config.nextflow.main}",
                 "-ansi-log false",
             ),
+            name="foo",
             # Environment variables can be passed to the worker node
             env={"MY_VAR": "foo"},
-            queue=config.nextflow.sge_queue,
-            pe=config.nextflow.sge_pe,
-            slots=config.nextflow.sge_slots,
-            # Setting check True blocks until the job is done or fails
-            check=True,
-            name="foo",
-            stderr=config.logdir / f"foo.err",
-            stdout=config.logdir / f"foo.out",
-            cwd=workdir,
+            cpus=config.nextflow.sge_slots,
+            # Setting 'wait' to True blocks until the job is done or fails
+            wait=True,
         )
 
 # individual_samples=True will spawn one process for each sample
@@ -294,10 +283,10 @@ When writing a module, it is sometimes desirable to add functionality to the `ce
 
 from cellophane import data
 
-class MySampleMixin:
+class MySampleMixin(data.Sample):
     some_attr: str = "foo"
 
-class MySamplesMixin(data.Mixin):
+class MySamplesMixin(data.Samples):
     def nfcore_samplesheet(self, location, **kwargs):
         ...
 ```
