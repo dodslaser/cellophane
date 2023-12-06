@@ -1,0 +1,49 @@
+- id: good_parse_config
+  structure:
+    modules:
+      echo.py: |
+        from cellophane import modules
+
+        @modules.pre_hook()
+        def echo_config(config, logger, **_):
+            for key, value in config.items():
+                if not isinstance(value, (list, dict)):
+                  logger.info(f"{key=} {value=} ({type(value).__name__})")
+                else:
+                  logger.info(f"{key=} ({type(value).__name__})")
+                if isinstance(value, list):
+                  for i, v in enumerate(value):
+                    logger.info(f"{key=} {i=} {v=} ({type(v).__name__})")
+                if isinstance(value, dict):
+                  for k, v in value.items():
+                    logger.info(f"{key=} {k=} {v=} ({type(v).__name__})")
+    schema.yaml: |
+      properties:
+        a:
+          type: string
+        b:
+          type: string
+        c:
+          type: object
+          properties:
+            d:
+              type: string
+            e:
+              type: string
+    config.yaml: |
+      a: "a"
+      b: "b"
+      c:
+        d: "d"
+        e: "e"
+  args:
+    --config_file: config.yaml
+    --workdir: DUMMY
+    --a: "override_a"
+    --c_d: "override_d"
+
+  logs:
+  - key='a' value='override_a' (str)
+  - key='b' value='b' (str)
+  - key='b' value='b' (str)
+  - "key='c' value=Container(__data__={'d': 'override_d', 'e': 'e'}) (Container)"
