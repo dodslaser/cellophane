@@ -34,6 +34,11 @@ class Test_StringMapping:
                 id="single quoted",
             ),
             param(
+                "a.b.c=d",
+                {"a": {"b": {"c": "d"}}},
+                id="nested",
+            ),
+            param(
                 "",
                 {},
                 id="empty",
