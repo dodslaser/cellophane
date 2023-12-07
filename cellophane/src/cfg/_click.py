@@ -144,7 +144,10 @@ class StringMapping(click.ParamType):
             try:
                 key: str = next(k for k in parsed if "." in k)
                 parts = key.rsplit(".", maxsplit=1)
-                parsed[parts[0]] = {parts[1]: parsed.pop(key)}
+                if (subkey := parts[0]) in parsed:
+                    parsed[subkey] |= {parts[1]: parsed.pop(key)}
+                else:
+                    parsed[subkey] = {parts[1]: parsed.pop(key)}
             except StopIteration:
                 break
 

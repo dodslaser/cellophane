@@ -51,6 +51,9 @@
         a: "a"
         b: 1
         c: 1.0
+        d:
+          e: "e"
+          f: 42
       path: "path/to/file"
       size: 1 GB
   args:
@@ -75,6 +78,7 @@
   - key='mapping' k='a' v='a' (str)
   - key='mapping' k='b' v=1 (int)
   - key='mapping' k='c' v=1.0 (float)
+  - "key='mapping' k='d' v={'e': 'e', 'f': 42}"
   - key='path' value=PosixPath('path/to/file') (PosixPath)
   - key='size' value=1000000000 (int)
 
@@ -88,6 +92,6 @@
     --boolean: ~
     --typed_array: !!python/tuple [1, 3, 3, 7]
     --array: !!python/tuple [1, 3, 3, 7]
-    --mapping: a="a",b=1,c=1.0
+    --mapping: a="a",b=1,c=1.0,d.e="e",d.f=42
     --path: "path/to/file"
     --size: "1 GB"
