@@ -137,7 +137,7 @@ class StringMapping(click.ParamType):
         for k, v in parsed.items():
             try:
                 parsed[k] = literal_eval(v)
-            except ValueError:
+            except:  # pylint: disable=bare-except
                 pass
 
         while True:
