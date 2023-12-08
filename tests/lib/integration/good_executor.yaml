@@ -1,0 +1,40 @@
+structure:
+  modules:
+    dummy.py: |
+      from cellophane import modules, executors
+
+      class TestExecutor(executors.Executor, name="DUMMY"):
+          def target(**_):
+              pass
+
+      @modules.pre_hook()
+      def runner_a(logger, samples, executor, **_):
+          logger.info(f"HOOK - {executor.name=}")
+          logger.info(f"HOOK - {executors.EXECUTOR.name=}")
+          return samples
+      
+      @modules.runner()
+      def runner_b(logger, samples, executor, **_):
+          logger.info(f"RUNNER - {executor.name=}")
+          logger.info(f"RUNNER - {executors.EXECUTOR.name=}")
+          return samples
+
+  samples.yaml: |
+    - id: a
+      files:
+      - input/a.txt
+  input:
+    a.txt: "INPUT_A"
+
+args:
+  --samples_file: samples.yaml
+  --executor_name: DUMMY
+  --workdir: out
+
+logs:
+- Using DUMMY executor
+- HOOK - executor.name='DUMMY'
+- HOOK - executors.EXECUTOR.name='DUMMY'
+- RUNNER - executor.name='DUMMY'
+- RUNNER - executors.EXECUTOR.name='DUMMY'
+exception: null
