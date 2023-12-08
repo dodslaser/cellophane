@@ -387,6 +387,7 @@ class Test_Hook:
                 config=MagicMock(workdir=tmp_path, timestamp="DUMMY", log_level=None),
                 root=Path(),
                 executor_cls=SubprocesExecutor,
+                log_queue=Queue(),
             )
 
         for log_line in logs:
