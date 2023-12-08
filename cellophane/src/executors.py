@@ -131,6 +131,7 @@ class Executor:
             for job in self.jobs.values():
                 job.join()
 
+EXECUTOR: type[Executor] = Executor
 
 @define(slots=False)
 class SubprocesExecutor(Executor, name="subprocess"):

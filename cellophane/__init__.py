@@ -232,6 +232,7 @@ def cellophane(
             logger.debug(f"Found {len(executors_)} executors")
 
             executor_cls = next(e for e in executors_ if e.name == config.executor.name)
+            executors.EXECUTOR = executor_cls
             logger.debug(f"Using {executor_cls.name} executor")
 
             config.analysis = label  # type: ignore[attr-defined]
