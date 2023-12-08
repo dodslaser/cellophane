@@ -13,7 +13,7 @@ from uuid import UUID, uuid4
 
 from attrs import define, field
 
-from . import cfg
+from . import cfg, logs
 
 
 @define(slots=False)
@@ -22,6 +22,7 @@ class Executor:
 
     name: ClassVar[str]
     config: cfg.Config
+    log_queue: mp.Queue
     jobs: dict[UUID, mp.Process] = field(factory=dict, init=False)
 
     def __init_subclass__(cls, *args: Any, name: str, **kwargs: Any) -> None:
@@ -60,7 +61,8 @@ class Executor:
 
         def _target() -> None:
             sys.stdout = sys.stderr = open(os.devnull, "w", encoding="utf-8")
-            nonlocal logger
+            logs.setup_queue_logging(self.log_queue)
+            logger = logging.LoggerAdapter(logging.getLogger(), {"label": name})
             _workdir = workdir or self.config.workdir / _uuid.hex
             _workdir.mkdir(parents=True, exist_ok=True)
             _args = [word for arg in args for word in shlex.split(str(arg))]

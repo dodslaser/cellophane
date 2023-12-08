@@ -110,7 +110,7 @@ class Runner:
                 logger=logger,
                 root=root,
                 workdir=workdir,
-                executor=executor_cls(config=config),
+                executor=executor_cls(config=config, log_queue=log_queue),
             ):
                 case None:
                     logger.debug("Runner did not return any samples")
@@ -190,6 +190,7 @@ class Hook:
         config: cfg.Config,
         root: Path,
         executor_cls: type[executors.Executor],
+        log_queue: Queue,
     ) -> data.Samples:
         logger = logging.LoggerAdapter(logging.getLogger(), {"label": self.label})
         logger.debug(f"Running {self.label} hook")
@@ -201,8 +202,8 @@ class Hook:
             logger=logger,
             root=root,
             workdir=config.workdir / config.tag,
-            executor=executor_cls(config=config)
-
+            executor=executor_cls(config=config, log_queue=log_queue),
+            log_queue=log_queue,
         ):
             case returned if isinstance(returned, data.Samples):
                 _ret = returned

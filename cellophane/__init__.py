@@ -32,6 +32,7 @@ CELLOPHANE_ROOT = Path(__file__).parent
 
 def _run_hooks(
     hooks: Sequence[modules.Hook],
+    *,
     when: Literal["pre", "post"],
     samples: data.Samples,
     **kwargs: Any,
@@ -50,6 +51,7 @@ def _run_hooks(
 
 
 def _start_runners(
+    *,
     runners: Sequence[modules.Runner],
     samples: data.Samples,
     logger: logging.LoggerAdapter,
@@ -133,7 +135,11 @@ def _main(
     executor_cls: type[executors.Executor],
 ) -> None:
     """Run cellophane"""
-    common_kwargs = {"config": config, "root": root, "executor_cls": executor_cls}
+    common_kwargs = {
+        "config": config,
+        "root": root,
+        "executor_cls": executor_cls,
+    }
 
     # Load samples from file, or create empty samples object
     if "samples_file" in config:
@@ -144,7 +150,13 @@ def _main(
         samples = samples_class()
 
     # Run pre-hooks
-    samples = _run_hooks(hooks, "pre", samples, **common_kwargs)
+    samples = _run_hooks(
+        hooks,
+        when="pre",
+        samples=samples,
+        log_queue=log_queue,
+        **common_kwargs,
+    )
 
     # Validate sample files
     for sample in samples:
@@ -156,13 +168,19 @@ def _main(
         raise SystemExit(0)
 
     samples = _start_runners(
-        runners,
-        samples.with_files,
-        logger,
-        log_queue,
+        runners=runners,
+        samples=samples.with_files,
+        logger=logger,
+        log_queue=log_queue,
         **common_kwargs,
     )
-    samples = _run_hooks(hooks, "post", samples, **common_kwargs)
+    samples = _run_hooks(
+        hooks,
+        when="post",
+        samples=samples,
+        log_queue=log_queue,
+        **common_kwargs,
+    )
 
     # If not post-hook has copied the outputs, do it here
     if missing_outputs := [o for o in samples.output if not o.dst.exists()]:
