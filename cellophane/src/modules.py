@@ -12,6 +12,7 @@ from typing import Any, Callable, Literal
 
 import psutil
 from cloudpickle import dumps, loads
+from mpire import WorkerPool
 
 from . import cfg, data, executors, logs
 
@@ -101,44 +102,55 @@ class Runner:
 
         workdir.mkdir(parents=True, exist_ok=True)
 
-        try:
-            match self.main(
-                samples=deepcopy(samples),
-                config=config,
-                timestamp=config.timestamp,
-                label=self.label,
-                logger=logger,
-                root=root,
-                workdir=workdir,
-                executor=executor_cls(config=config, log_queue=log_queue),
-            ):
-                case None:
-                    logger.debug("Runner did not return any samples")
+        with WorkerPool(
+            daemon=False,
+            use_dill=True,
+        ) as pool:
+            try:
+                match self.main(
+                    samples=deepcopy(samples),
+                    config=config,
+                    timestamp=config.timestamp,
+                    label=self.label,
+                    logger=logger,
+                    root=root,
+                    workdir=workdir,
+                    executor=executor_cls(
+                        config=config,
+                        pool=pool,
+                        log_queue=log_queue,
+                    ),
+                ):
+                    case None:
+                        logger.debug("Runner did not return any samples")
 
-                case returned if isinstance(returned, data.Samples):
-                    samples = returned
+                    case returned if isinstance(returned, data.Samples):
+                        samples = returned
 
-                case returned:
-                    logger.warning(f"Unexpected return type {type(returned)}")
+                    case returned:
+                        logger.warning(f"Unexpected return type {type(returned)}")
 
-            for sample in samples:
-                sample.processed = True
+                for sample in samples:
+                    sample.processed = True
 
-        except Exception as exc:  # pylint: disable=broad-except
-            for sample in samples:
-                sample.fail(str(exc))
+            except Exception as exc:  # pylint: disable=broad-except
+                for sample in samples:
+                    sample.fail(str(exc))
 
-        finally:
-            if samples.complete:
-                logger.info(f"{len(samples.complete)} samples processed successfully")
-            for sample in samples.complete:
-                logger.debug(f"Sample {sample.id} processed successfully")
-            if samples.failed:
-                logger.error(f"{len(samples.failed)} samples failed")
-            for sample in samples.failed:
-                logger.debug(f"Sample {sample.id} failed - {sample.failed}")
+            finally:
+                if samples.complete:
+                    logger.info(
+                        f"{len(samples.complete)} samples processed successfully"
+                    )
+                for sample in samples.complete:
+                    logger.debug(f"Sample {sample.id} processed successfully")
+                if samples.failed:
+                    logger.error(f"{len(samples.failed)} samples failed")
+                for sample in samples.failed:
+                    logger.debug(f"Sample {sample.id} failed - {sample.failed}")
 
-        return dumps(samples)
+            pool.stop_and_join()
+            return dumps(samples)
 
 
 class Hook:
@@ -195,26 +207,34 @@ class Hook:
         logger = logging.LoggerAdapter(logging.getLogger(), {"label": self.label})
         logger.debug(f"Running {self.label} hook")
 
-        match self.func(
-            samples=samples,
-            config=config,
-            timestamp=config.timestamp,
-            logger=logger,
-            root=root,
-            workdir=config.workdir / config.tag,
-            executor=executor_cls(config=config, log_queue=log_queue),
-            log_queue=log_queue,
-        ):
-            case returned if isinstance(returned, data.Samples):
-                _ret = returned
-            case None:
-                logger.debug("Hook did not return any samples")
-                _ret = samples
-            case _:
-                logger.warning(f"Unexpected return type {type(returned)}")
-                _ret = samples
-
-        return _ret
+        with WorkerPool(
+            use_dill=True,
+            daemon=False,
+        ) as pool:
+            match self.func(
+                samples=samples,
+                config=config,
+                timestamp=config.timestamp,
+                logger=logger,
+                root=root,
+                workdir=config.workdir / config.tag,
+                log_queue=log_queue,
+                executor=executor_cls(
+                    config=config,
+                    pool=pool,
+                    log_queue=log_queue,
+                ),
+            ):
+                case returned if isinstance(returned, data.Samples):
+                    _ret = returned
+                case None:
+                    logger.debug("Hook did not return any samples")
+                    _ret = samples
+                case _:
+                    logger.warning(f"Unexpected return type {type(returned)}")
+                    _ret = samples
+            pool.stop_and_join()
+            return _ret
 
 
 def _resolve_hook_dependencies(
@@ -256,7 +276,7 @@ def load(
     list[Runner],
     list[type[data.Sample]],
     list[type[data.Samples]],
-    list[type[executors.Executor]]
+    list[type[executors.Executor]],
 ]:
     """
     Loads module(s) from the specified path and returns the hooks, runners,
