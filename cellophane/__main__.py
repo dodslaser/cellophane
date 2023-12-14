@@ -2,7 +2,7 @@
 
 import logging
 import re
-from functools import cached_property, lru_cache, wraps
+from functools import cache, cached_property, wraps
 from pathlib import Path
 from tempfile import mkdtemp
 from typing import Any, Callable, Literal, Sequence
@@ -143,7 +143,7 @@ class ModulesRepo(Repo):
     """
 
     @classmethod
-    def from_url(cls, url: str) -> "ModulesRepo":
+    def from_url(cls, url: str, branch: str) -> "ModulesRepo":
         """
         Creates a `ModulesRepo` instance by cloning the repository from the specified
         URL.
@@ -168,6 +168,7 @@ class ModulesRepo(Repo):
         try:
             return cls.clone_from(
                 url=url,
+                branch=branch,
                 to_path=_path,
                 checkout=False,
             )  # type: ignore[return-value]
@@ -195,23 +196,9 @@ class ModulesRepo(Repo):
             List[str]: The list of module names.
         """
 
-        return [
-            m
-            for m in self.git.ls_tree(
-                "HEAD",
-                r=True,
-                d=True,
-                name_only=True,
-            ).split("\n")
-            if all(
-                (
-                    not m.startswith("."),
-                    "/" not in m,
-                )
-            )
-        ]
+        return self.git.show(f"origin/{self.active_branch.name}:MODULES").split("\n")
 
-    @lru_cache
+    @cache
     def module_branches(self, _module: str) -> list[str]:
         """
         Retrieves the branches associated with the specified module.
@@ -241,7 +228,7 @@ class ModulesRepo(Repo):
             )
         ]
 
-    @lru_cache
+    @cache
     def latest_module_tag(self, _module: str) -> str:
         """
         Retrieves the latest tag for the specified module.
@@ -313,6 +300,7 @@ class CellophaneRepo(Repo):
         self,
         path: Path,
         modules_repo_url: str,
+        modules_repo_branch: str,
         **kwargs: Any,
     ) -> None:
         try:
@@ -320,7 +308,10 @@ class CellophaneRepo(Repo):
         except InvalidGitRepositoryError as e:
             raise InvalidCellophaneRepoError(path) from e
 
-        self.external = ModulesRepo.from_url(modules_repo_url)
+        self.external = ModulesRepo.from_url(
+            url=modules_repo_url,
+            branch=modules_repo_branch,
+        )
 
     @classmethod
     def initialize(
@@ -328,6 +319,7 @@ class CellophaneRepo(Repo):
         name: str,
         path: Path,
         modules_repo_url: str,
+        modules_repo_branch: str,
         force: bool = False,
     ) -> "CellophaneRepo":
         """
@@ -446,7 +438,7 @@ class CellophaneRepo(Repo):
         repo.index.write()
         repo.index.commit("feat(cellophane): Initial commit from cellophane 🎉")
 
-        return cls(path, modules_repo_url)
+        return cls(path, modules_repo_url, modules_repo_branch)
 
     @property
     def modules(self) -> list[str]:
@@ -487,7 +479,8 @@ def _add_requirements(path: Path, _module: str) -> None:
     if (
         module_path.is_dir()
         and (module_path / "requirements.txt").exists()
-        and (spec := f"-r {_module}/requirements.txt\n") not in requirements_path.read_text()
+        and (spec := f"-r {_module}/requirements.txt\n")
+        not in requirements_path.read_text()
     ):
         with open(requirements_path, "a", encoding="utf-8") as handle:
             handle.write(spec)
@@ -546,9 +539,7 @@ def _ask_branch(_module: str, modules_repo: ModulesRepo) -> str:
     return _branch
 
 
-
 def _validate_modules(ignore_branch: bool = False) -> Callable:
-    
     def wrapper(func: Callable) -> Callable:
         @wraps(func)
         def inner(
@@ -561,21 +552,24 @@ def _validate_modules(ignore_branch: bool = False) -> Callable:
             for _module, _ in _modules:
                 if _module not in valid_modules:
                     raise InvalidModuleError(_module)
-            
+
             if ignore_branch:
                 _modules = [(m, None) for m, _ in _modules]
             else:
-                _modules = [(m, b or _ask_branch(m, repo.external)) for m, b in _modules]
+                _modules = [
+                    (m, b or _ask_branch(m, repo.external)) for m, b in _modules
+                ]
                 for idx, (m, b) in enumerate(_modules):
                     if b == "latest":
                         b = repo.external.latest_module_tag(m)
                         _modules[idx] = (m, b)
                     if b not in repo.external.module_branches(m):
-                        raise InvalidBranchError(m, b)    
-            
+                        raise InvalidBranchError(m, b)
+
             return func(repo, _modules, **kwargs)
 
         return inner
+
     return wrapper
 
 
@@ -593,6 +587,13 @@ def _validate_modules(ignore_branch: bool = False) -> Callable:
     default="https://github.com/ClinicalGenomicsGBG/cellophane_modules",
 )
 @click.option(
+    "--modules-branch",
+    "modules_repo_branch",
+    type=str,
+    help="Branch to use for the module repository",
+    default="main",
+)
+@click.option(
     "--path",
     type=click.Path(path_type=Path),
     help="Path to the cellophane project",
@@ -606,7 +607,13 @@ def _validate_modules(ignore_branch: bool = False) -> Callable:
     callback=lambda ctx, param, value: value.upper(),
 )
 @click.pass_context
-def main(ctx: click.Context, path: Path, log_level: str, modules_repo_url: str) -> None:
+def main(
+    ctx: click.Context,
+    path: Path,
+    log_level: str,
+    modules_repo_url: str,
+    modules_repo_branch: str,
+) -> None:
     """Cellophane
 
     A library for writing modular wrappers
@@ -621,6 +628,7 @@ def main(ctx: click.Context, path: Path, log_level: str, modules_repo_url: str) 
     ctx.obj["path"] = path
     ctx.obj["log_level"] = log_level
     ctx.obj["modules_repo_url"] = modules_repo_url
+    ctx.obj["modules_repo_branch"] = modules_repo_branch
 
 
 @main.command()
@@ -653,14 +661,18 @@ def module(
     _path: Path = ctx.obj["path"]
 
     try:
-        _repo = CellophaneRepo(_path, ctx.obj["modules_repo_url"])
+        _repo = CellophaneRepo(
+            _path,
+            ctx.obj["modules_repo_url"],
+            ctx.obj["modules_repo_branch"],
+        )
     except InvalidGitRepositoryError as e:
         _logger.critical(e, exc_info=ctx.obj["log_level"] == "DEBUG")
         raise SystemExit(1) from e
-    else:
-        if _repo.is_dirty():
-            _logger.critical("Repository has uncommited changes")
-            raise SystemExit(1)
+
+    if _repo.is_dirty():
+        _logger.critical("Repository has uncommited changes")
+        raise SystemExit(1)
 
     try:
         common_kwargs = dict(
@@ -670,14 +682,14 @@ def module(
             logger=_logger,
             log_level=ctx.obj["log_level"],
         )
-    
+
         match command:
             case "add":
-                add(**common_kwargs, valid_modules = _repo.absent_modules)
+                add(**common_kwargs, valid_modules=_repo.absent_modules)
             case "rm":
-                rm(**common_kwargs, valid_modules = _repo.present_modules)
+                rm(**common_kwargs, valid_modules=_repo.present_modules)
             case "update":
-                update(**common_kwargs, valid_modules = _repo.present_modules)
+                update(**common_kwargs, valid_modules=_repo.present_modules)
 
     except NoModulesError as exc:
         _logger.warning(exc)
@@ -691,7 +703,6 @@ def module(
             exc_info=ctx.obj["log_level"] == "DEBUG",
         )
         raise SystemExit(1) from exc
-
 
 
 @_validate_modules()
@@ -731,6 +742,7 @@ def add(
             repo.index.write()
             repo.index.commit(f"feat(cellophane): Added '{_module}@{branch}'")
             logger.info(f"Added '{_module}@{branch}'")
+
 
 @_validate_modules()
 def update(
@@ -780,6 +792,7 @@ def update(
             repo.index.write()
             repo.index.commit(f"chore(cellophane): Updated '{_module}->{branch}'")
             logger.info(f"Updated '{_module}->{branch}'")
+
 
 @_validate_modules(ignore_branch=True)
 def rm(
@@ -848,6 +861,7 @@ def init(ctx: click.Context, name: str, force: bool) -> None:
             path=path,
             force=force,
             modules_repo_url=ctx.obj["modules_repo_url"],
+            modules_repo_branch=ctx.obj["modules_repo_branch"],
         )
     except FileExistsError as e:
         logger.critical("Project path is not empty (--force to ignore)")
