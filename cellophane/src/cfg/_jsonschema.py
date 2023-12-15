@@ -166,24 +166,30 @@ def any_of(
 ) -> None:
     del validator, schema  # Unused
 
-    _subschema = reduce(
-        util.merge_mappings,
-        (s for s in any_of if BaseValidator(s).is_valid(instance or {})),
-    )
+    try:
+        _subschema = reduce(
+            util.merge_mappings,
+            (s for s in any_of if BaseValidator(s).is_valid(instance or {})),
+        )
+    except TypeError:
+        _subschema = {}
     compiled |= util.merge_mappings(compiled, _subschema)
     compiled.pop("anyOf")
 
 
 def one_of(
     validator: Draft7Validator,
-    any_of: list[dict],
+    one_of: list[dict],
     instance: dict,
     schema: dict,
     compiled: dict,
 ) -> None:
     del validator, schema  # Unused
 
-    _subschema = next(s for s in any_of if BaseValidator(s).is_valid(instance or {}))
+    try:
+        _subschema = next(s for s in one_of if BaseValidator(s).is_valid(instance or {}))
+    except StopIteration:
+        _subschema = reduce(util.merge_mappings, one_of)
     compiled |= util.merge_mappings(compiled, _subschema)
     compiled.pop("oneOf")
 
