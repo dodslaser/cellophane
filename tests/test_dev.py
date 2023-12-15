@@ -25,13 +25,13 @@ def _mock_recursive(endpoints, **kwargs):
 
 @fixture(scope="function")
 def modules_repo():
-    return dev.ModulesRepo.from_url(MODULES_REPO_URL)
+    return dev.ModulesRepo.from_url(MODULES_REPO_URL, branch="main")
 
 
 @fixture(scope="class")
 def cellophane_repo(tmp_path_factory):
     _path = tmp_path_factory.mktemp("repo")
-    _repo = dev.CellophaneRepo.initialize("DUMMY", _path, MODULES_REPO_URL)
+    _repo = dev.CellophaneRepo.initialize("DUMMY", _path, MODULES_REPO_URL, "main")
     yield _repo, _path
     rmtree(_path)
 
@@ -53,12 +53,12 @@ class Test_CellophaneRepo:
     def test_initialize_exception_file_exists(cellophane_repo):
         _, _path = cellophane_repo
         with raises(FileExistsError):
-            dev.CellophaneRepo.initialize("DUMMY", _path, MODULES_REPO_URL)
+            dev.CellophaneRepo.initialize("DUMMY", _path, MODULES_REPO_URL, "main")
 
     @staticmethod
     def test_invalid_repository(tmp_path):
         with raises(dev.InvalidCellophaneRepoError):
-            dev.CellophaneRepo(tmp_path, modules_repo_url="__INVALID__")
+            dev.CellophaneRepo(tmp_path, modules_repo_url="__INVALID__", modules_repo_branch="main")
 
 
 class Test_ModulesRepo:
@@ -69,7 +69,7 @@ class Test_ModulesRepo:
     @staticmethod
     def test_invalid_remote_url():
         with raises(dev.InvalidModulesRepoError):
-            dev.ModulesRepo.from_url("__INVALID__")
+            dev.ModulesRepo.from_url("__INVALID__", branch="main")
 
     @staticmethod
     def test_branches(modules_repo):
