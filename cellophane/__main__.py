@@ -1,9 +1,11 @@
 """CLI for managing cellophane projects"""
 
 import logging
+import os
 import re
 from functools import cache, cached_property, wraps
 from pathlib import Path
+from shutil import rmtree
 from tempfile import mkdtemp
 from typing import Any, Callable, Literal, Sequence
 
@@ -510,6 +512,29 @@ def _update_example_config(path: Path) -> None:
         handle.write(schema.example_config)
 
 
+def _remove_submodule(repo: Repo, module: str) -> None:
+    if not repo.working_tree_dir:
+        raise InvalidCellophaneRepoError(
+            Path(repo.working_dir),
+            msg="Working tree is not set",
+        )
+    repo_git_path = Path(repo.git_dir)
+    repo.index.remove(
+        f"{repo.working_tree_dir}/modules/{module}",
+        r=True,
+        working_tree=True,
+    )
+    with repo.config_writer() as cw:
+        cw.remove_section(f'submodule "{module}"')
+    for root, dn, fn in os.walk(repo_git_path / "modules" / module):
+        for p in [*dn, *fn]:
+            (Path(root) / p).chmod(0o777)
+    try:
+        rmtree(repo_git_path / "modules" / module)
+    except FileNotFoundError:
+        pass
+
+
 def _ask_modules(valid_modules: Sequence[str]) -> list[str]:
     if not valid_modules:
         raise NoModulesError("No modules to select from")
@@ -756,19 +781,18 @@ def update(
     """Update module(s)"""
     del kwargs  # Unused
 
+    _config_path = Path(repo.git_dir) / "config"
     for _module, branch in modules:
         submodule = None
         _path = None
+        _config_original = _config_path.read_text()
         try:
             submodule = repo.submodule(_module)
-            _name = submodule.name
             _path = submodule.path
             _url = submodule.url
-            for p in (path / ".git" / "modules" / _module).glob("**/*"):
-                p.chmod(0o777)
-            submodule.remove(force=True)
+            _remove_submodule(repo, _module)
             repo.create_submodule(
-                name=_name,
+                name=_module,
                 path=_path,
                 url=_url,
                 branch=f"{_module}_{branch}",
@@ -781,7 +805,9 @@ def update(
                 f"Unable to update '{_module}->{branch}': {repr(exc)}",
                 exc_info=log_level == "DEBUG",
             )
-            if submodule is not None:
+            with open(_config_path, "w", encoding="utf-8") as handle:
+                handle.write(_config_original)
+            if submodule is not None and submodule.module_exists():
                 submodule.remove(force=True)
             if _path is not None:
                 repo.git.checkout(
@@ -809,15 +835,15 @@ def rm(
 
     del kwargs  # Unused
 
-    _path = None
+    _config_path = Path(repo.git_dir) / "config"
     for _module, _ in modules:
+        _config_original = _config_path.read_text()
         submodule = None
+        _path = None
         try:
             submodule = repo.submodule(_module)
             _path = submodule.path
-            for p in (path / ".git" / "modules" / _module).glob("**/*"):
-                p.chmod(0o777)
-            submodule.remove(force=True)
+            _remove_submodule(repo, _module)
             _update_example_config(path)
             _remove_requirements(path, _module)
         except Exception as exc:  # pylint: disable=broad-except
@@ -825,6 +851,8 @@ def rm(
                 f"Unable to remove '{_module}': {repr(exc)}",
                 exc_info=log_level == "DEBUG",
             )
+            with open(_config_path, "w", encoding="utf-8") as handle:
+                handle.write(_config_original)
             if _path is not None:
                 repo.git.checkout(
                     "HEAD", "--", _path, ".gitmodules", "config.example.yaml"
