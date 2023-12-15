@@ -764,6 +764,8 @@ def update(
             _name = submodule.name
             _path = submodule.path
             _url = submodule.url
+            for p in (path / ".git" / "modules" / _module).glob("**/*"):
+                p.chmod(0o777)
             submodule.remove(force=True)
             repo.create_submodule(
                 name=_name,
@@ -813,6 +815,8 @@ def rm(
         try:
             submodule = repo.submodule(_module)
             _path = submodule.path
+            for p in (path / ".git" / "modules" / _module).glob("**/*"):
+                p.chmod(0o777)
             submodule.remove(force=True)
             _update_example_config(path)
             _remove_requirements(path, _module)
