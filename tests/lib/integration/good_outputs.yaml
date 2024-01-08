@@ -1,10 +1,10 @@
 structure:
   modules:
     a.py: |
-      from cellophane import modules, data
+      from cellophane import runner, post_hook, output, data
       from shutil import copyfile, copytree
 
-      @modules.post_hook()
+      @post_hook()
       def o(samples, logger, config, **_):
           logger.info(f"Copying {len(samples.output)} outputs")
           for o in samples.output:
@@ -25,18 +25,17 @@ structure:
             else:
               logger.error(f"Unknown output type {o}")
 
-
       
-      @modules.runner()
-      @data.output("single.txt")
-      @data.output("sample_{sample.id}.txt")
-      @data.output("missing.txt")
-      @data.output("glob/*.txt", dst_name="invalid_rename.txt")
-      @data.output("single.txt", dst_name="rename.txt")
-      @data.output("overwrite_a.txt", dst_name="overwrite.txt")
-      @data.output("overwrite_b.txt", dst_name="overwrite.txt")
-      @data.output("nested/**/*.txt")
-      @data.output("nested", dst_dir="directory")
+      @runner()
+      @output("single.txt")
+      @output("sample_{sample.id}.txt")
+      @output("missing.txt")
+      @output("glob/*.txt", dst_name="invalid_rename.txt")
+      @output("single.txt", dst_name="rename.txt")
+      @output("overwrite_a.txt", dst_name="overwrite.txt")
+      @output("overwrite_b.txt", dst_name="overwrite.txt")
+      @output("nested/**/*.txt")
+      @output("nested", dst_dir="directory")
       def runner_a(samples, workdir, config, **_):
           for sample in samples:
               (workdir / f"sample_{sample.id}.txt").touch()

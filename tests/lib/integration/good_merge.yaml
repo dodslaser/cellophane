@@ -1,59 +1,59 @@
 structure:
   modules:
     a.py: |
-      from cellophane import modules, data
+      from cellophane import Samples, Sample, runner, post_hook, data
 
-      class SamplesMixinA(data.Samples):
+      class SamplesMixinA(Samples):
           a_1: int = 1
           a_2: int = 2
 
-      class SampleMixinA(data.Sample):
+      class SampleMixinA(Sample):
           a_1: int = 1
           a_2: int = 2
       
-      class SamplesMixinB(data.Samples):
+      class SamplesMixinB(Samples):
           b: int = 3
 
-      class SampleMixinB(data.Sample):
+      class SampleMixinB(Sample):
           b: int = 3
       
-      class SamplesMixinC(data.Samples):
+      class SamplesMixinC(Samples):
           c: int = 4
           d: int = 5
 
-      class SampleMixinC(data.Sample):
+      class SampleMixinC(Sample):
           c: int = 4
           d: int = 5
       
-      @data.Samples.merge.register("a_1")
-      @data.Sample.merge.register("a_1")
+      @Samples.merge.register("a_1")
+      @Sample.merge.register("a_1")
       def merge_add(this, that):
           return this + that
       
-      @data.Samples.merge.register("a_2")
-      @data.Samples.merge.register("b")
-      @data.Sample.merge.register("a_2")
-      @data.Sample.merge.register("b")
+      @Samples.merge.register("a_2")
+      @Samples.merge.register("b")
+      @Sample.merge.register("a_2")
+      @Sample.merge.register("b")
       def merge_multiply(this, that):
           return this * that
 
-      @modules.runner()
+      @runner()
       def runner_a(samples, **_):
           samples.d = None
           return samples
       
-      @modules.runner()
+      @runner()
       def runner_b(samples, **_):
           return samples
       
-      @modules.post_hook(condition="always")
+      @post_hook(condition="always")
       def validate(samples, logger, **_):
           for sample in samples:
-            logger.debug(f"{sample.id} {sample.a_1=}")
-            logger.debug(f"{sample.id} {sample.a_2=}")
-            logger.debug(f"{sample.id} {sample.b=}")
-            logger.debug(f"{sample.id} {sample.c=}")
-            logger.debug(f"{sample.id} {sample.d=}")
+              logger.debug(f"{sample.id} {sample.a_1=}")
+              logger.debug(f"{sample.id} {sample.a_2=}")
+              logger.debug(f"{sample.id} {sample.b=}")
+              logger.debug(f"{sample.id} {sample.c=}")
+              logger.debug(f"{sample.id} {sample.d=}")
           logger.info(f"{samples.a_1=}")
           logger.info(f"{samples.a_2=}")
           logger.info(f"{samples.b=}")

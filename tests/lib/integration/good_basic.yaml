@@ -1,19 +1,19 @@
 structure:
   modules:
     a.py: |
-      from cellophane import modules, data
+      from cellophane import runner, Sample, Samples
 
-      class TestSamples(data.Samples):
+      class TestSamples(Samples):
           foo: int = 13
 
-      class TestSample(data.Sample):
+      class TestSample(Sample):
           bar: int = 37
 
-      @modules.runner()
+      @runner()
       def runner_a(samples, **_):
           return samples
       
-      @modules.runner()
+      @runner()
       def runner_b(samples, **_):
           return samples
 

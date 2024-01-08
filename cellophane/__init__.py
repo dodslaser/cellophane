@@ -15,6 +15,10 @@ from mpire import WorkerPool
 from ruamel.yaml.scanner import ScannerError
 
 from .src import cfg, data, executors, logs, modules, util
+from .src.cfg import Config
+from .src.data import Output, OutputGlob, Sample, Samples
+from .src.executors import Executor
+from .src.modules import output, post_hook, pre_hook, runner
 
 __all__ = [
     "CELLOPHANE_ROOT",
@@ -25,6 +29,20 @@ __all__ = [
     "modules",
     "util",
     "executors",
+    # modules
+    "output",
+    "post_hook",
+    "pre_hook",
+    "runner",
+    # data
+    "Output",
+    "OutputGlob",
+    "Sample",
+    "Samples",
+    # executors
+    "Executor",
+    # cfg
+    "Config",
 ]
 
 CELLOPHANE_ROOT = Path(__file__).parent

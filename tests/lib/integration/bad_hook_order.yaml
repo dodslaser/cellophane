@@ -1,13 +1,13 @@
 structure:
   modules:
     a.py: |
-      from cellophane import modules
+      from cellophane import pre_hook
 
-      @modules.pre_hook(after=["pre_hook_a"])
+      @pre_hook(after=["pre_hook_a"])
       def pre_hook_a(**_):
           ...
       
-      @modules.pre_hook(after=["pre_hook_b"])
+      @pre_hook(after=["pre_hook_b"])
       def pre_hook_b(**_):
           ...
   input:

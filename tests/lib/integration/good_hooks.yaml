@@ -1,24 +1,24 @@
 structure:
   modules:
     a.py: |
-      from cellophane import modules
+      from cellophane import runner, post_hook, pre_hook
 
-      @modules.runner()
-      def runner(samples, **_):
+      @runner()
+      def runner_a(samples, **_):
           for sample in samples:
               if sample.id == "fail":
                   sample.fail("DUMMY FAIL")
           return samples
       
-      @modules.post_hook(condition="always")
+      @post_hook(condition="always")
       def always_hook(samples, **_):
           ...
 
-      @modules.post_hook(condition="complete")
+      @post_hook(condition="complete")
       def complete_hook(samples, **_):
           ...
 
-      @modules.post_hook(condition="failed")
+      @post_hook(condition="failed")
       def fail_hook(samples, **_):
           ...
   samples.yaml: |

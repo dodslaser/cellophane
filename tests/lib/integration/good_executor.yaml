@@ -1,19 +1,19 @@
 structure:
   modules:
     dummy.py: |
-      from cellophane import modules, executors
+      from cellophane import pre_hook, runner, Executor, executors
 
-      class TestExecutor(executors.Executor, name="DUMMY"):
+      class TestExecutor(Executor, name="DUMMY"):
           def target(**_):
               pass
 
-      @modules.pre_hook()
+      @pre_hook()
       def runner_a(logger, samples, executor, **_):
           logger.info(f"HOOK - {executor.name=}")
           logger.info(f"HOOK - {executors.EXECUTOR.name=}")
           return samples
       
-      @modules.runner()
+      @runner()
       def runner_b(logger, samples, executor, **_):
           logger.info(f"RUNNER - {executor.name=}")
           logger.info(f"RUNNER - {executors.EXECUTOR.name=}")

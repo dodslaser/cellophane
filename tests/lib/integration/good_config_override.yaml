@@ -2,9 +2,9 @@
   structure:
     modules:
       echo.py: |
-        from cellophane import modules
+        from cellophane import pre_hook
 
-        @modules.pre_hook()
+        @pre_hook()
         def echo_config(config, logger, **_):
             for key, value in config.items():
                 if not isinstance(value, (list, dict)):

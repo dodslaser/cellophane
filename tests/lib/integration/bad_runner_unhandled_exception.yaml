@@ -1,9 +1,9 @@
 structure:
   modules:
     a.py: |
-      from cellophane import modules
+      from cellophane import runner
 
-      @modules.runner()
+      @runner()
       def runner(samples, **_):
           return samples.with_call_id("runner")
   samples.yaml: |
