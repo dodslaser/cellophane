@@ -187,14 +187,125 @@ class Container(Mapping):
 @define
 class Output:
     """
-    Define an output file to be copied to the another directory.
+    Output file to be copied to the another directory.
     """
 
-    src: Path = field(kw_only=True, converter=Path)
-    dst: Path = field(kw_only=True, converter=Path)
+    src: Path = field(
+        kw_only=True,
+        converter=Path,
+        on_setattr=convert,
+    )
+    dst: Path = field(
+        kw_only=True,
+        converter=Path,
+        on_setattr=convert,
+    )
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash((self.src, self.dst))
+
+
+@define
+class OutputGlob:
+    """
+    Output glob find files to be copied to the another directory.
+    """
+    src: str = field(
+        kw_only=True,
+        converter=str,
+        on_setattr=convert,
+    )
+    dst_dir: str | None = field(
+        kw_only=True,
+        converter=lambda v: v if v is None else str(v),
+        on_setattr=convert,
+    )
+    dst_name: str | None = field(
+        kw_only=True,
+        converter=lambda v: v if v is None else str(v),
+        on_setattr=convert,
+    )
+
+    def __hash__(self) -> int:
+        return hash((self.src, self.dst_dir, self.dst_name))
+
+    def resolve(
+        self,
+        samples: "Samples",
+        workdir: Path,
+        config: Container,
+        logger: LoggerAdapter,
+    ) -> set[Output]:
+        """
+        Resolve the glob pattern to a list of files to be copied.
+        
+        Args:
+            samples (Samples): The samples being processed.
+            workdir (Path): The working directory, with tag
+                (and sample ID for individual_samples runenrs)
+            config (Container): The configuration object.
+            logger (LoggerAdapter): The logger.
+
+        Returns:
+            set[Output]: The list of files to be copied.
+
+        """
+        outputs = set()
+        warnings = set()
+
+        for sample in samples:
+            meta = {
+                "samples": samples,
+                "config": config,
+                "workdir": workdir,
+                "sample": sample,
+            }
+
+            match self.src.format(**meta):
+                case p if Path(p).is_absolute():
+                    pattern = p
+                case p if Path(p).is_relative_to(workdir):
+                    pattern = p
+                case p:
+                    pattern = str(workdir / p)
+
+            if not (matches := [Path(m) for m in glob(pattern)]):
+                warnings.add(f"No files matched pattern '{pattern}'")
+
+            # Path(str().format(**meta))
+            for m in matches:
+                match self.dst_dir:
+                    case str(d) if Path(d).is_absolute():
+                        dst_dir = Path(d.format(**meta))
+                    case str(d):
+                        dst_dir = config.resultdir / d.format(**meta)
+                    case _ if m.parent.is_relative_to(workdir):
+                        dst_dir = config.resultdir / m.parent.relative_to(workdir)
+                    case _:
+                        dst_dir = config.resultdir
+
+                match self.dst_name:
+                    case None:
+                        dst_name = m.name
+                    case _ if len(matches) > 1:
+                        warnings.add(
+                            f"Destination name {self.dst_name} will be ignored "
+                            f"as '{self.src}' matches multiple files"
+                        )
+                        dst_name = m.name
+                    case str() as n:
+                        dst_name = n.format(**meta)
+                    case _:
+                        dst_name = m.name
+
+                dst = Path(dst_dir) / dst_name
+
+                outputs.add(Output(src=m, dst=dst))
+
+        for warning in warnings:
+            logger.warning(warning)
+        
+        return outputs
 
 
 @overload
@@ -417,7 +528,9 @@ class Samples(UserList[S]):
     data: list[S] = field(factory=list)
     sample_class: ClassVar[type[Sample]] = Sample
     merge: ClassVar[_Merger] = _Merger()
-    output: set[Output] = field(factory=set, converter=set, on_setattr=convert)
+    output: set[Output | OutputGlob] = field(
+        factory=set, converter=set, on_setattr=convert
+    )
 
     def __init__(self, data: list | None = None, /, **kwargs: Any) -> None:
         self.__attrs_init__(**kwargs)  # pylint: disable=no-member
@@ -670,10 +783,10 @@ class Samples(UserList[S]):
 
 
 def output(
-    pattern: str,
+    src: str,
     /,
-    dest_dir: str | None = None,
-    dest_name: str | None = None,
+    dst_dir: Path | None = None,
+    dst_name: str | None = None,
 ) -> Callable:
     """
     Decorator to mark output files of a runner.
@@ -692,89 +805,18 @@ def output(
             - `runner`: The runner being executed.
             - `workdir`: The working directory, with tag
                 (and sample ID for individual_samples runenrs)
-        dest_dir: The directory to copy the files to. If not specified, the
+        dst_dir: The directory to copy the files to. If not specified, the
             directory of the matched file will be used. If the matched file is
-        dest_name: The name to copy the files to. If not specified, the name
+        dst_name: The name to copy the files to. If not specified, the name
             of the matched file will be used.
     """
 
     def wrapper(runner: Callable) -> Callable:
         @wraps(runner)
-        def inner(
-            *args: Any,
-            samples: Samples,
-            workdir: Path,
-            config: Container,
-            logger: LoggerAdapter,
-            **kwargs: Any,
-        ) -> Samples:
-            nonlocal pattern, dest_dir, dest_name
-            match runner(
-                *args,
-                samples=samples,
-                workdir=workdir,
-                config=config,
-                logger=logger,
-                **kwargs,
-            ):
-                case _samples if isinstance(_samples, Samples):
-                    samples = _samples
-                case _:
-                    pass
-
-            _patterns = set()
-
-            for sample in [s for s in samples if not s._fail]:
-                _meta = {
-                    "samples": samples,
-                    "sample": sample,
-                    "config": config,
-                    "workdir": workdir,
-                }
-                _pattern = pattern.format(**_meta)
-                _pattern = (
-                    _pattern
-                    if Path(_pattern).is_absolute()
-                    or Path(_pattern).is_relative_to(workdir)
-                    else str(workdir / _pattern)
-                )
-                _patterns.add(_pattern)
-
-            for _pattern in _patterns:
-                matches = [Path(p) for p in glob(_pattern)]
-                if not matches:
-                    logger.warning(f"No files matched pattern '{_pattern}'")
-                elif len(matches) > 1 and dest_name is not None:
-                    dest_name = None
-                    logger.warning(
-                        "Destination name will be ignored as "
-                        f"'{pattern}' matched multiple files"
-                    )
-
-                for match in matches:
-                    _dest_dir = (
-                        config.resultdir / Path(dest_dir.format(**_meta))
-                        if dest_dir is not None and not Path(dest_dir).is_absolute()
-                        else Path(dest_dir.format(**_meta))
-                        if dest_dir is not None
-                        else match.parent
-                        if match.is_absolute() or not match.is_relative_to(workdir)
-                        else config.resultdir
-                        / match.relative_to(config.workdir / config.tag).parent
-                    )
-                    _dest_name = (
-                        dest_name.format(**_meta)
-                        if dest_name is not None
-                        else match.name
-                    )
-                    samples.output.add(
-                        Output(
-                            src=match,
-                            dst=Path(_dest_dir) / _dest_name,
-                        )
-                    )
-
-            return samples
+        def inner(*args: Any, samples: Samples, **kwargs: Any) -> Samples | None:
+            glob_ = OutputGlob(src=src, dst_dir=dst_dir, dst_name=dst_name)
+            samples.output.add(glob_)
+            return runner(*args, samples=samples, **kwargs)
 
         return inner
 
