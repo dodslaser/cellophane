@@ -61,7 +61,7 @@ class Runner:
     link_by: str | None
     func: Callable
     wait: bool
-    main: Callable
+    main: Callable[..., data.Samples | None]
     done: bool = False
 
     def __init__(
@@ -90,8 +90,8 @@ class Runner:
         root: Path,
         samples_pickle: str,
         executor_cls: type[executors.Executor],
-    ) -> None:
-        samples = loads(samples_pickle)
+    ) -> bytes:
+        samples: data.Samples = loads(samples_pickle)
         logs.setup_queue_logging(log_queue)
         logger = logging.LoggerAdapter(logging.getLogger(), {"label": self.label})
 
