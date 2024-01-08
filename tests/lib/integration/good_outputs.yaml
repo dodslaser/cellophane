@@ -2,17 +2,41 @@ structure:
   modules:
     a.py: |
       from cellophane import modules, data
+      from shutil import copyfile, copytree
 
+      @modules.post_hook()
+      def o(samples, logger, config, **_):
+          logger.info(f"Copying {len(samples.output)} outputs")
+          for o in samples.output:
+            if not o.dst.is_relative_to(config.resultdir):
+              logger.error(f"{o.dst} is not relative to {config.resultdir}")
+            elif not o.src.exists():
+              logger.error(f"{o.src} does not exist")
+            elif o.dst.exists():
+              logger.error(f"{o.dst} already exists")
+            elif o.src.is_file():
+              logger.info(f"Copying {o.src} to {o.dst}")
+              o.dst.parent.mkdir(parents=True, exist_ok=True)
+              copyfile(o.src, o.dst)
+            elif o.src.is_dir():
+              logger.info(f"Copying directory {o.src} to {o.dst}")
+              o.dst.parent.mkdir(parents=True, exist_ok=True)
+              copytree(o.src, o.dst)
+            else:
+              logger.error(f"Unknown output type {o}")
+
+
+      
       @modules.runner()
       @data.output("single.txt")
       @data.output("sample_{sample.id}.txt")
       @data.output("missing.txt")
-      @data.output("glob/*.txt", dest_name="invalid_rename.txt")
-      @data.output("single.txt", dest_name="rename.txt")
-      @data.output("overwrite_a.txt", dest_name="overwrite.txt")
-      @data.output("overwrite_b.txt", dest_name="overwrite.txt")
+      @data.output("glob/*.txt", dst_name="invalid_rename.txt")
+      @data.output("single.txt", dst_name="rename.txt")
+      @data.output("overwrite_a.txt", dst_name="overwrite.txt")
+      @data.output("overwrite_b.txt", dst_name="overwrite.txt")
       @data.output("nested/**/*.txt")
-      @data.output("nested", dest_dir="directory")
+      @data.output("nested", dst_dir="directory")
       def runner_a(samples, workdir, config, **_):
           for sample in samples:
               (workdir / f"sample_{sample.id}.txt").touch()
@@ -50,16 +74,19 @@ args:
   --workdir: out
   --tag: DUMMY
 logs:
-- Destination name will be ignored as 'glob/*.txt' matched multiple files
-- No files matched pattern 'out/DUMMY/runner_a/missing.txt'
 - Copying 14 outputs
-- Copying out/DUMMY/runner_a/glob/b.txt to out/results/runner_a/glob/b.txt
-- Copying out/DUMMY/runner_a/single.txt to out/results/runner_a/single.txt
-- Copying out/DUMMY/runner_a/sample_a.txt to out/results/runner_a/sample_a.txt
-- Copying out/DUMMY/runner_a/sample_b.txt to out/results/runner_a/sample_b.txt
-- Copying out/DUMMY/runner_a/glob/a.txt to out/results/runner_a/glob/a.txt
-- Copying out/DUMMY/runner_a/single.txt to out/results/runner_a/rename.txt
-- out/results/runner_a/overwrite.txt already exists
+- Copying out/DUMMY/runner_a/single.txt to out/results/single.txt
+- Copying out/DUMMY/runner_a/sample_a.txt to out/results/sample_a.txt
+- Copying out/DUMMY/runner_a/sample_b.txt to out/results/sample_b.txt
+- No files matched pattern 'out/DUMMY/runner_a/missing.txt'
+- Copying out/DUMMY/runner_a/glob/a.txt to out/results/glob/a.txt
+- Copying out/DUMMY/runner_a/glob/b.txt to out/results/glob/b.txt
+- Copying out/DUMMY/runner_a/single.txt to out/results/rename.txt
+- to out/results/overwrite.txt
+- out/results/overwrite.txt already exists
+- Copying out/DUMMY/runner_a/nested/a/x.txt to out/results/nested/a/x.txt
+- Copying out/DUMMY/runner_a/nested/a/y.txt to out/results/nested/a/y.txt
+- Copying out/DUMMY/runner_a/nested/b/z.txt to out/results/nested/b/z.txt
+- Copying directory out/DUMMY/runner_a/nested to out/results/directory/nested
 - I_AM_NOT_RELATIVE is not relative to out/results
 - I_DO_NOT_EXIST does not exist
-- Copying out/DUMMY/runner_a/nested to out/results/directory/nested
