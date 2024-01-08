@@ -134,18 +134,26 @@ class Runner:
                     sample.processed = True
 
             except Exception as exc:  # pylint: disable=broad-except
+                samples.output = set()
                 for sample in samples:
                     sample.fail(str(exc))
 
             finally:
-                if samples.complete:
-                    logger.info(
-                        f"{len(samples.complete)} samples processed successfully"
-                    )
+                if n_complete := len(samples.complete):
+                    logger.info(f"{n_complete} samples processed successfully")
+                    for output in samples.output.copy():
+                        if isinstance(output, data.OutputGlob):
+                            samples.output.remove(output)
+                            samples.output |= output.resolve(
+                                samples=samples.complete,
+                                workdir=workdir,
+                                config=config,
+                                logger=logger,
+                            )
                 for sample in samples.complete:
                     logger.debug(f"Sample {sample.id} processed successfully")
-                if samples.failed:
-                    logger.error(f"{len(samples.failed)} samples failed")
+                if n_failed := len(samples.failed):
+                    logger.error(f"{n_failed} samples failed")
                 for sample in samples.failed:
                     logger.debug(f"Sample {sample.id} failed - {sample.failed}")
 
