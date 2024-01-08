@@ -700,7 +700,7 @@ class Samples(UserList[S]):
         return {s.id for s in self}
 
     @property
-    def with_files(self):
+    def with_files(self) -> "Samples":
         """
         Get only samples with existing files from a Samples object.
 
