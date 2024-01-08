@@ -416,6 +416,13 @@ class CellophaneRepo(Repo):
             .read_text(encoding="utf-8")
             .format(label=name, prog_name=_prog_name)
         )
+
+        (path / ".gitignore").write_text(
+            (CELLOPHANE_ROOT / "template" / ".gitignore")
+            .read_text(encoding="utf-8")
+            .format(label=name, prog_name=_prog_name)
+        )
+
         (path / "modules" / "requirements.txt").write_text(
             (CELLOPHANE_ROOT / "template" / "modules" / "requirements.txt")
             .read_text(encoding="utf-8")
