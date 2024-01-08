@@ -103,26 +103,6 @@ def _start_runners(
             return samples
 
 
-def _copy_outputs(
-    outputs: list[data.Output], logger: logging.LoggerAdapter, config: cfg.Config
-) -> None:
-    logger.info(f"Copying {len(outputs)} outputs")
-    for output in outputs:
-        if not output.dst.is_relative_to(config.resultdir):
-            logger.error(f"{output.dst} is not relative to {config.resultdir}")
-        elif output.dst.exists():
-            logger.warning(f"{output.dst} already exists")
-        elif not output.src.exists():
-            logger.error(f"{output.src} does not exist")
-        elif output.src.is_dir():
-            logger.debug(f"Copying {output.src} to {output.dst}")
-            copytree(output.src, output.dst)
-
-        else:
-            logger.debug(f"Copying {output.src} to {output.dst}")
-            output.dst.parent.mkdir(parents=True, exist_ok=True)
-            copyfile(output.src, output.dst)
-
 
 def _main(
     hooks: list[modules.Hook],
@@ -182,10 +162,14 @@ def _main(
         **common_kwargs,
     )
 
-    # If not post-hook has copied the outputs, do it here
+    # If not post-hook has copied the outputs, warn the user
     if missing_outputs := [o for o in samples.output if not o.dst.exists()]:
-        _copy_outputs(missing_outputs, logger, config)
-
+        logger.warning(
+            "One or more outputs were not copied "
+            "(This should be done by a post-hook)"
+        )
+        for output in missing_outputs:
+            logger.debug(f"Missing output: {output}")
 
 def cellophane(
     label: str,
