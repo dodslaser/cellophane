@@ -444,3 +444,48 @@ def runner(
         )
 
     return wrapper
+
+
+def output(
+    src: str,
+    /,
+    dst_dir: Path | None = None,
+    dst_name: str | None = None,
+) -> Callable:
+    """
+    Decorator to mark output files of a runner.
+
+    Files matching the given pattern will be added to the output of the runner.
+
+    Celophane does not handle the copying of the files. Instead, it is expected
+    that a post-hook will be used to copy the files to the output directory.
+
+    Args:
+        pattern: A glob pattern to match files to be added to the output.
+            The pattern will be formatted with the following variables:
+            - `samples`: The samples being processed.
+            - `sample`: The current sample being processed.
+            - `config`: The configuration object.
+            - `runner`: The runner being executed.
+            - `workdir`: The working directory, with tag
+                (and sample ID for individual_samples runenrs)
+        dst_dir: The directory to copy the files to. If not specified, the
+            directory of the matched file will be used. If the matched file is
+        dst_name: The name to copy the files to. If not specified, the name
+            of the matched file will be used.
+    """
+
+    def wrapper(func: Callable) -> Callable:
+        if isinstance(func, Runner):
+            func.main = wrapper(func.main)
+            return func
+
+        def inner(*args: Any, samples: data.Samples, **kwargs: Any) -> data.Samples | None:
+            glob_ = data.OutputGlob(src=src, dst_dir=dst_dir, dst_name=dst_name)
+            samples.output.add(glob_)
+            return func(*args, samples=samples, **kwargs)
+        inner.__name__ = func.__name__
+        inner.__qualname__ = func.__qualname__
+        return inner
+
+    return wrapper
