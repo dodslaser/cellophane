@@ -1,5 +1,4 @@
 """Base classes and functions for cellophane modules."""
-import inspect
 import logging
 import sys
 from copy import deepcopy
@@ -73,7 +72,6 @@ class Runner:
     ) -> None:
         self.__name__ = func.__name__
         self.__qualname__ = func.__qualname__
-        self.__module__ = func.__module__
         self.name = func.__name__
         self.label = label or func.__name__
         self.main = staticmethod(func)
@@ -328,9 +326,7 @@ def load(
             logging.root.removeHandler(handler)
 
         for obj in [getattr(module, a) for a in dir(module)]:
-            if inspect.getmodule(obj) != module:
-                continue
-            elif _is_instance_or_subclass(obj, Hook):
+            if _is_instance_or_subclass(obj, Hook):
                 hooks.append(obj)
             elif _is_instance_or_subclass(obj, data.Sample):
                 sample_mixins.append(obj)
