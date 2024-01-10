@@ -331,8 +331,11 @@ def _apply_mixins(
 ) -> type:
     _name = cls.__name__
     for m in mixins:
-        if hasattr(m, "__slots__"):
-            raise TypeError("Mixins must not have __slots__ (use @define(slots=False))")
+        if getattr(m, "__slots__", None):
+            raise TypeError(
+                f"{m.__name__}: Mixins must not have __slots__ "
+                "(use @define(slots=False) and don't set __slots__ in the class body)"
+            )
         _name += f"_{m.__name__}"
         m.__bases__ = (base,)
         m.__module__ = "__main__"
