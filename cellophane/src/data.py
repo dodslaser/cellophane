@@ -438,7 +438,10 @@ class Sample(_BASE):
     @merge.register("_fail")
     @staticmethod
     def _merge_fail(this: str | None, that: str | None) -> str | None:
-        return f"{this}\n{that}"
+        if this and that:
+            return f"{this}\n{that}"
+        else:
+            return this or that
 
     @merge.register("processed")
     @staticmethod
