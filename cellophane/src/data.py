@@ -272,15 +272,12 @@ class OutputGlob:
             if not (matches := [Path(m) for m in glob(pattern)]):
                 warnings.add(f"No files matched pattern '{pattern}'")
 
-            # Path(str().format(**meta))
             for m in matches:
                 match self.dst_dir:
                     case str(d) if Path(d).is_absolute():
                         dst_dir = Path(d.format(**meta))
                     case str(d):
                         dst_dir = config.resultdir / d.format(**meta)
-                    case _ if m.parent.is_relative_to(workdir):
-                        dst_dir = config.resultdir / m.parent.relative_to(workdir)
                     case _:
                         dst_dir = config.resultdir
 
@@ -296,6 +293,8 @@ class OutputGlob:
                     case str() as n:
                         dst_name = n.format(**meta)
                     case _:
+                        if self.dst_dir is None and m.is_relative_to(workdir):
+                            dst_dir /= m.parent.relative_to(workdir)
                         dst_name = m.name
 
                 dst = Path(dst_dir) / dst_name
