@@ -721,6 +721,22 @@ class Samples(UserList[S]):
                 if sample.files and all(Path(f).exists() for f in sample.files)
             ]
         )
+    
+    @property
+    def without_files(self) -> "Samples":
+        """
+        Get only samples without existing files from a Samples object.
+
+        Returns:
+            Class: A new instance of the class with only the samples without files.
+        """
+        return self.__class__(
+            [
+                sample
+                for sample in self
+                if not sample.files or any(not Path(f).exists() for f in sample.files)
+            ]
+        )
 
     @property
     def complete(self) -> "Samples":
