@@ -137,12 +137,11 @@ class Runner:
                     sample.fail(str(exc))
 
             finally:
-                if n_complete := len(samples.complete):
-                    logger.info(f"{n_complete} samples processed successfully")
-                    for output in samples.output.copy():
-                        if isinstance(output, data.OutputGlob):
-                            samples.output.remove(output)
-                            samples.output |= output.resolve(
+                if samples.complete:
+                    for output_ in samples.output.copy():
+                        if isinstance(output_, data.OutputGlob):
+                            samples.output.remove(output_)
+                            samples.output |= output_.resolve(
                                 samples=samples.complete,
                                 workdir=workdir,
                                 config=config,
