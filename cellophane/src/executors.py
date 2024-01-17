@@ -71,7 +71,7 @@ def _target(
 
 
 def _callback(
-    result: AsyncResult,
+    result: Any,
     fn: Callable | None,
     msg: str,
     logger: logging.LoggerAdapter,
