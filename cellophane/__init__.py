@@ -85,20 +85,20 @@ def _start_runners(
     ) as pool:
         try:
             results = []
-            for runner, _samples in (
+            for runner_, samples_ in (
                 (r, s)
                 for r in runners
-                for s in (
+                for _, s in (
                     samples.split(link_by=r.link_by)
                     if r.individual_samples
-                    else [samples]
+                    else [(None, samples)]
                 )
             ):
                 result = pool.apply_async(
-                    runner,
+                    runner_,
                     kwargs={
                         **kwargs,
-                        "samples_pickle": dumps(_samples),
+                        "samples_pickle": dumps(samples_),
                     },
                 )
                 results.append(result)

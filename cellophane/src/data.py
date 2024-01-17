@@ -634,7 +634,7 @@ class Samples(UserList[S]):
 
         return type(cls.__name__, (cls,), {"sample_class": sample_class})
 
-    def split(self, link_by: str | None = None) -> Iterable["Samples"]:
+    def split(self, link_by: str | None = None) -> Iterable[tuple[Any, "Samples"]]:
         """
         Splits the data into groups based on the specified attribute value.
 
@@ -644,7 +644,9 @@ class Samples(UserList[S]):
                 sample each.
 
         Yields:
-            Iterable[Samples]: An iterable of Samples objects.
+            Iterable[tuple[Any, Samples]]: An iterable of tuples containing the
+                linked attribute value and a Samples object containing the
+                samples with that attribute value.
 
         Example:
             ```python
@@ -657,19 +659,25 @@ class Samples(UserList[S]):
             )
 
             # Splitting by the "id" attribute (eg. to merge data from multiple runs)
-            for samples in data.split(link_by="id"):
+            for key, samples in data.split(link_by="id"):
+                print(key)
                 print(samples)
+            # "sample1"
             # Samples(
             #     Sample(id='sample1', files=['file1_1.txt']),
             #     Sample(id='sample1', files=['file1_2.txt'])
             # )
+            # "sample2"
             # Samples(Sample(id='sample2', files=['file2.txt']))
 
             # Splitting without linking (eg. to get individual samples)
-            for sample in data.split():
+            for key, sample in data.split():
                 print(sample)
+            # UUID('SOME_UUID')
             # Samples(Sample(id='sample1', files=['file1_1.txt']))
+            # UUID('OTHER_UUID')
             # Samples(Sample(id='sample1', files=['file1_2.txt']))
+            # UUID('THIRD_UUID')
             # Samples(Sample(id='sample2', files=['file2.txt']))
             ```
         """
@@ -678,11 +686,11 @@ class Samples(UserList[S]):
                 sample[link_by]: [li for li in self if li[link_by] == sample[link_by]]
                 for sample in self
             }
-            for li in linked.values():
-                yield self.__class__(li)
+            for key, li in linked.items():
+                yield key, self.__class__(li)
         else:
             for sample in self:
-                yield self.__class__([sample])
+                yield sample.uuid, self.__class__([sample])
 
     @property
     def unique_ids(self) -> set[str]:
