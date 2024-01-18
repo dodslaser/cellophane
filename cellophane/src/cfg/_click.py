@@ -1,12 +1,17 @@
 """Click related utilities for configuration."""
 
+
 import re
+from ast import literal_eval
+from contextlib import suppress
 from pathlib import Path
 from typing import Any, Callable, Literal, Mapping, MutableMapping, Type, get_args
 
 import rich_click as click
 from attrs import define, field
 from humanfriendly import parse_size
+
+from . import data
 
 ITEMS_TYPES = Literal[
     "string",
@@ -27,10 +32,6 @@ SCHEMA_TYPES = Literal[
     "path",
     "size",
 ]
-
-from ast import literal_eval
-
-from . import data
 
 
 class StringMapping(click.ParamType):
@@ -88,7 +89,7 @@ class StringMapping(click.ParamType):
         value: str | MutableMapping,
         param: click.Parameter | None,
         ctx: click.Context | None,
-    ) -> data._dict:
+    ) -> data.dict_:
         """
         Converts a string value to a mapping.
 
@@ -121,25 +122,24 @@ class StringMapping(click.ParamType):
         """
 
         if not value:
-            return data._dict()
+            return data.dict_()
 
         if isinstance(value, Mapping):
-            return data._dict(value)
+            return data.dict_(value)
 
         try:
             tokens, extra = self.scanner.scan(value)
             if extra or len(tokens) % 2 != 0:
                 raise ValueError
-            parsed = data._dict(zip(tokens[::2], tokens[1::2]))
-        except:  # pylint: disable=bare-except
-            self.fail(f"Expected a comma separated mapping (a=b,x=y), got {value}", param, ctx)
+            parsed = data.dict_(zip(tokens[::2], tokens[1::2]))
+        except Exception:  # pylint: disable=broad-except
+            self.fail(
+                f"Expected a comma separated mapping (a=b,x=y), got {value}", param, ctx
+            )
 
         for k, v in parsed.items():
-            try:
+            with suppress(Exception):
                 parsed[k] = literal_eval(v)
-            except:  # pylint: disable=bare-except
-                pass
-
         while True:
             try:
                 key: str = next(k for k in parsed if "." in k)
@@ -151,9 +151,7 @@ class StringMapping(click.ParamType):
             except StopIteration:
                 break
 
-        return data._dict(parsed)
-
-            
+        return data.dict_(parsed)
 
 
 class TypedArray(click.ParamType):
@@ -192,7 +190,7 @@ class TypedArray(click.ParamType):
 
         self.items = items or "string"
 
-    def convert(
+    def convert(  # type: ignore[override]
         self,
         value: list,
         param: click.Parameter,
@@ -228,6 +226,21 @@ class TypedArray(click.ParamType):
 
 
 class ParsedSize(click.ParamType):
+    """
+    Converts a string value representing a size to an integer.
+
+    Args:
+        value (str): The value to be converted.
+        param (click.Parameter | None): The click parameter associated with the value.
+        ctx (click.Context | None): The click context associated with the value.
+
+    Returns:
+        int: The converted integer value.
+
+    Raises:
+        ValueError: Raised when the value is not a valid integer.
+    """
+
     name: str = "size"
 
     def convert(

@@ -78,14 +78,14 @@ logs:
 - Copying out/DUMMY/runner_a/sample_a.txt to out/results/sample_a.txt
 - Copying out/DUMMY/runner_a/sample_b.txt to out/results/sample_b.txt
 - No files matched pattern 'out/DUMMY/runner_a/missing.txt'
-- Copying out/DUMMY/runner_a/glob/a.txt to out/results/glob/a.txt
-- Copying out/DUMMY/runner_a/glob/b.txt to out/results/glob/b.txt
+- Copying out/DUMMY/runner_a/glob/a.txt to out/results/a.txt
+- Copying out/DUMMY/runner_a/glob/b.txt to out/results/b.txt
 - Copying out/DUMMY/runner_a/single.txt to out/results/rename.txt
 - to out/results/overwrite.txt
 - out/results/overwrite.txt already exists
-- Copying out/DUMMY/runner_a/nested/a/x.txt to out/results/nested/a/x.txt
-- Copying out/DUMMY/runner_a/nested/a/y.txt to out/results/nested/a/y.txt
-- Copying out/DUMMY/runner_a/nested/b/z.txt to out/results/nested/b/z.txt
+- Copying out/DUMMY/runner_a/nested/a/x.txt to out/results/x.txt
+- Copying out/DUMMY/runner_a/nested/a/y.txt to out/results/y.txt
+- Copying out/DUMMY/runner_a/nested/b/z.txt to out/results/z.txt
 - Copying directory out/DUMMY/runner_a/nested to out/results/directory/nested
 - I_AM_NOT_RELATIVE is not relative to out/results
 - I_DO_NOT_EXIST does not exist

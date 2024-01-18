@@ -1,3 +1,7 @@
+"""Test modules."""
+
+# pylint: disable=protected-access
+
 import logging
 import subprocess as sp
 from collections import UserList
@@ -23,8 +27,11 @@ LIB = Path(__file__).parent / "lib"
 
 
 class Test__cleanup:
+    """Test cleanup function."""
+
     @staticmethod
-    def dummy_procs(n: int = 1):
+    def dummy_procs(n: int = 1) -> tuple[list[sp.Popen], list[int]]:
+        """Create dummy processes."""
         _procs = [sp.Popen(["sleep", "1"]) for _ in range(n)]
         _pids = [p.pid for p in _procs]
 
@@ -43,7 +50,8 @@ class Test__cleanup:
         caplog: LogCaptureFixture,
         log_line: str,
         timeout: bool,
-    ):
+    ) -> None:
+        """Test cleanup function."""
         procs, pids = self.dummy_procs(3)
 
         mocker.patch(
@@ -69,10 +77,12 @@ class Test__cleanup:
 
 
 class Test__instance_or_subclass:
-    class SampleSub(data.Sample):
+    """Test _is_instance_or_subclass function."""
+
+    class _SampleSub(data.Sample):
         ...
 
-    class SamplesSub(data.Samples):
+    class _SamplesSub(data.Samples):
         ...
 
     hook = modules.pre_hook()(lambda: ...)
@@ -82,10 +92,10 @@ class Test__instance_or_subclass:
     @mark.parametrize(
         "obj,cls,expected",
         [
-            (SampleSub, data.Sample, True),
-            (SamplesSub, data.Samples, True),
-            (SamplesSub, UserList, True),
-            (SamplesSub, list, False),
+            (_SampleSub, data.Sample, True),
+            (_SamplesSub, data.Samples, True),
+            (_SamplesSub, UserList, True),
+            (_SamplesSub, list, False),
             (hook, modules.Hook, True),
             (hook, Callable, True),
             (hook, str, False),
@@ -95,7 +105,7 @@ class Test__instance_or_subclass:
         ],
     )
     def test_instance_or_subclass(
-        obj: type[SampleSub] | type[SamplesSub] | Any | Runner,
+        obj: type[_SampleSub] | type[_SamplesSub] | Any | Runner,
         cls: type[Sample]
         | type[dict]
         | type[Samples]
@@ -106,16 +116,19 @@ class Test__instance_or_subclass:
         | type[str]
         | type[Runner],
         expected: bool,
-    ):
+    ) -> None:
+        """Test _is_instance_or_subclass function."""
         assert modules._is_instance_or_subclass(obj, cls) == expected
 
 
 class Test_Runner:
+    """Test Runner class."""
+
     samples: data.Samples = data.Samples(
         [
-            data.Sample(id="a"),  # type: ignore[call-arg]
-            data.Sample(id="b"),  # type: ignore[call-arg]
-            data.Sample(id="c"),  # type: ignore[call-arg]
+            data.Sample(id="a"),
+            data.Sample(id="b"),
+            data.Sample(id="c"),
         ]
     )
 
@@ -132,24 +145,21 @@ class Test_Runner:
                 id="label",
             ),
             param(
-                {"individual_samples": True},
-                id="individual_samples",
-            ),
-            param(
-                {"link_by": "test"},
-                id="link_by",
+                {"split_by": "test"},
+                id="split_by",
             ),
         ],
     )
-    def test_decorator(kwargs: dict[str, Any]):
+    def test_decorator(kwargs: dict[str, Any]) -> None:
+        """Test Runner decorator."""
+
         @modules.runner(**kwargs)
-        def dummy():
+        def _dummy() -> None:
             ...
 
-        assert dummy.__name__ == "dummy"
-        assert dummy.label == kwargs.get("label", "dummy")
-        assert dummy.individual_samples == kwargs.get("individual_samples", False)
-        assert dummy.link_by == kwargs.get("link_by")
+        assert _dummy.__name__ == "_dummy"
+        assert _dummy.label == kwargs.get("label", "_dummy")
+        assert _dummy.split_by == kwargs.get("split_by")
 
     @mark.parametrize(
         "runner_mock,runner_kwargs,expected_fail,log_lines",
@@ -174,13 +184,6 @@ class Test_Runner:
                     ]
                 ],
                 id="Exception",
-            ),
-            param(
-                MagicMock(return_value=None),
-                {"individual_samples": True},
-                [False, False, False],
-                [["Runner did not return any samples"]],
-                id="individual_samples",
             ),
             param(
                 lambda samples, **_: samples[0].fail("DUMMY") or samples,
@@ -211,12 +214,12 @@ class Test_Runner:
         runner_kwargs: dict[str, Any],
         expected_fail: list[int],
         log_lines: list[list[str]],
-    ):
+    ) -> None:
+        """Test Runner call."""
         setattr(runner_mock, "__name__", "runner_mock")
         setattr(runner_mock, "__qualname__", "runner_mock")
         _runner = modules.runner(**runner_kwargs)(runner_mock)
         _config_mock = MagicMock()
-
 
         mocker.patch(
             "cellophane.src.modules._cleanup",
@@ -242,11 +245,13 @@ class Test_Runner:
 
 
 class Test_Hook:
+    """Test Hook class."""
+
     samples: data.Samples = data.Samples(
         [
-            data.Sample(id="a"),  # type: ignore[call-arg]
-            data.Sample(id="b"),  # type: ignore[call-arg]
-            data.Sample(id="c"),  # type: ignore[call-arg]
+            data.Sample(id="a"),
+            data.Sample(id="b"),
+            data.Sample(id="c"),
         ]
     )
 
@@ -283,7 +288,8 @@ class Test_Hook:
         kwargs: dict[str, Any],
         expected_before: list[str],
         expected_after: list[str],
-    ):
+    ) -> None:
+        """Test Hook decorator."""
         _kwargs = {
             k: v for k, v in kwargs.items() if when == "post" or k != "condition"
         }
@@ -315,13 +321,16 @@ class Test_Hook:
         ],
     )
     def test_hook_exceptions(
-        when: str, kwargs: dict[str, Any], exception: type[Exception]
-    ):
+        when: str,
+        kwargs: dict[str, Any],
+        exception: type[Exception],
+    ) -> None:
+        """Test Hook decorator exceptions."""
         _decorator = getattr(modules, f"{when}_hook")
         with raises(exception):
 
             @_decorator(**kwargs)
-            def _dummy():
+            def _() -> None:
                 ...
 
     @staticmethod
@@ -375,7 +384,8 @@ class Test_Hook:
         expected: Any,
         logs: list[str],
         caplog: LogCaptureFixture,
-    ):
+    ) -> None:
+        """Test Hook call."""
         _decorator = getattr(modules, f"{when}_hook")
         _hook = _decorator(**kwargs)(
             lambda **_: return_value,
@@ -396,9 +406,12 @@ class Test_Hook:
 
 
 class Test__resolve_hook_dependencies:
+    """Test _resolve_hook_dependencies function."""
     @staticmethod
-    def func(name: str):
-        def _dummy():
+    def func(name: str) -> Callable[[], None]:
+        """Create dummy function."""
+
+        def _dummy() -> None:
             ...
 
         _dummy.__name__ = name
@@ -461,7 +474,11 @@ class Test__resolve_hook_dependencies:
         ],
     )
     @mark.repeat(10)
-    def test_resolve(hooks: list[modules.Hook], expected: list[str]):
+    def test_resolve(
+        hooks: list[modules.Hook],
+        expected: list[str],
+    ) -> None:
+        """Test _resolve_hook_dependencies function."""
         # FIXME: Hook order is non-deterministic if there are no dependencies
         _resolved = modules._resolve_hook_dependencies(hooks)
         assert [m.label for m in _resolved] == expected
@@ -501,11 +518,13 @@ class Test__resolve_hook_dependencies:
             ),
         ],
     )
-    def test_resolve_exception(hooks: list[type[modules.Hook]]):
+    def test_resolve_exception(hooks: list[type[modules.Hook]]) -> None:
+        """Test _resolve_hook_dependencies function exceptions."""
         assert raises(CycleError, modules._resolve_hook_dependencies, hooks)
 
 
 class Test_load:
+    """Test modules load function."""
     @staticmethod
     @mark.parametrize(
         "path,expected",
@@ -532,7 +551,8 @@ class Test_load:
             ),
         ],
     )
-    def test_load(path, expected):
+    def test_load(path: Path, expected: dict) -> None:
+        """Test modules load function."""
         (
             _hooks,
             _runners,
@@ -548,58 +568,15 @@ class Test_load:
         )
 
     @staticmethod
-    def test_load_exception():
+    def test_load_exception() -> None:
+        """Test modules load function exceptions."""
         with raises(ImportError):
             modules.load(LIB / "modules" / "mod_invalid")
 
     @staticmethod
-    def test_load_override_logging():
+    def test_load_override_logging() -> None:
+        """Test modules load function log hander reset."""
         handlers = copy(logging.getLogger().handlers)
         modules.load(LIB / "modules" / "mod_override_logging")
         assert logging.getLogger().handlers == handlers
 
-
-class Test_mixins:
-    @staticmethod
-    @mark.parametrize(
-        "base",
-        [
-            "Sample",
-            "Samples",
-        ],
-    )
-    @mark.parametrize(
-        "id",
-        [
-            "base",
-            "attrs_default",
-            "attrs_field",
-        ],
-    )
-    def test_mixin(base: str, id: str):  # pylint: disable=redefined-builtin
-        _container = getattr(data, base)
-
-        (
-            _,
-            _,
-            _sample_mixins,
-            _samples_mixins,
-            _,
-        ) = modules.load(LIB / "modules" / "mod_mixin")
-
-        _mixins = {m.__name__: m for m in (*_sample_mixins, *_samples_mixins)}
-        _mixin = _mixins[f"{base}Mixin_{id}"]
-
-        _dummy = _container.with_mixins([_mixin])
-
-        _kwargs = {"id": "DUMMY"} if base == "Sample" else {}
-
-        _inst = _dummy(**_kwargs)
-        assert getattr(_inst, id) == f"expected_{id}"
-
-        _inst = _dummy(**_kwargs | {id: f"set_{id}"})
-        assert getattr(_inst, id) == f"set_{id}"
-
-        assert _container is not _dummy
-        assert isinstance(_inst, _container)
-        assert issubclass(_dummy, _container)

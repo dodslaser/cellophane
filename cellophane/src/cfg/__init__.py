@@ -18,14 +18,14 @@ from cellophane.src import data, util
 from ._click import Flag
 from ._jsonschema import (
     NullValidator,
-    all_of,
-    any_of,
-    dependent_required,
-    dependent_schemas,
+    all_of_,
+    any_of_,
+    dependent_required_,
+    dependent_schemas_,
     if_,
-    one_of,
-    properties,
-    required,
+    one_of_,
+    properties_,
+    required_,
 )
 
 
@@ -203,12 +203,12 @@ def _(schema: frozendict, _data: frozendict | None = None) -> list[Flag]:
         _compile_conditional = extend(
             NullValidator,
             validators={
-                "properties": partial(properties, compiled=_compiled),
+                "properties": partial(properties_, compiled=_compiled),
                 "if": partial(if_, compiled=_compiled),
-                "anyOf": partial(any_of, compiled=_compiled),
-                "oneOf": partial(one_of, compiled=_compiled),
-                "allOf": partial(all_of, compiled=_compiled),
-                "dependentSchemas": partial(dependent_schemas, compiled=_compiled),
+                "anyOf": partial(any_of_, compiled=_compiled),
+                "oneOf": partial(one_of_, compiled=_compiled),
+                "allOf": partial(all_of_, compiled=_compiled),
+                "dependentSchemas": partial(dependent_schemas_, compiled=_compiled),
             },
         )
 
@@ -218,9 +218,9 @@ def _(schema: frozendict, _data: frozendict | None = None) -> list[Flag]:
     extend(
         NullValidator,
         validators={
-            "required": partial(required, flags=_flags_mapping),
-            "dependentRequired": partial(dependent_required, flags=_flags_mapping),
-            "properties": partial(properties, flags=_flags_mapping),
+            "required": partial(required_, flags=_flags_mapping),
+            "dependentRequired": partial(dependent_required_, flags=_flags_mapping),
+            "properties": partial(properties_, flags=_flags_mapping),
         },
     )(_schema_thawed).validate(_data_thawed)
 
@@ -292,7 +292,7 @@ def options(schema: Schema) -> Callable:
                         and source.name != "DEFAULT"
                         or k in ("resultdir", "logdir")
                         and v is not None
-                    }
+                    },
                 )
 
             for flag in _get_flags(schema):

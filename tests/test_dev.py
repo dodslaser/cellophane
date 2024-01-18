@@ -1,10 +1,17 @@
+"""Tests for the cellophane.__main__ module."""
+
+# pylint: disable=protected-access,redefined-outer-name
+
 import logging
 from os import chdir
+from pathlib import Path
 from shutil import rmtree
+from typing import Any, Iterator
 from unittest.mock import MagicMock
 
 from click.testing import CliRunner
-from pytest import fixture, mark, param, raises
+from pytest import LogCaptureFixture, TempPathFactory, fixture, mark, param, raises
+from pytest_mock import MockerFixture
 
 from cellophane import __main__ as dev
 
@@ -12,7 +19,7 @@ from cellophane import __main__ as dev
 MODULES_REPO_URL = "https://github.com/ClinicalGenomicsGBG/cellophane_modules"
 
 
-def _mock_recursive(endpoints, **kwargs):
+def _mock_recursive(endpoints: list[str], **kwargs: Any) -> MagicMock:
     return MagicMock(
         **{
             (k := e.split(".", 1))[0]: _mock_recursive([k[1]], **kwargs)
@@ -24,12 +31,16 @@ def _mock_recursive(endpoints, **kwargs):
 
 
 @fixture(scope="function")
-def modules_repo():
+def modules_repo() -> dev.ModulesRepo:
+    """Create a dummy modules repository."""
     return dev.ModulesRepo.from_url(MODULES_REPO_URL, branch="main")
 
 
 @fixture(scope="class")
-def cellophane_repo(tmp_path_factory):
+def cellophane_repo(
+    tmp_path_factory: TempPathFactory,
+) -> Iterator[tuple[dev.CellophaneRepo, Path]]:
+    """Create a dummy cellophane repository."""
     _path = tmp_path_factory.mktemp("repo")
     _repo = dev.CellophaneRepo.initialize("DUMMY", _path, MODULES_REPO_URL, "main")
     yield _repo, _path
@@ -37,8 +48,10 @@ def cellophane_repo(tmp_path_factory):
 
 
 class Test_CellophaneRepo:
+    """Test cellophane repository."""
     @staticmethod
-    def test_initialize(cellophane_repo):
+    def test_initialize(cellophane_repo: tuple[dev.CellophaneRepo, Path]) -> None:
+        """Test cellophane repository initialization."""
         _repo, _path = cellophane_repo
         assert _path.exists()
         assert (_path / "modules").exists()
@@ -50,61 +63,81 @@ class Test_CellophaneRepo:
         assert _repo.present_modules == []
 
     @staticmethod
-    def test_initialize_exception_file_exists(cellophane_repo):
+    def test_initialize_exception_file_exists(
+        cellophane_repo: tuple[dev.CellophaneRepo, Path]
+    ) -> None:
+        """Test cellophane repository initialization with existing file."""
         _, _path = cellophane_repo
         with raises(FileExistsError):
             dev.CellophaneRepo.initialize("DUMMY", _path, MODULES_REPO_URL, "main")
 
     @staticmethod
-    def test_invalid_repository(tmp_path):
+    def test_invalid_repository(tmp_path: Path) -> None:
+        """Test invalid cellophane repository."""
         with raises(dev.InvalidCellophaneRepoError):
-            dev.CellophaneRepo(tmp_path, modules_repo_url="__INVALID__", modules_repo_branch="main")
+            dev.CellophaneRepo(
+                tmp_path,
+                modules_repo_url="__INVALID__",
+                modules_repo_branch="main",
+            )
 
 
 class Test_ModulesRepo:
+    """Test modules repository."""
     @staticmethod
-    def test_from_url(modules_repo):
+    def test_from_url(modules_repo: dev.ModulesRepo) -> None:
+        """Test modules repository initialization from URL."""
         assert modules_repo
 
     @staticmethod
-    def test_invalid_remote_url():
+    def test_invalid_remote_url() -> None:
+        """Test invalid remote URL."""
         with raises(dev.InvalidModulesRepoError):
             dev.ModulesRepo.from_url("__INVALID__", branch="main")
 
     @staticmethod
-    def test_branches(modules_repo):
+    def test_branches(modules_repo: dev.ModulesRepo) -> None:
+        """Test branches."""
         assert modules_repo._branches
 
     @staticmethod
-    def test_modules(modules_repo):
+    def test_modules(modules_repo: dev.ModulesRepo) -> None:
+        """Test modules."""
         assert all(
             m in [b.split("_")[0] for b in modules_repo._branches]
             for m in modules_repo.modules
         )
 
     @staticmethod
-    def test_tags(modules_repo):
+    def test_tags(modules_repo: dev.ModulesRepo) -> None:
+        """Test tags."""
         assert modules_repo.tags
 
     @staticmethod
-    def test_module_branches(modules_repo):
+    def test_module_branches(modules_repo: dev.ModulesRepo) -> None:
+        """Test module branches."""
         assert modules_repo.module_branches(modules_repo.modules[0])
         assert not modules_repo.module_branches("__DOES_NOT_EXIST__")
 
     @staticmethod
-    def test_latest_module_tag(modules_repo):
+    def test_latest_module_tag(modules_repo: dev.ModulesRepo) -> None:
+        """Test latest module tag."""
         assert modules_repo.latest_module_tag(modules_repo.modules[0])
         with raises(AttributeError):
             modules_repo.latest_module_tag("__DOES_NOT_EXIST__")
 
     @staticmethod
-    def test_url(modules_repo):
+    def test_url(modules_repo: dev.ModulesRepo) -> None:
+        """Test URL."""
         assert modules_repo.url == MODULES_REPO_URL
 
 
 class Test__update_example_config:
-    def test__update_example_config(self, tmp_path):
-        # FIXME: Should the contents be veriied? It is tested in test_cfg
+    """Test updating example config."""
+
+    def test__update_example_config(self, tmp_path: Path) -> None:
+        """Test updating example config."""
+        # FIXME: Should the contents be verified? It is tested in test_cfg
         chdir(tmp_path)
         (tmp_path / "modules").mkdir()
         (tmp_path / "schema.yaml").touch()
@@ -115,6 +148,8 @@ class Test__update_example_config:
 
 
 class Test__ask_modules_branch:
+    """Test asking for modules and branches."""
+
     @mark.parametrize(
         "valid_modules,exception",
         [
@@ -122,7 +157,13 @@ class Test__ask_modules_branch:
             param([], dev.NoModulesError, id="_ask_modules_invalid"),
         ],
     )
-    def test__ask_modules(self, mocker, valid_modules, exception):
+    def test__ask_modules(
+        self,
+        mocker: MockerFixture,
+        valid_modules: list[str],
+        exception: type[Exception],
+    ) -> None:
+        """Test asking for modules."""
         _checkbox_mock = MagicMock()
         mocker.patch("cellophane.__main__.checkbox", return_value=_checkbox_mock)
         assert (
@@ -131,7 +172,12 @@ class Test__ask_modules_branch:
             else dev._ask_modules(valid_modules) and _checkbox_mock.ask.call_count == 1
         )
 
-    def test__ask_branch(self, mocker, modules_repo):
+    def test__ask_branch(
+        self,
+        mocker: MockerFixture,
+        modules_repo: dev.ModulesRepo,
+    ) -> None:
+        """Test asking for branch."""
         _select_mock = MagicMock(ask=MagicMock(return_value="latest"))
         mocker.patch("cellophane.__main__.select", return_value=_select_mock)
         assert dev._ask_branch(modules_repo.modules[0], modules_repo)
@@ -184,6 +230,8 @@ class Test__ask_modules_branch:
 
 
 class Test_module_cli:
+    """Test module CLI."""
+
     runner = CliRunner()
 
     @mark.parametrize(
@@ -263,14 +311,15 @@ class Test_module_cli:
     )
     def test_module_cli(
         self,
-        cellophane_repo,
-        command,
-        mocks,
-        exit_code,
-        logs,
-        caplog,
-        mocker,
-    ):
+        cellophane_repo: tuple[dev.CellophaneRepo, Path],
+        command: str,
+        mocks: dict[str, dict[str, Any]],
+        exit_code: int,
+        logs: list[str],
+        caplog: LogCaptureFixture,
+        mocker: MockerFixture,
+    ) -> None:
+        """Test module CLI."""
         repo, path = cellophane_repo
         mocker.patch("cellophane.logs.setup_logging")
         for target, kwargs in mocks.items():
@@ -283,7 +332,13 @@ class Test_module_cli:
             assert log_line in "\n".join(caplog.messages)
         assert not repo.is_dirty(), repo.git.status()
 
-    def test_module_cli_invalid_repo(self, tmp_path, mocker, caplog):
+    def test_module_cli_invalid_repo(
+        self,
+        tmp_path: Path,
+        mocker: MockerFixture,
+        caplog: LogCaptureFixture,
+    ) -> None:
+        """Test module CLI with invalid cellophane repository."""
         mocker.patch("cellophane.logs.setup_logging")
         chdir(tmp_path)
         with caplog.at_level(logging.DEBUG):
@@ -291,7 +346,13 @@ class Test_module_cli:
         assert "Invalid cellophane repository" in "\n".join(caplog.messages)
         assert result.exit_code == 1
 
-    def test_module_cli_dirty_repo(self, cellophane_repo, mocker, caplog):
+    def test_module_cli_dirty_repo(
+        self,
+        cellophane_repo: tuple[dev.CellophaneRepo, Path],
+        mocker: MockerFixture,
+        caplog: LogCaptureFixture,
+    ) -> None:
+        """Test module CLI with dirty cellophane repository."""
         repo, path = cellophane_repo
         mocker.patch("cellophane.logs.setup_logging")
         chdir(path)
@@ -303,11 +364,15 @@ class Test_module_cli:
         assert "Repository has uncommited changes" in "\n".join(caplog.messages)
         assert result.exit_code == 1
 
+
 class Test_cli_init:
+    """Test cellophane CLI for initializing a new project."""
+
     runner = CliRunner()
 
     @fixture(scope="class")
-    def project_path(self, tmp_path_factory):
+    def project_path(self, tmp_path_factory: TempPathFactory) -> Path:
+        """Create a temporary project path."""
         return tmp_path_factory.mktemp("DUMMY")
 
     @mark.parametrize(
@@ -318,12 +383,23 @@ class Test_cli_init:
             param("init DUMMY --force", 0, id="init_force"),
         ],
     )
-    def test_init_cli(self, project_path, command, exit_code):
+    def test_init_cli(
+        self,
+        project_path: Path,
+        command: str,
+        exit_code: int,
+    ) -> None:
+        """Test cellophane CLI for initializing a new project."""
         chdir(project_path)
         result = self.runner.invoke(dev.main, command)
         assert result.exit_code == exit_code
 
-    def test_init_cli_unhandled_exception(self, tmp_path, mocker):
+    def test_init_cli_unhandled_exception(
+        self,
+        tmp_path: Path,
+        mocker: MockerFixture,
+    ) -> None:
+        """Test exception handling in cellophane CLI for initializing a new project."""
         mocker.patch(
             "cellophane.__main__.CellophaneRepo.initialize",
             side_effect=Exception("DUMMY"),

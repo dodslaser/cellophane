@@ -10,8 +10,19 @@ from rich.logging import RichHandler
 
 
 def setup_queue_logging(
-    queue: Queue, logger: logging.Logger = logging.getLogger()
+    queue: Queue,
+    logger: logging.Logger = logging.getLogger(),
 ) -> QueueHandler:
+    """Set up queue-based logging for a logger.
+
+    Args:
+        queue (Queue): The queue to store log records.
+        logger (logging.Logger, optional): The logger to set up.
+            Defaults to the root logger.
+
+    Returns:
+        QueueHandler: The queue handler.
+    """
     queue_handler = QueueHandler(queue)
     logger.handlers = [queue_handler]
 

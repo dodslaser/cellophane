@@ -1,3 +1,5 @@
+"""Test cellophane.src.util."""
+
 import sys
 
 from pytest import mark, param, raises
@@ -6,6 +8,7 @@ from cellophane.src import util
 
 
 class Test_map_nested_keys:
+    """Test map_nested_keys."""
     @staticmethod
     @mark.parametrize(
         "data,expected",
@@ -18,11 +21,13 @@ class Test_map_nested_keys:
             # FIXME: Add more test cases
         ]
     )
-    def test_map_nested_keys(data, expected):
+    def test_map_nested_keys(data: dict, expected: list) -> None:
+        """Test map_nested_keys."""
         assert util.map_nested_keys(data) == expected
 
 
 class Test_merge_mappings:
+    """Test merge_mappings."""
     @staticmethod
     @mark.parametrize(
         "m_1,m_2,expected",
@@ -59,14 +64,16 @@ class Test_merge_mappings:
             )
         ],
     )
-    def test_merge_mappings(m_1, m_2, expected):
-
+    def test_merge_mappings(m_1: dict, m_2: dict, expected: dict) -> None:
+        """Test merge_mappings."""
         assert util.merge_mappings(m_1, m_2) == expected
 
 
 class Test_lazy_import:
+    """Test lazy_import."""
     @staticmethod
-    def test_lazy_import():
+    def test_lazy_import() -> None:
+        """Test lazy_import."""
         assert raises(ImportError, util.lazy_import, ".INVALID")
         assert raises(ModuleNotFoundError, util.lazy_import, "INVALID")
 

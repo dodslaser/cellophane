@@ -1,4 +1,7 @@
+"""Test cellophane wrapper."""
+
 from pathlib import Path
+from typing import Callable
 
 from cellophane.src import testing
 
@@ -12,11 +15,11 @@ class Test_cellophane:
     basic functionality works as expected from the command line interface.
     """
 
-    # FIXME: Add a test for getting config from file
     @staticmethod
     @testing.parametrize_from_yaml([*LIB.glob("integration/*.yaml")])
     def test_cellophane(
-        definition: Path,
-        run_definition,
-    ):
+        definition: dict,
+        run_definition: Callable[[dict], None],
+    ) -> None:
+        """Test cellophane wrapper."""
         run_definition(definition)

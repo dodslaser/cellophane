@@ -1,3 +1,5 @@
+"""Test logs."""
+
 import logging
 from pathlib import Path
 
@@ -5,8 +7,10 @@ from cellophane.src import logs
 
 
 class Test_logs:
+    """Test logs."""
     @staticmethod
-    def test_logs(tmp_path: Path):
+    def test_logs(tmp_path: Path) -> None:
+        """Test logs."""
         console_handler = logs.setup_logging()
         console_handler.setLevel(logging.CRITICAL)
         logger = logging.LoggerAdapter(logging.getLogger(), {"label": "DUMMY"})

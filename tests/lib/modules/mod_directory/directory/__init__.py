@@ -1,3 +1,6 @@
+# type: ignore
+# pylint: disable=all
+
 from cellophane.src import data, modules
 
 

@@ -1,8 +1,10 @@
 """CLI for managing cellophane projects"""
 
+
 import logging
 import os
 import re
+from contextlib import suppress
 from functools import cache, cached_property, wraps
 from pathlib import Path
 from shutil import rmtree
@@ -200,7 +202,7 @@ class ModulesRepo(Repo):
 
         return self.git.show(f"origin/{self.active_branch.name}:MODULES").split("\n")
 
-    @cache
+    @cache  # pylint: disable=method-cache-max-size-none
     def module_branches(self, _module: str) -> list[str]:
         """
         Retrieves the branches associated with the specified module.
@@ -230,7 +232,7 @@ class ModulesRepo(Repo):
             )
         ]
 
-    @cache
+    @cache  # pylint: disable=method-cache-max-size-none
     def latest_module_tag(self, _module: str) -> str:
         """
         Retrieves the latest tag for the specified module.
@@ -519,7 +521,7 @@ def _update_example_config(path: Path) -> None:
         handle.write(schema.example_config)
 
 
-def _remove_submodule(repo: Repo, module: str) -> None:
+def _remove_submodule(repo: Repo, module_: str) -> None:
     if not repo.working_tree_dir:
         raise InvalidCellophaneRepoError(
             Path(repo.working_dir),
@@ -527,22 +529,20 @@ def _remove_submodule(repo: Repo, module: str) -> None:
         )
     repo_git_path = Path(repo.git_dir)
     repo.index.remove(
-        f"{repo.working_tree_dir}/modules/{module}",
+        f"{repo.working_tree_dir}/modules/{module_}",
         r=True,
         working_tree=True,
     )
     with repo.config_writer() as cw:
-        cw.remove_section(f'submodule "{module}"')
-    for root, dn, fn in os.walk(repo_git_path / "modules" / module):
+        cw.remove_section(f'submodule "{module_}"')
+    for root, dn, fn in os.walk(repo_git_path / "modules" / module_):
         for p in [*dn, *fn]:
             (Path(root) / p).chmod(0o777)
-    try:
-        rmtree(repo_git_path / "modules" / module)
-    except FileNotFoundError:
-        pass
+    with suppress(FileNotFoundError):
+        rmtree(repo_git_path / "modules" / module_)
 
 
-def _ask_modules(valid_modules: Sequence[str]) -> list[str]:
+def _ask_modules(valid_modules: Sequence[str]) -> list[tuple[str, None]]:
     if not valid_modules:
         raise NoModulesError("No modules to select from")
 
@@ -606,10 +606,10 @@ def _validate_modules(ignore_branch: bool = False) -> Callable:
 
 
 @click.group(
-    context_settings=dict(
-        help_option_names=["-h", "--help"],
-        show_default=True,
-    ),
+    context_settings={
+        "help_option_names": ["-h", "--help"],
+        "show_default": True,
+    },
 )
 @click.option(
     "--modules-repo",

@@ -1,4 +1,7 @@
-from cellophane.src import modules, data
+# type: ignore
+# pylint: disable=all
+
+from cellophane.src import data, modules
 
 
 @modules.pre_hook()

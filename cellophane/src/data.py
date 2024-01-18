@@ -3,7 +3,7 @@
 from collections import UserList
 from collections.abc import Mapping
 from copy import deepcopy
-from functools import reduce, wraps
+from functools import reduce
 from glob import glob
 from logging import LoggerAdapter
 from pathlib import Path
@@ -104,7 +104,7 @@ class Container(Mapping):
             raise TypeError("Cannot merge containers of different types")
         return self.__class__(**util.merge_mappings(self, other))
 
-    def __init__(self, __data__: dict | None = None, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, __data__: dict | None = None, *args: Any, **kwargs: Any) -> None:  # pylint: disable=keyword-arg-before-vararg
         _data = __data__ or {}
         for key in [k for k in kwargs if k not in fields_dict(self.__class__)]:
             _data[key] = kwargs.pop(key)
@@ -118,7 +118,7 @@ class Container(Mapping):
         object.__setattr__(instance, "__data__", {})
         return instance
 
-    def __contains__(self, key: str | Sequence[str]) -> bool:
+    def __contains__(self, key: str | Sequence[str]) -> bool:  # type: ignore[override]
         try:
             self[key]  # pylint: disable=pointless-statement]
             return True
@@ -132,7 +132,7 @@ class Container(Mapping):
             super().__setattr__(name, value)
 
     def __setitem__(self, key: str | Sequence[str], item: Any) -> None:
-        if isinstance(item, dict) and not isinstance(item, (Container, _dict)):
+        if isinstance(item, dict) and not isinstance(item, (Container, dict_)):
             item = Container(item)
 
         match key:
@@ -142,7 +142,7 @@ class Container(Mapping):
                 self.__data__[k] = item
             case *k, if all(isinstance(k_, str) for k_ in k):
 
-                def _set(d: Container, k: str) -> Container:
+                def _set(d: dict, k: str) -> dict:
                     if k not in d:
                         d[k] = Container()
                     return d[k]
@@ -206,21 +206,22 @@ class Output:
 
 
 @define
-class OutputGlob:
+class OutputGlob:  # type: ignore[no-untyped-def]
     """
     Output glob find files to be copied to the another directory.
     """
+
     src: str = field(
         kw_only=True,
         converter=str,
         on_setattr=convert,
     )
-    dst_dir: str | None = field(
+    dst_dir: str | None = field(  # type: ignore[var-annotated]
         kw_only=True,
         converter=lambda v: v if v is None else str(v),
         on_setattr=convert,
     )
-    dst_name: str | None = field(
+    dst_name: str | None = field(  # type: ignore[var-annotated]
         kw_only=True,
         converter=lambda v: v if v is None else str(v),
         on_setattr=convert,
@@ -238,11 +239,11 @@ class OutputGlob:
     ) -> set[Output]:
         """
         Resolve the glob pattern to a list of files to be copied.
-        
+
         Args:
             samples (Samples): The samples being processed.
-            workdir (Path): The working directory, with tag
-                (and sample ID for individual_samples runenrs)
+            workdir (Path): The working directory
+                with tag and the value of the split_by attribute (if any) appended.
             config (Container): The configuration object.
             logger (LoggerAdapter): The logger.
 
@@ -303,7 +304,7 @@ class OutputGlob:
 
         for warning in warnings:
             logger.warning(warning)
-        
+
         return outputs
 
 
@@ -347,7 +348,7 @@ def _apply_mixins(
     return _cls
 
 
-class _dict(dict):
+class dict_(dict):
     """Dict subclass to allow dict inside Container"""
 
 
@@ -390,7 +391,7 @@ def as_dict(data: Container, exclude: list[str] | None = None) -> dict[str, Any]
 
 
 @define(slots=False)
-class Sample(_BASE):
+class Sample(_BASE):  # type: ignore[no-untyped-def]
     """
     Base sample class represents a sample with an ID, a list of files, a flag indicating
     if it's done, and a list of Output objects.
@@ -408,12 +409,23 @@ class Sample(_BASE):
     """
 
     id: str = field(kw_only=True)
-    files: list[Path] = field(
-        factory=list, converter=lambda v: [Path(p) for p in v], on_setattr=convert
+    files: list[Path] = field(  # type: ignore[var-annotated]
+        factory=list,
+        converter=lambda v: [Path(p) for p in v],
+        on_setattr=convert,
     )
     processed: bool = False
-    uuid: UUID = field(repr=False, factory=uuid4, init=False, on_setattr=frozen)
-    meta: Container = field(factory=Container, converter=Container, on_setattr=convert)
+    uuid: UUID = field(
+        repr=False,
+        factory=uuid4,
+        init=False,
+        on_setattr=frozen,
+    )
+    meta: Container = field(
+        factory=Container,
+        converter=Container,
+        on_setattr=convert,
+    )
     _fail: str | None = field(default=None, repr=False)
     merge: ClassVar[_Merger] = _Merger()
 
@@ -431,21 +443,18 @@ class Sample(_BASE):
 
     @merge.register("files")
     @staticmethod
-    def _merge_files(this: list[Path], that: list[Path]) -> set[str]:
+    def _merge_files(this: list[Path], that: list[Path]) -> list[Path]:
         return [*dict.fromkeys((*this, *that))]
 
     @merge.register("meta")
     @staticmethod
-    def _merge_files(this: set[str], that: set[str]) -> set[str]:
+    def _merge_meta(this: set[str], that: set[str]) -> Container:
         return Container(util.merge_mappings(this, that))
 
     @merge.register("_fail")
     @staticmethod
     def _merge_fail(this: str | None, that: str | None) -> str | None:
-        if this and that:
-            return f"{this}\n{that}"
-        else:
-            return this or that
+        return f"{this}\n{that}" if this and that else this or that
 
     @merge.register("processed")
     @staticmethod
@@ -543,7 +552,7 @@ class Samples(UserList[S]):
         self.__attrs_init__(**kwargs)  # pylint: disable=no-member
         super().__init__(data or [])
 
-    def __getitem__(self, key: int | UUID):
+    def __getitem__(self, key: int | UUID) -> S:  # type: ignore[override]
         if isinstance(key, int):
             return super().__getitem__(key)
         elif isinstance(key, UUID) and key in self:
@@ -553,7 +562,7 @@ class Samples(UserList[S]):
         else:
             raise TypeError(f"Key {key} is not an int or a UUID")
 
-    def __setitem__(self, key: int | UUID, value: S) -> None:
+    def __setitem__(self, key: int | UUID, value: S) -> None:  # type: ignore[override]
         if isinstance(key, int):
             super().__setitem__(key, value)
         elif isinstance(key, UUID) and key in self:
@@ -563,7 +572,7 @@ class Samples(UserList[S]):
         else:
             raise TypeError(f"Key {key} is not an int or a UUID")
 
-    def __contains__(self, item: S | UUID) -> bool:
+    def __contains__(self, item: S | UUID) -> bool:  # type: ignore[override]
         if isinstance(item, UUID):
             return any(s.uuid == item for s in self)
         else:
@@ -634,12 +643,12 @@ class Samples(UserList[S]):
 
         return type(cls.__name__, (cls,), {"sample_class": sample_class})
 
-    def split(self, link_by: str | None = None) -> Iterable[tuple[Any, "Samples"]]:
+    def split(self, by: str | None = "uuid") -> Iterable[tuple[Any, "Samples"]]:
         """
         Splits the data into groups based on the specified attribute value.
 
         Args:
-            link_by (str | None): The attribute to link the samples by.
+            by (str | None): The attribute to link the samples by.
                 Defaults to None, which results in Samples objects with one
                 sample each.
 
@@ -659,7 +668,7 @@ class Samples(UserList[S]):
             )
 
             # Splitting by the "id" attribute (eg. to merge data from multiple runs)
-            for key, samples in data.split(link_by="id"):
+            for key, samples in data.split(by="id"):
                 print(key)
                 print(samples)
             # "sample1"
@@ -681,16 +690,13 @@ class Samples(UserList[S]):
             # Samples(Sample(id='sample2', files=['file2.txt']))
             ```
         """
-        if link_by is not None:
-            linked = {
-                sample[link_by]: [li for li in self if li[link_by] == sample[link_by]]
-                for sample in self
-            }
-            for key, li in linked.items():
-                yield key, self.__class__(li)
+        if by is None:
+            yield None, self
         else:
-            for sample in self:
-                yield sample.uuid, self.__class__([sample])
+            yield from {
+                sample[by]: self.__class__([li for li in self if li[by] == sample[by]])
+                for sample in self
+            }.items()
 
     @property
     def unique_ids(self) -> set[str]:
@@ -729,7 +735,7 @@ class Samples(UserList[S]):
                 if sample.files and all(Path(f).exists() for f in sample.files)
             ]
         )
-    
+
     @property
     def without_files(self) -> "Samples":
         """

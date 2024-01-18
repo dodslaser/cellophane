@@ -124,6 +124,31 @@ class Executor:
         cpus: int,
         memory: int,
     ) -> int | None:  # pragma: no cover
+        """
+        Will be called by the executor to execute a command.
+
+        Subclasses should override this method to implement the target execution.
+
+        Args:
+            name (str): The name of the job.
+            uuid (UUID): The UUID of the job.
+                This should generally not be overridden, but can be used to
+                identify the job in the target execution.
+            workdir (Path): The working directory for the target.
+            env (dict): The environment variables for the target.
+            os_env (bool): Flag indicating whether to use the OS environment variables.
+            logger (logging.LoggerAdapter): The logger for the target.
+            cpus (int): The number of CPUs to allocate for the target.
+            memory (int): The amount of memory to allocate for the target.
+
+        Returns:
+            int | None: The return code of the target execution,
+                or None if not applicable.
+
+        Raises:
+            NotImplementedError: If the target execution is not implemented.
+        """
+
         del name, uuid, workdir, env, os_env, logger, cpus, memory  # Unused
         raise NotImplementedError
 
@@ -201,6 +226,7 @@ class Executor:
         self.pool.terminate()
         for lock in self.locks.values():
             lock.acquire()
+            lock.release()
 
     def wait(self, uuid: UUID | None = None) -> None:
         """Wait for a specific job or all jobs to complete."""
