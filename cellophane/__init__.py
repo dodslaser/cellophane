@@ -89,9 +89,7 @@ def _start_runners(
                 (r, s)
                 for r in runners
                 for _, s in (
-                    samples.split(link_by=r.link_by)
-                    if r.individual_samples
-                    else [(None, samples)]
+                    samples.split(by=r.split_by) if r.split_by else [(None, samples)]
                 )
             ):
                 result = pool.apply_async(

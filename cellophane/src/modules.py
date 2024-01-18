@@ -50,14 +50,11 @@ class Runner:
         func (Callable): The function to be executed as a job.
         label (str | None): The label for the runner.
             Defaults to the name of the function.
-        individual_samples (bool): Whether to process samples individually.
-            Defaults to False.
-        link_by (str | None): The attribute to link samples by. Defaults to None.
+        split_by (str | None): The attribute to split samples by.
     """
 
     label: str
-    individual_samples: bool
-    link_by: str | None
+    split_by: str | None
     func: Callable
     wait: bool
     main: Callable[..., data.Samples | None]
@@ -67,8 +64,7 @@ class Runner:
         self,
         func: Callable,
         label: str | None = None,
-        individual_samples: bool = False,
-        link_by: str | None = None,
+        split_by: str | None = None,
     ) -> None:
         self.__name__ = func.__name__
         self.__qualname__ = func.__qualname__
@@ -76,8 +72,7 @@ class Runner:
         self.label = label or func.__name__
         self.main = staticmethod(func)
         self.label = label or self.__name__
-        self.individual_samples = individual_samples
-        self.link_by = link_by
+        self.split_by = split_by
         super().__init_subclass__()
 
     def __call__(
@@ -95,8 +90,8 @@ class Runner:
 
         signal(SIGTERM, _cleanup(logger))
         workdir = config.workdir / config.tag / self.label
-        if self.individual_samples:
-            workdir /= samples[0].id
+        if self.split_by:
+            workdir /= samples[0][self.split_by]
 
         workdir.mkdir(parents=True, exist_ok=True)
 
@@ -418,17 +413,14 @@ def post_hook(
 
 def runner(
     label: str | None = None,
-    individual_samples: bool = False,
-    link_by: str | None = None,
+    split_by: str | None = None,
 ) -> Callable:
     """
     Decorator for creating a runner.
 
     Args:
         label (str | None): The label for the runner. Defaults to None.
-        individual_samples (bool): Whether to process samples individually.
-            Defaults to False.
-        link_by (str | None): The attribute to link samples by. Defaults to None.
+        split_by (str | None): The attribute to link samples by. Defaults to None.
 
     Returns:
         Callable: The decorator function.
@@ -438,8 +430,7 @@ def runner(
         return Runner(
             label=label,
             func=func,
-            individual_samples=individual_samples,
-            link_by=link_by,
+            split_by=split_by,
         )
 
     return wrapper
@@ -466,8 +457,8 @@ def output(
             - `sample`: The current sample being processed.
             - `config`: The configuration object.
             - `runner`: The runner being executed.
-            - `workdir`: The working directory, with tag
-                (and sample ID for individual_samples runenrs)
+            - `workdir`: The working directory
+                with tag and the value of the split_by attribute (if any) appended. 
         dst_dir: The directory to copy the files to. If not specified, the
             directory of the matched file will be used. If the matched file is
         dst_name: The name to copy the files to. If not specified, the name
