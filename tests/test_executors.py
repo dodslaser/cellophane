@@ -24,7 +24,7 @@ class Test_SubprocessExecutor:
             use_dill=True,
         ) as pool:
             spe = executors.SubprocesExecutor(
-                config=config,
+                config=config,  # type: ignore[arg-type]
                 pool=pool,
                 log_queue=mp.Queue(),
             )

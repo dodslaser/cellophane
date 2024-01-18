@@ -106,7 +106,7 @@ class Schema(data.Container):
             return handle.getvalue()
 
 
-@define
+@define(init=False, slots=False)
 class Config(data.Container):
     """
     Represents a configuration object based on a schema.
@@ -276,8 +276,10 @@ def options(schema: Schema) -> Callable:
                 config_data = YAML(typ="safe").load(config_file) if config_file else {}
 
                 if kwargs.get("workdir") is not None:
-                    kwargs["resultdir"] = kwargs["resultdir"] or  (kwargs["workdir"] / "results")
-                    kwargs["logdir"] = kwargs["logdir"] or (kwargs["workdir"] / "logs")
+                    kwargs["resultdir"], kwargs["logdir"] = (
+                        kwargs["resultdir"] or (kwargs["workdir"] / "results"),
+                        kwargs["logdir"] or (kwargs["workdir"] / "logs"),
+                    )
 
                 ctx.obj = Config(  # type: ignore[call-arg]
                     schema=schema,

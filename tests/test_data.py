@@ -21,6 +21,7 @@ class Dummy(data.Container):
     """Dummy Container subclass for testing."""
 
     a: int = field(default=1337)
+    x: data.Container | None = field(default=None)
 
     @a.validator
     def _validate_a(self, attribute: str, value: int) -> None:
@@ -96,10 +97,10 @@ class Test_Container:
     @staticmethod
     def test_contains() -> None:
         """Test __contains__."""
-        _dummy = Dummy(a={"b": 1338})
+        _dummy = Dummy(x={"y": 1338})
         assert "a" in _dummy
-        assert "b" in _dummy.a
-        assert "c" not in _dummy
+        assert _dummy.x is not None and "y" in _dummy.x
+        assert "z" not in _dummy
 
     @staticmethod
     def test_or() -> None:
@@ -135,7 +136,7 @@ class Test_Sample:
         """Test __setitem__."""
 
         @define
-        class _SampleSub(data.Sample):
+        class _SampleSub(data.Sample):  # type: ignore[no-untyped-def]
             a: int = 1337
 
         _sample = _SampleSub(id="a", files=["b"])
@@ -159,7 +160,7 @@ class Test_Sample:
         _sample_a1 = _SampleSubA(id="a1", files=["a1"])
         _sample_a2 = _SampleSubA(id="a2", files=["a2"])
         _sample_a1_2 = deepcopy(_sample_a1)
-        _sample_a1_2.files = ["a1_2"]
+        _sample_a1_2.files = [Path("a1_2")]
         _sample_b = _SampleSubB(id="b", files=["d"])
 
         _sample_a1_merge = _sample_a1 & _sample_a1_2
@@ -180,13 +181,14 @@ class Test_Sample:
     @staticmethod
     def test_with_mixins() -> None:
         """Test with_mixins."""
-        class _mixin(data.Sample):
+        @define(slots=False)
+        class _mixin(data.Sample):  # type: ignore[no-untyped-def]
             a: str = "Hello"
             b: str = field(default="World")
             c: int = 1337
             d: ClassVar[int] = 1338
 
-        _sample_class = data.Sample.with_mixins([_mixin])
+        _sample_class: type[_mixin] = data.Sample.with_mixins([_mixin])
 
         assert _sample_class is not data.Samples
         assert _sample_class.d == 1338
@@ -306,9 +308,12 @@ class Test_Samples:
     @staticmethod
     def test_with_sample_class() -> None:
         """Test with_sample_class."""
-        _samples = data.Samples.with_sample_class(Dummy)
+        class _SampleSub(data.Sample):
+            ...
+
+        _samples = data.Samples.with_sample_class(_SampleSub)
         assert _samples is not data.Samples
-        assert _samples.sample_class is Dummy
+        assert _samples.sample_class is _SampleSub
 
     @staticmethod
     def test_with_mixins() -> None:
@@ -319,7 +324,7 @@ class Test_Samples:
             c: int = 1337
             d: ClassVar[int] = 1338
 
-        _samples_class = data.Samples.with_mixins([_mixin])
+        _samples_class: type[_mixin] = data.Samples.with_mixins([_mixin])
         assert _samples_class is not data.Samples
         assert _samples_class.d == 1338
 
@@ -339,7 +344,7 @@ class Test_Samples:
     @staticmethod
     def test_getitem_setitem() -> None:
         """Test __getitem__ and __setitem__."""
-        samples: data.Samples = data.Samples(
+        samples: data.Samples[data.Sample] = data.Samples(
             [
                 data.Sample(id="a", files=["a", "b"]),
                 data.Sample(id="b", files=["c", "d"]),
@@ -373,7 +378,7 @@ class Test_Samples:
         """Test __contains__."""
         sample_a = data.Sample(id="a", files=["a", "b"])
         sample_b = data.Sample(id="b", files=["c", "d"])
-        samples = data.Samples([sample_a, sample_b])
+        samples: data.Samples = data.Samples([sample_a, sample_b])
 
         assert sample_a in samples
         assert sample_b in samples
@@ -405,7 +410,7 @@ class Test_Samples:
 
         _samples_b = _SamplesSubB(
             [
-                data.Sample(id="b1", files=["b1"]),
+                data.Sample(id="b1", files=["b1"]),  # type: ignore[var-annotated]
                 data.Sample(id="b2", files=["b2"]),
             ]
         )
@@ -424,8 +429,8 @@ class Test_Samples:
         _sample_b = data.Sample(id="b", files=["c", "d"])
         _sample_c = data.Sample(id="c", files=["e", "f"])
 
-        _samples_1 = data.Samples([_sample_a, _sample_b])
-        _samples_2 = data.Samples([_sample_b, _sample_c])
+        _samples_1: data.Samples = data.Samples([_sample_a, _sample_b])
+        _samples_2: data.Samples = data.Samples([_sample_b, _sample_c])
         _samples_3 = _SamplesSub([_sample_c])
 
         _samples_1_or_2 = _samples_1 | _samples_2

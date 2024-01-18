@@ -82,7 +82,7 @@ class _Merger:
             return (this, that)
 
 
-@define
+@define(init=False, slots=False)
 class Container(Mapping):
     """Base container class for the Config, Sample, and Samples classes.
 
@@ -389,6 +389,7 @@ def as_dict(data: Container, exclude: list[str] | None = None) -> dict[str, Any]
         if k not in (exclude or [])
     }
 
+S = TypeVar("S", bound="Sample")
 
 @define(slots=False)
 class Sample(_BASE):  # type: ignore[no-untyped-def]
@@ -517,9 +518,6 @@ class Sample(_BASE):  # type: ignore[no-untyped-def]
             type: The new class with the mixins applied.
         """
         return _apply_mixins(cls, _BASE, mixins)
-
-
-S = TypeVar("S", bound=Sample)
 
 
 @define(slots=False, order=False, init=False)
