@@ -179,13 +179,16 @@ def _main(
     )
 
     # If not post-hook has copied the outputs, warn the user
-    if missing_outputs := [o for o in samples.output if not o.dst.exists()]:
+    if missing_outputs := [
+        o for o in samples.output if isinstance(o, OutputGlob) or not o.dst.exists()
+    ]:
         logger.warning(
             "One or more outputs were not copied "
             "(This should be done by a post-hook)"
         )
-        for output in missing_outputs:
-            logger.debug(f"Missing output: {output}")
+        for output_ in missing_outputs:
+            logger.debug(f"Missing output: {output_}")
+
 
 def cellophane(
     label: str,
