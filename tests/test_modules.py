@@ -579,4 +579,3 @@ class Test_load:
         handlers = copy(logging.getLogger().handlers)
         modules.load(LIB / "modules" / "mod_override_logging")
         assert logging.getLogger().handlers == handlers
-
