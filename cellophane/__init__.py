@@ -81,7 +81,10 @@ def _start_runners(
         return samples
 
     with WorkerPool(
-        use_dill=True, daemon=False, start_method="fork", shared_objects=log_queue
+        use_dill=True,
+        daemon=False,
+        start_method="fork",
+        shared_objects=log_queue,
     ) as pool:
         try:
             results = []
