@@ -104,7 +104,6 @@ class Runner:
                     samples=deepcopy(samples),
                     config=config,
                     timestamp=config.timestamp,
-                    label=self.label,
                     logger=logger,
                     root=root,
                     workdir=workdir,
@@ -218,7 +217,6 @@ class Hook:
                 logger=logger,
                 root=root,
                 workdir=config.workdir / config.tag,
-                log_queue=log_queue,
                 executor=executor_cls(
                     config=config,
                     pool=pool,
@@ -458,7 +456,7 @@ def output(
             - `config`: The configuration object.
             - `runner`: The runner being executed.
             - `workdir`: The working directory
-                with tag and the value of the split_by attribute (if any) appended. 
+                with tag and the value of the split_by attribute (if any) appended.
         dst_dir: The directory to copy the files to. If not specified, the
             directory of the matched file will be used. If the matched file is
         dst_name: The name to copy the files to. If not specified, the name
@@ -470,10 +468,15 @@ def output(
             func.main = wrapper(func.main)
             return func
 
-        def inner(*args: Any, samples: data.Samples, **kwargs: Any) -> data.Samples | None:
+        def inner(
+            *args: Any,
+            samples: data.Samples,
+            **kwargs: Any,
+        ) -> data.Samples | None:
             glob_ = data.OutputGlob(src=src, dst_dir=dst_dir, dst_name=dst_name)
             samples.output.add(glob_)
             return func(*args, samples=samples, **kwargs)
+
         inner.__name__ = func.__name__
         inner.__qualname__ = func.__qualname__
         return inner
