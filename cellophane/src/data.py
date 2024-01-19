@@ -27,6 +27,15 @@ from ruamel.yaml import YAML
 from . import util
 
 
+class MergeSamplesTypeError(Exception):
+    """Raised when trying to merge samples of different types"""
+    msg: str = "Cannot merge samples of different types"
+
+
+class MergeSamplesUUIDError(Exception):
+    """Raised when trying to merge samples with different UUIDs"""
+    msg: str = "Cannot merge samples with different UUIDs"
+
 class _BASE:
     ...
 
@@ -464,9 +473,9 @@ class Sample(_BASE):  # type: ignore[no-untyped-def]
 
     def __and__(self, other: "Sample") -> "Sample":
         if self.__class__ != other.__class__:
-            raise TypeError("Cannot merge samples of different types")
+            raise MergeSamplesTypeError
         elif self.uuid != other.uuid:
-            raise ValueError("Cannot merge samples with different UUIDs")
+            raise MergeSamplesUUIDError
 
         _sample = deepcopy(self)
         for _field in (
@@ -795,7 +804,7 @@ class Samples(UserList[S]):
 
     def __or__(self, other: "Samples") -> "Samples":
         if self.__class__ != other.__class__:
-            raise TypeError("Cannot merge samples of different types")
+            raise MergeSamplesTypeError
 
         _samples = deepcopy(self)
         for sample in other:
@@ -805,7 +814,7 @@ class Samples(UserList[S]):
 
     def __and__(self, other: "Samples") -> "Samples":
         if self.__class__ != other.__class__:
-            raise TypeError("Cannot merge samples of different types")
+            raise MergeSamplesTypeError
 
         _samples = deepcopy(self)
         for _field in fields_dict(self.__class__):

@@ -166,9 +166,9 @@ class Test_Sample:
         _sample_a1_merge = _sample_a1 & _sample_a1_2
 
         assert _sample_a1_merge.files == [Path("a1"), Path("a1_2")]
-        with raises(TypeError):
+        with raises(data.MergeSamplesTypeError):
             _sample_a1 & _sample_b
-        with raises(ValueError):
+        with raises(data.MergeSamplesUUIDError):
             _sample_a1 & _sample_a2
 
     @staticmethod
@@ -415,8 +415,9 @@ class Test_Samples:
             ]
         )
 
-        _samples_a_merge = _samples_a1 & _samples_a2
-        with raises(TypeError):
+        assert _samples_a1 & _samples_a2
+
+        with raises(data.MergeSamplesTypeError):
             _samples_a1 & _samples_b
 
     @staticmethod
@@ -437,5 +438,5 @@ class Test_Samples:
 
         assert _samples_1_or_2 == data.Samples([_sample_a, _sample_b, _sample_c])
 
-        with raises(TypeError):
+        with raises(data.MergeSamplesTypeError):
             _samples_1 | _samples_3
