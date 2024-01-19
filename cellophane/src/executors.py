@@ -64,10 +64,10 @@ def _target(
     except SystemExit as exc:
         if exc.code != 0:
             logger.warning(f"Command failed with exit code: {exc.code}")
-            exit(exc.code)
+            raise exc
     except Exception as exc:  # pylint: disable=broad-except
         logger.warning(f"Command failed with exception: {exc!r}")
-        exit(1)
+        raise SystemExit(1) from exc
 
 
 def _callback(
