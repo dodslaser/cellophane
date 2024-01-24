@@ -732,7 +732,7 @@ def module(
     except Exception as exc:
         _logger.critical(
             f"Unhandled Exception: {repr(exc)}",
-            exc_info=ctx.obj["log_level"] == "DEBUG",
+            exc_info=True,
         )
         raise SystemExit(1) from exc
 
@@ -760,8 +760,7 @@ def add(
             _add_requirements(path, _module)
         except Exception as exc:  # pylint: disable=broad-except
             logger.error(
-                f"Unable to add '{_module}@{branch}': {repr(exc)}",
-                exc_info=log_level == "DEBUG",
+                f"Unable to add '{_module}@{branch}': {repr(exc)}", exc_info=True
             )
             if submodule is not None:
                 submodule.remove(force=True)
@@ -809,8 +808,7 @@ def update(
             _add_requirements(path, _module)
         except Exception as exc:  # pylint: disable=broad-except
             logger.error(
-                f"Unable to update '{_module}->{branch}': {repr(exc)}",
-                exc_info=log_level == "DEBUG",
+                f"Unable to update '{_module}->{branch}': {repr(exc)}", exc_info=True
             )
             with open(_config_path, "w", encoding="utf-8") as handle:
                 handle.write(_config_original)
@@ -854,10 +852,7 @@ def rm(
             _update_example_config(path)
             _remove_requirements(path, _module)
         except Exception as exc:  # pylint: disable=broad-except
-            logger.error(
-                f"Unable to remove '{_module}': {repr(exc)}",
-                exc_info=log_level == "DEBUG",
-            )
+            logger.error(f"Unable to remove '{_module}': {repr(exc)}", exc_info=True)
             with open(_config_path, "w", encoding="utf-8") as handle:
                 handle.write(_config_original)
             if _path is not None:
@@ -906,7 +901,7 @@ def init(ctx: click.Context, name: str, force: bool) -> None:
         logger.critical("Project path is not empty (--force to ignore)")
         raise SystemExit(1) from e
     except Exception as e:
-        logger.critical(e, exc_info=ctx.obj["log_level"] == "DEBUG")
+        logger.critical(f"Unhandeled exception: {e}", exc_info=True,
         raise SystemExit(1) from e
 
 

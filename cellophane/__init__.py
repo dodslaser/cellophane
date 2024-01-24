@@ -118,7 +118,10 @@ def _start_runners(
         try:
             return reduce(lambda a, b: a & b, (loads(r.get()) for r in results))
         except Exception as exception:  # pylint: disable=broad-except
-            logger.critical(f"Unhandled exception when collecting results: {exception}")
+            logger.critical(
+                f"Unhandled exception when collecting results: {exception}",
+                exc_info=True,
+            )
             return samples
 
 
