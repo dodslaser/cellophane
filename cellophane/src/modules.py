@@ -56,9 +56,7 @@ class Runner:
     label: str
     split_by: str | None
     func: Callable
-    wait: bool
     main: Callable[..., data.Samples | None]
-    done: bool = False
 
     def __init__(
         self,
@@ -91,7 +89,7 @@ class Runner:
         signal(SIGTERM, _cleanup(logger))
         workdir = config.workdir / config.tag / self.label
         if self.split_by:
-            workdir /= samples[0][self.split_by]
+            workdir /= samples[0][self.split_by] or "unknown"
 
         workdir.mkdir(parents=True, exist_ok=True)
 
