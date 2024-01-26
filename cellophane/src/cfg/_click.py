@@ -444,7 +444,7 @@ class Flag:
         Returns:
             str: The flag name.
         """
-        return f"{'_'.join(self.key[:-1])}_no_{self.key[-1]}"
+        return "_".join([*self.key[:-1], "no", self.key[-1]])
 
     @property
     def click_option(self) -> Callable:
