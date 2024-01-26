@@ -358,6 +358,34 @@ class Flag:
         if value not in [*get_args(SCHEMA_TYPES), None]:
             raise ValueError(f"Invalid type: {value}")
 
+    def convert(
+        self,
+        value: Any,
+        ctx: click.Context | None = None,
+        param: click.Parameter | None = None,
+    ) -> Any:
+        """
+        Converts the value to the flag type.
+
+        Args:
+            value (Any): The value to be converted.
+            ctx (click.Context | None): The click context.
+            param (click.Parameter | None): The click parameter.
+
+        Returns:
+            Any: The converted value.
+        """
+        _converter: Callable
+        if isinstance(self.click_type, click.ParamType):
+            _converter = partial(self.click_type.convert, ctx=ctx, param=param)
+        else:
+            _converter = self.click_type
+
+        try:
+            return _converter(value)
+        except TypeError:
+            return value
+
     @property
     def key(self) -> list[str]:
         """
