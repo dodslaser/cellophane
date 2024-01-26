@@ -901,7 +901,7 @@ def init(ctx: click.Context, name: str, force: bool) -> None:
         logger.critical("Project path is not empty (--force to ignore)")
         raise SystemExit(1) from e
     except Exception as e:
-        logger.critical(f"Unhandeled exception: {e}", exc_info=True,
+        logger.critical(f"Unhandeled exception: {e}", exc_info=True)
         raise SystemExit(1) from e
 
 
