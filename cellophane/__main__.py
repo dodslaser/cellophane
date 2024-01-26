@@ -658,7 +658,6 @@ def main(
     )
     ctx.obj["logger"].setLevel(log_level)
     ctx.obj["path"] = path
-    ctx.obj["log_level"] = log_level
     ctx.obj["modules_repo_url"] = modules_repo_url
     ctx.obj["modules_repo_branch"] = modules_repo_branch
 
@@ -712,7 +711,6 @@ def module(
             repo=_repo,
             path=_path,
             logger=_logger,
-            log_level=ctx.obj["log_level"],
         )
 
         match command:
@@ -743,7 +741,6 @@ def add(
     modules: list[tuple[str, str]],
     path: Path,
     logger: logging.LoggerAdapter,
-    log_level: str,
 ) -> None:
     """Add module(s)"""
 
@@ -781,7 +778,6 @@ def update(
     modules: list[tuple[str, str]],
     path: Path,
     logger: logging.LoggerAdapter,
-    log_level: str,
     **kwargs: Any,
 ) -> None:
     """Update module(s)"""
@@ -833,7 +829,6 @@ def rm(
     modules: list[tuple[str, str]],
     path: Path,
     logger: logging.LoggerAdapter,
-    log_level: str,
     **kwargs: Any,
 ) -> None:
     """Remove module"""
