@@ -169,11 +169,19 @@ class Hook:
         when: Literal["pre", "post"],
         label: str | None = None,
         condition: Literal["always", "complete", "failed"] = "always",
-        before: Literal["all"] | list[str] | None = None,
-        after: Literal["all"] | list[str] | None = None,
+        before: str | list[str] | None = None,
+        after: str | list[str] | None = None,
     ) -> None:
-        before = before or []
-        after = after or []
+        if isinstance(before, str) and before != "all":
+            before = [before]
+        elif before is None:
+            before = []
+
+        if isinstance(after, str) and after != "all":
+            after = [after]
+        elif after is None:
+            after = []
+
         match before, after:
             case "all", list(after):
                 self.before = ["before_all"]
