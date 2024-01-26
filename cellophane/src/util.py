@@ -24,11 +24,12 @@ def freeze(data: Any) -> Any:
 
     Args:
         data (Any): The object to freeze.
-    
+
     Returns:
         Any: Input data object
     """
     return data
+
 
 @freeze.register
 def _(data: dict) -> frozendict:
@@ -37,11 +38,12 @@ def _(data: dict) -> frozendict:
 
     Args:
         data (dict): The dictionary to freeze.
-    
+
     Returns:
         frozendict: The frozen dictionary.
     """
     return frozendict({k: freeze(v) for k, v in data.items()})
+
 
 @freeze.register
 def _(data: list | frozenlist) -> frozenlist:
@@ -50,11 +52,12 @@ def _(data: list | frozenlist) -> frozenlist:
 
     Args:
         data (list | tuple): The list or tuple to freeze.
-    
+
     Returns:
         tuple: The frozen list or tuple.
     """
     return frozenlist(freeze(v) for v in data)
+
 
 @singledispatch
 def unfreeze(data: Any) -> Any:
@@ -63,37 +66,40 @@ def unfreeze(data: Any) -> Any:
 
     Args:
         data (Any): The object to unfreeze.
-    
+
     Returns:
         Any: Input data object
     """
     return data
 
+
 @unfreeze.register
 def _(data: dict | frozendict) -> dict:
     """
     Unfreezes a dictionary.
-    
+
     Args:
         data (dict | frozendict): The dictionary to unfreeze.
-    
+
     Returns:
         dict: The unfrozen dictionary.
     """
     return {k: unfreeze(v) for k, v in data.items()}
 
+
 @unfreeze.register
 def _(data: list | frozenlist) -> list:
     """
     Unfreezes a frozenlist.
-    
+
     Args:
         data (list | frozenlist): The list or tuple to unfreeze.
-    
+
     Returns:
         list: The unfrozen list.
     """
     return [unfreeze(v) for v in data]
+
 
 def map_nested_keys(node: Any, path: list[str] | None = None) -> list[list[str]]:
     """
@@ -152,7 +158,7 @@ def merge_mappings(m_1: Any, m_2: Any) -> Any:
         m_1 = {"k1": "v1", "k2": ["v2", "v3"]}
         m_2 = {"k2": ["v4", "v5"], "k3": "v6"}
         merge_mappings(m_1, m_2)
-        
+
         # {
         #     "k1": "v1",
         #     "k2": ["v2", "v3", "v4", "v5"],
@@ -179,7 +185,7 @@ def lazy_import(name: str) -> ModuleType:
     """
     Performs a lazy import of a module. The module is added to `sys.modules`,
     but not loaded until it is accessed.
-    
+
     Args:
         name (str): The name of the module to import.
 
