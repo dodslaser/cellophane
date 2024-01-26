@@ -166,8 +166,36 @@ class Executor:
         cpus: int | None = None,
         memory: int | None = None,
     ) -> tuple[AsyncResult, UUID]:
-        """Submit a job."""
+        """Submit a job for execution.
 
+        Args:
+            *args: Variable length argument list of strings or paths.
+            name: The name of the job.
+                Defaults to __name__.
+            wait: Whether to wait for the job to complete.
+                Defaults to False.
+            uuid: The UUID of the job.
+                Defaults to a random UUID.
+            workdir: The working directory for the job.
+                Defaults to the `config.workdir / uuid.hex`.
+            env: The environment variables for the job.
+                Defaults to None.
+            os_env: Whether to include the OS environment variables.
+                Defaults to True.
+            callback: The callback function to be executed on job completion.
+                Defaults to None.
+            error_callback: The callback function to be executed on job failure.
+                Defaults to None.
+            cpus: The number of CPUs to allocate for the job.
+                Defaults to all available CPUs.
+                May not be supported by all executors.
+            memory: The amount of memory to allocate for the job.
+                Defaults to all available memory.
+                May not be supported by all executors.
+
+        Returns:
+            A tuple containing the AsyncResult object and the UUID of the job.
+        """
         _uuid = uuid or uuid4()
         logger = logging.LoggerAdapter(logging.getLogger(), {"label": name})
         self.locks[_uuid] = mp.Lock()
@@ -229,7 +257,14 @@ class Executor:
             lock.release()
 
     def wait(self, uuid: UUID | None = None) -> None:
-        """Wait for a specific job or all jobs to complete."""
+        """Wait for a specific job or all jobs to complete.
+
+        Args:
+            uuid: The UUID of the job to wait for. Defaults to None.
+
+        Returns:
+            None
+        """
         if uuid in self.jobs:
             self.jobs[uuid].wait()
         elif uuid is None:
