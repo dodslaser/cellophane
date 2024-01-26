@@ -217,7 +217,9 @@ def cellophane(
     Returns:
         click.BaseCommand: The click command for the Cellophane application.
     """
-    click.rich_click.DEFAULT_STRING = "[{}]"
+    click.rich_click.REQUIRED_LONG_STRING = "(REQUIRED)"
+    click.rich_click.DEFAULT_STRING = "{}"
+    click.rich_click.STYLE_OPTION_DEFAULT = "green"
 
     console_handler = logs.setup_logging()
     logger = logging.LoggerAdapter(logging.getLogger(), {"label": label})
