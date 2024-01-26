@@ -157,24 +157,19 @@ class Config(data.Container):
         self.__schema__ = schema
 
         for flag in _get_flags(schema, _data):
-            _converter: partial | Callable = (
-                partial(flag.click_type.convert, ctx=None, param=None)
-                if isinstance(flag.click_type, click.ParamType)
-                else flag.click_type
-            )
             if flag.flag in kwargs:
-                self[flag.key] = _converter(kwargs[flag.flag])
+                self[flag.key] = flag.convert(kwargs[flag.flag])
             elif flag.value is not None:
-                self[flag.key] = _converter(flag.value)
+                self[flag.key] = flag.convert(flag.value)
             elif flag.default is not None and include_defaults:
-                self[flag.key] = _converter(flag.default)
+                self[flag.key] = flag.convert(flag.default)
 
 
 def _set_defaults(config: Config) -> None:
     """Updates the configuration from keyword arguments"""
     for flag in _get_flags(config.__schema__):
         if flag.default is not None and flag.key not in config:
-            config[flag.key] = flag.default
+            config[flag.key] = flag.convert(flag.default)
 
 
 @singledispatch
