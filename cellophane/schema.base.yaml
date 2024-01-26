@@ -1,5 +1,7 @@
 required:
   - workdir
+  - resultdir
+  - logdir
 
 
 properties:
@@ -28,7 +30,7 @@ properties:
       memory:
         type: size
         description: Ammount of memory to allocate to jobs started (if supported by the executor)
-        default: 2 GiB
+        default: 2 GB
 
   config_file:
     description: Path to config file
