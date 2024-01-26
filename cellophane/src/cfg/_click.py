@@ -271,8 +271,11 @@ class ParsedSize(click.ParamType):
             result = converter.convert(value, None, None)
             print(result)
         """
-        del param, ctx  # Unused
-        return parse_size(str(value))
+        try:
+            return parse_size(str(value))
+        except Exception as exc:  # pylint: disable=broad-except
+            self.fail(str(exc), param, ctx)
+
 
 
 def _click_type(  # type: ignore[return]
