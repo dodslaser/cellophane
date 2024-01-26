@@ -32,6 +32,7 @@ def _create_structure(
             _create_structure(root / path, content, external_root)
         else:
             (root / path).write_text(content)
+            (root / path).chmod(0o755)
 
     for src, dst in (external or {}).items():
         _src = Path(src)
