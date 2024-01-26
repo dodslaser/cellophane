@@ -170,11 +170,15 @@ def dependent_schemas_(
     """Merge dependent schemas into the compiled schema"""
     del validator, schema  # Unused
 
-    if instance is not None:
-        if _valid := [s for d, s in dependencies.items() if d in instance]:
-            _subschema = reduce(util.merge_mappings, _valid)
-            compiled |= util.merge_mappings(compiled, _subschema)
-        compiled.pop("dependentSchemas")
+    if instance is None:
+        _subschema = reduce(util.merge_mappings, dependencies.values())
+    elif _valid := [s for d, s in dependencies.items() if d in instance]:
+        _subschema = reduce(util.merge_mappings, _valid)
+    else:
+        _subschema = {}
+    compiled |= util.merge_mappings(compiled, _subschema)
+    compiled.pop("dependentSchemas")
+
 
 
 def all_of_(
@@ -201,13 +205,13 @@ def any_of_(
     """Merge all valid subschemas into the compiled schema"""
     del validator, schema  # Unused
 
-    try:
-        _subschema = reduce(
-            util.merge_mappings,
-            (s for s in any_of if BaseValidator(s).is_valid(instance or {})),
-        )
-    except TypeError:
+    if instance is None:
+        _subschema = reduce(util.merge_mappings, any_of)
+    elif _valid := [s for s in any_of if BaseValidator(s).is_valid(instance)]:
+        _subschema = reduce(util.merge_mappings, _valid)
+    else:
         _subschema = {}
+
     compiled |= util.merge_mappings(compiled, _subschema)
     compiled.pop("anyOf")
 
@@ -222,12 +226,14 @@ def one_of_(
     """Merge the first valid subschema into the compiled schema"""
     del validator, schema  # Unused
 
-    try:
-        _subschema = next(
-            s for s in one_of if BaseValidator(s).is_valid(instance or {})
-        )
-    except StopIteration:
+    if instance is None:
         _subschema = reduce(util.merge_mappings, one_of)
+    else:
+        try:
+            _subschema = next(s for s in one_of if BaseValidator(s).is_valid(instance))
+        except StopIteration:
+            _subschema = {}
+
     compiled |= util.merge_mappings(compiled, _subschema)
     compiled.pop("oneOf")
 
@@ -242,8 +248,12 @@ def if_(
     """Check if the instance is valid for the if schema and merge the then or else"""
     del validator  # Unused
 
-    _instance = instance or {}
-    _path = "then" if BaseValidator(if_schema).is_valid(_instance) else "else"
-    _subschema = schema.get(_path, {})
+    if instance is None:
+        _subschema = util.merge_mappings(schema.get("then", {}), schema.get("else", {}))
+    elif BaseValidator(if_schema).is_valid(instance):
+        _subschema = schema.get("then", {})
+    else:
+        _subschema = schema.get("else", {})
+
     compiled |= util.merge_mappings(compiled, _subschema)
     compiled.pop("if")
