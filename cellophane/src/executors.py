@@ -27,7 +27,7 @@ def _target(
     args: tuple[str | Path, ...],
     uuid: UUID,
     name: str,
-    workdir: Path,
+    workdir: Path | None,
     env: dict[str, str],
     os_env: bool,
     cpus: int,
