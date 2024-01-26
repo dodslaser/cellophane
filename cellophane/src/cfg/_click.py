@@ -193,8 +193,8 @@ class TypedArray(click.ParamType):
     def convert(  # type: ignore[override]
         self,
         value: list,
-        param: click.Parameter,
-        ctx: click.Context,
+        param: click.Parameter | None,
+        ctx: click.Context | None,
     ) -> list:
         """
         Converts a list of values using the specified item type.
