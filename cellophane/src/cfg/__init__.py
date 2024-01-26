@@ -266,56 +266,74 @@ def options(schema: Schema) -> Callable:
                 "ignore_unknown_options": True,
             },
         )
+        @click.option(
+            "--config_file",
+            type=Path,
+            default=None,
+        )
         @click.pass_context
-        def inner(ctx: click.Context) -> None:
-            _args = deepcopy(ctx.args)
+        def inner(ctx: click.Context, config_file: Path | None) -> None:
+            nonlocal callback
 
-            @click.command(context_settings={"resilient_parsing": True})
-            def _update_ctx(**kwargs: Any) -> None:
-                config_file: Path = kwargs.pop("config_file", None)
-                config_data = YAML(typ="safe").load(config_file) if config_file else {}
+            # Create a dummy command to collect any flags that are passed
+            _dummy_cmd = click.command()(lambda: None)
+            for flag in _get_flags(schema):
+                _dummy_cmd = flag.click_option(_dummy_cmd)
+            _dummy_ctx = _dummy_cmd.make_context(
+                ctx.info_name,
+                ctx.args.copy(),
+                resilient_parsing=True,
+            )
+            _dummy_params = {
+                param: value
+                for param, value in _dummy_ctx.params.items()
+                if (src := _dummy_ctx.get_parameter_source(param))
+                and src.name != "DEFAULT"
+            }
 
-                if kwargs.get("workdir") is not None:
-                    kwargs["resultdir"], kwargs["logdir"] = (
-                        kwargs["resultdir"] or (kwargs["workdir"] / "results"),
-                        kwargs["logdir"] or (kwargs["workdir"] / "logs"),
-                    )
+            # Create the configuration object
+            config = Config(
+                schema=schema,
+                tag=_dummy_params.pop("tag", None) or timestamp,
+                include_defaults=False,
+                _data=YAML(typ="safe").load(config_file) if config_file else {},
+                **_dummy_params,
+            )
 
-                ctx.obj = Config(  # type: ignore[call-arg]
-                    schema=schema,
-                    tag=kwargs.pop("tag", None) or timestamp,
-                    include_defaults=False,
-                    _data=config_data,
-                    **{
-                        k: v
-                        for k, v in kwargs.items()
-                        if v is not None
-                        and (source := ctx.get_parameter_source(k))
-                        and source.name != "DEFAULT"
-                        or k in ("resultdir", "logdir")
-                        and v is not None
-                    },
+            # Set timestamp and start time
+            config["timestamp"] = timestamp
+            config["start_time"] = start_time
+
+            # Set the workdir, resultdir, and logdir (if possible)
+            if "workdir" in config:
+                (
+                    config["resultdir"],
+                    config["logdir"],
+                ) = (
+                    config.get("resultdir", config.workdir / "results"),
+                    config.get("logdir", config.workdir / "logs"),
                 )
 
-            for flag in _get_flags(schema):
-                _update_ctx = flag.click_option(_update_ctx)
-
-            ctx = _update_ctx.make_context(ctx.info_name, copy(ctx.args))
-            ctx.forward(_update_ctx)
-
-            nonlocal callback
-            config = ctx.obj
-
+            # Add flags to the callback with the values from the dummy command
             callback = click.make_pass_decorator(Config)(callback)
             _callback = click.command(callback)
             for flag in _get_flags(schema, data.as_dict(config)):
                 _callback = flag.click_option(_callback)
-            config.start_time = start_time
-            config.timestamp = timestamp
-            _set_defaults(config)
-            ctx = _callback.make_context(ctx.info_name, _args)
-            ctx.obj = config
-            ctx.forward(_callback)
+
+            # Create the callback context and forward arguments
+            callback_ctx = _callback.make_context(
+                ctx.info_name,
+                ctx.args.copy(),
+            )
+
+            # Inner function expects a Config object as the first argument
+            callback_ctx.obj = config
+
+            # Ensure that the configuration is complete
+            _set_defaults(callback_ctx.obj)
+
+            # Invoke the callback
+            callback_ctx.forward(_callback)
 
         return inner
 
