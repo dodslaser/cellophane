@@ -1,7 +1,7 @@
 """Configuration file handling and CLI generation"""
 
 import time
-from copy import copy, deepcopy
+from copy import deepcopy
 from functools import cache, cached_property, partial, singledispatch
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
@@ -10,8 +10,10 @@ import rich_click as click
 from attrs import define, field
 from frozendict import frozendict
 from jsonschema.validators import extend
-from ruamel.yaml import YAML, CommentedMap
+from ruamel.yaml import YAML, CommentedMap, CommentToken
 from ruamel.yaml.compat import StringIO
+from ruamel.yaml.error import CommentMark
+from ruamel.yaml.scalarstring import DoubleQuotedScalarString, LiteralScalarString
 
 from cellophane.src import data, util
 
@@ -27,6 +29,84 @@ from ._jsonschema import (
     properties_,
     required_,
 )
+
+
+class Blank:
+    ...
+
+
+def _dump_yaml(data_: Any) -> str:
+    """Dumps data to a YAML string"""
+    with StringIO() as handle:
+        yaml = YAML(typ="rt")
+        # Representer for preserved dicts
+
+        yaml.representer.add_representer(
+            data.dict_,
+            lambda dumper, data: dumper.represent_dict(data),
+        )
+        # Representer for null as ~
+        yaml.representer.add_representer(
+            type(None),
+            lambda dumper, *_: dumper.represent_scalar("tag:yaml.org,2002:null", "~"),
+        )
+        yaml.representer.add_representer(
+            Blank,
+            lambda dumper, *_: dumper.represent_scalar("tag:yaml.org,2002:null", ""),
+        )
+        yaml.dump(data_, handle)
+        return handle.getvalue()
+
+
+def _comment_yaml_block(
+    yaml: CommentedMap,
+    key: tuple[str, ...] | list[str],
+    level: int = 0,
+) -> None:
+    """
+    Recursively comment a YAML node in-place.
+
+    This will comment all sequence and mapping items in the node, as well as
+    multi-line strings.
+
+    Args:
+        node (CommentedBase): The YAML node to comment.
+        index (Any): The index of the node.
+        level (int, optional): The level of the node. Defaults to 0.
+    """
+
+    # Get the parent node and the index of the leaf node
+    node = yaml.mlget([*key[:-1]]) if len(key) > 1 else yaml
+    index = key[-1]
+
+    # Dump the current value as a YAML string
+    lines = _dump_yaml({"DUMMY": node[index]}).splitlines()
+
+    # Use DUMMY as a placeholder key to extract any additional content on the first line
+    # eg. "key: |" -> "DUMMY: |" -> "|"
+    lines[0] = lines[0].removeprefix("DUMMY:").removeprefix(" ")
+
+    # Comment and pad all lines to the current level
+    for idx in range(1, len(lines)):
+        lines[idx] = f"#{' ' * (level - 1) * 2} {lines[idx]}"
+    commented_block = "\n".join(lines)
+
+    # Replace current value with a blank placeholder
+    node[index] = Blank()
+
+    # Get the current comment token(s) for the node
+    node_ca = node.ca.items.setdefault(index, [None, []])
+
+    # If there are comments, pad them
+    for comment in node_ca[1]:
+        comment.value = f"#{' ' * comment.column} {comment.value}"
+        comment.start_mark = CommentMark(0)
+
+    # Add a comment token before the node key
+    node_ca[1].append(CommentToken("# ", CommentMark(0)))
+
+    # Add back value as a comment token
+    node_ca.append(CommentToken(commented_block, CommentMark(0)))
 
 
 @define(slots=False, init=False, frozen=True)
@@ -81,29 +161,64 @@ class Schema(data.Container):
     def example_config(self) -> str:
         """Generate an example configuration from the schema"""
         _map = CommentedMap()
-        for flag in _get_flags(self):
-            if flag.description:
-                _comment = f"{flag.description} ({flag.type})"
-            else:
-                _comment = f"({flag.type})"
 
-            _node = _map
+        # Generate a list of flags and all of their parent nodes
+        _nodes_flags = [
+            ({(*flag.key[: i + 1],) for i in range(len(flag.key))}, flag)
+            for flag in _get_flags(self)
+        ]
+
+        # Keep track of nodes to be commented
+        to_be_commented = {i for n, _ in _nodes_flags for i in n}
+
+        for node_keys, flag in _nodes_flags:
+            current_node = _map
             for k in flag.key[:-1]:
-                _node.setdefault(k, CommentedMap())
-                _node = _node[k]
+                current_node.setdefault(k, CommentedMap())
+                current_node = current_node[k]
 
-            _node.insert(1, flag.key[-1], flag.default, comment=_comment)
+            # FIXME: Can this be moved somewhere else?
+            _default: Any
+            if isinstance(flag.default, str):
+                if "\n" in flag.default:
+                    # If the string is multi-line, use | to preserve newlines
+                    _default = LiteralScalarString(flag.default)
+                else:
+                    # Otherwise, use " to preserve whitespace
+                    _default = DoubleQuotedScalarString(flag.default)
+            else:
+                # For all other types, use the default string representation
+                _default = flag.default
 
-        with StringIO() as handle:
-            yaml = YAML(typ="rt")
-            yaml.representer.add_representer(
-                type(None),
-                lambda dumper, *_: dumper.represent_scalar(
-                    "tag:yaml.org,2002:null", "~"
-                ),
-            )
-            yaml.dump(_map, handle)
-            return handle.getvalue()
+            # Add the flag to the current node
+            current_node.insert(1, flag.key[-1], _default)
+
+            # Construct item description as a comment token
+            if flag.description:
+                _comment = f"{flag.description} [{flag.type}]"
+            else:
+                _comment = f"[{flag.type}]"
+
+            # Add a REQUIRED tag to the comment if the flag is required
+            # and remove the node from the list of nodes to be commented
+            if flag.required:
+                _comment = f"{_comment} (REQUIRED)"
+                to_be_commented -= node_keys
+
+            # Add a comment token before the flag
+            current_node.ca.items.setdefault(flag.key[-1], [None, []])
+            current_node.ca.items[flag.key[-1]][1] = [
+                CommentToken(f"# {_comment}\n", CommentMark((len(flag.key) - 1) * 2))
+            ]
+
+        # raise Exception(to_be_commented)
+        for node_key in to_be_commented:
+            # Only comment the top-most node
+            if node_key[:-1] not in to_be_commented:
+                _comment_yaml_block(_map, node_key, level=len(node_key))
+
+        # Dump the map to a string
+        return _dump_yaml(_map)
 
 
 @define(init=False, slots=False)

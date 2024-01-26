@@ -4,4 +4,5 @@ schema:
       type: string
 
 example: |
-  no_default: ~  # (string)
+  # # [string]
+  # no_default: ~

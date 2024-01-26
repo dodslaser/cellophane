@@ -10,7 +10,8 @@ schema:
         - "C"
 
 example: |
-  array:  # ARRAY (array)
-  - A
-  - B
-  - C
+  # # ARRAY [array]
+  # array:
+  # - A
+  # - B
+  # - C

@@ -6,4 +6,5 @@ schema:
       description: DESCRIPTION
 
 example: |
-  basic: BASIC  # DESCRIPTION (string)
+  # # DESCRIPTION [string]
+  # basic: "BASIC"

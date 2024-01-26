@@ -9,6 +9,7 @@ schema:
         b: "B"
 
 example: |
-  mapping:  # MAPPING (mapping)
-    a: A
-    b: B
+  # # MAPPING [mapping]
+  # mapping:
+  #   a: A
+  #   b: B

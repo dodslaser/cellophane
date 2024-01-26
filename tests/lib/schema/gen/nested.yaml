@@ -15,7 +15,8 @@ schema:
                   description: "NESTED"
 
 example: |
-  nested:
-    a:
-      b:
-        c: C  # NESTED (string)
+  # nested:
+  #   a:
+  #     b:
+  #       # NESTED [string]
+  #       c: "C"

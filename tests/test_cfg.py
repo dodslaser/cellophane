@@ -323,8 +323,9 @@ class Test_Schema:
             param(LIB / "schema" / "gen" / "basic.yaml", id="basic"),
             param(LIB / "schema" / "gen" / "no_default.yaml", id="no_default"),
             param(LIB / "schema" / "gen" / "array.yaml", id="array"),
-            param(LIB / "schema" / "gen" / "mapping.yaml", id="object"),
+            param(LIB / "schema" / "gen" / "mapping.yaml", id="mapping"),
             param(LIB / "schema" / "gen" / "nested.yaml", id="nested"),
+            param(LIB / "schema" / "gen" / "required.yaml", id="required"),
         ],
     )
     def test_example_config(definition: Path) -> None:
