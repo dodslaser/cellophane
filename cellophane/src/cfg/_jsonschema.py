@@ -104,7 +104,6 @@ def properties_(
             )
         elif flags is not None and "properties" not in subschema:
             _flag_kwargs = {
-                "default": subschema.get("default"),
                 "value": _instance.get(prop),
                 "type": subschema.get("type"),
                 "enum": subschema.get("enum"),
@@ -117,6 +116,12 @@ def properties_(
                     setattr(flags[prop], k, v)
             else:
                 flags[prop] = Flag(**_flag_kwargs)
+
+            if (default := subschema.get("default")) is not None:
+                try:
+                    flags[prop].default = flags[prop].convert(default)
+                except Exception:
+                    flags[prop].default = default
 
 
 def required_(
