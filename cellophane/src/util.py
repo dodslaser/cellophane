@@ -95,7 +95,7 @@ def _(data: list | frozenlist) -> list:
     """
     return [unfreeze(v) for v in data]
 
-def map_nested_keys(data: Any) -> list[list[str]]:
+def map_nested_keys(node: Any, path: list[str] | None = None) -> list[list[str]]:
     """
     Maps the keys of a nested mapping.
 
@@ -116,16 +116,24 @@ def map_nested_keys(data: Any) -> list[list[str]]:
                 "key5": "value3"
             }
         }
-        
+
         map_nested_keys(data)   # [['key1', 'key2'], ['key1', 'key3'], ['key4', 'key5']]
         ```
     """
+    if path is None:  # For the root node
+        path = []
 
-    match data:
-        case dict():
-            return [[k, *p] for k, v in data.items() for p in map_nested_keys(v)]
-        case _:
-            return [[]]
+    if not isinstance(node, dict) or len(node) == 0:
+        return [path] if path else []
+
+    paths = []
+    for key in node:
+        # Add the current key to the path
+        new_path = list(path) + [key]
+        # Recurse on child nodes and extend paths
+        paths.extend(map_nested_keys(node[key], new_path))
+
+    return paths
 
 
 def merge_mappings(m_1: Any, m_2: Any) -> Any:
