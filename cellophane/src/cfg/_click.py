@@ -1,17 +1,19 @@
 """Click related utilities for configuration."""
 
 
+import json
 import re
 from ast import literal_eval
 from contextlib import suppress
+from functools import partial
 from pathlib import Path
 from typing import Any, Callable, Literal, Mapping, MutableMapping, Type, get_args
 
 import rich_click as click
 from attrs import define, field
-from humanfriendly import parse_size
+from humanfriendly import format_size, parse_size
 
-from . import data
+from . import data, util
 
 ITEMS_TYPES = Literal[
     "string",
@@ -34,7 +36,20 @@ SCHEMA_TYPES = Literal[
 ]
 
 
-class StringMapping(click.ParamType):
+class InvertibleParamType(click.ParamType):
+    """
+    A custom Click parameter type for representing types that can be inverted back to a
+    string representation.
+    """
+
+    def invert(self, value: Any) -> str:
+        """
+        Inverts the value back to a string representation.
+        """
+        raise NotImplementedError
+
+
+class StringMapping(InvertibleParamType):
     """
     Represents a click parameter type for comma-separated mappings.
 
@@ -153,6 +168,24 @@ class StringMapping(click.ParamType):
 
         return data.dict_(parsed)
 
+    def invert(self, value: dict) -> str:
+        """
+        Inverts the value back to a string representation.
+
+        Args:
+            value (Mapping): The value to be inverted.
+
+        Returns:
+            str: The inverted value.
+        """
+        _container = data.Container(value)
+        _keys = util.map_nested_keys(value)
+        _nodes: list[str] = [
+            f"{'.'.join(k)}={json.dumps(_container[k])}" for k in _keys
+        ]
+
+        return ",".join(_nodes)
+
 
 class TypedArray(click.ParamType):
     """
@@ -225,7 +258,7 @@ class TypedArray(click.ParamType):
             self.fail(str(exc), param, ctx)
 
 
-class ParsedSize(click.ParamType):
+class ParsedSize(InvertibleParamType):
     """
     Converts a string value representing a size to an integer.
 
@@ -276,6 +309,17 @@ class ParsedSize(click.ParamType):
         except Exception as exc:  # pylint: disable=broad-except
             self.fail(str(exc), param, ctx)
 
+    def invert(self, value: int) -> str:
+        """
+        Inverts the value back to a string representation.
+
+        Args:
+            value (int): The value to be inverted.
+
+        Returns:
+            str: The inverted value.
+        """
+        return format_size(value)
 
 
 def _click_type(  # type: ignore[return]
@@ -469,5 +513,12 @@ class Flag:
             ),
             required=self.required,
             help=self.description,
-            show_default=not self.secret,
+            show_default=(
+                False
+                if self.secret
+                else self.click_type.invert(default)
+                if (default := self.value or self.default)
+                and isinstance(self.click_type, InvertibleParamType)
+                else str(default)
+            ),
         )
