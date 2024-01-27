@@ -79,8 +79,8 @@ Pre-hooks are defined by decorating a function with `@cellophane.pre_hook()`. Th
 Argument      | Type              | Description
 --------------|-------------------|-------------
 `label`       | `str`             | A label for the pre-hook to use in logs. If not specified, the function name will be used. Note that the hook name (used in `before`/`after`) will always be the same as the function name.
-`before`      | `str | list[str]` | A name or list of names specifying which pre-hooks this pre-hook will run before. If `before` is set to `"all"`, the pre-hook will run before all other pre-hooks.
-`after`       | `str | list[str]` | A name or list of names specifying which pre-hooks will run before this pre-hook. If `after` is set to `"all"`, the pre-hook will run after all other pre-hooks.
+`before`      | `str\|list[str]` | A name or list of names specifying which pre-hooks this pre-hook will run before. If `before` is set to `"all"`, the pre-hook will run before all other pre-hooks.
+`after`       | `str\|list[str]` | A name or list of names specifying which pre-hooks will run before this pre-hook. If `after` is set to `"all"`, the pre-hook will run after all other pre-hooks.
 ---
 
 At runtime, the decorated function (hook) will be called with the following keyword arguments:
@@ -144,8 +144,8 @@ Post-hooks are defined by decorating a function with `@cellophane.post_hook()`. 
 Argument      | Type              | Description
 --------------|-------------------|-------------
 `label`       | `str`             | A label for the pre-hook to use in logs. If not specified, the function name will be used. Note that the hook name (used in `before`/`after`) will always be the same as the function name.
-`before`      | `str | list[str]` | A name or list of names specifying which pre-hooks this pre-hook will run before. If `before` is set to `"all"`, the pre-hook will run before all other pre-hooks.
-`after`       | `str | list[str]` | A name or list of names specifying which pre-hooks will run before this pre-hook. If `after` is set to `"all"`, the pre-hook will run after all other pre-hooks.
+`before`      | `str\|list[str]` | A name or list of names specifying which pre-hooks this pre-hook will run before. If `before` is set to `"all"`, the pre-hook will run before all other pre-hooks.
+`after`       | `str\|list[str]` | A name or list of names specifying which pre-hooks will run before this pre-hook. If `after` is set to `"all"`, the pre-hook will run after all other pre-hooks.
 ---
 
 At runtime, the decorated function (hook) will be called with the following keyword arguments:
