@@ -403,8 +403,12 @@ This command will ask what module(s) to add and then what version to use for eac
 
 Alternatively, you can select a module and version directly from the command line. The `latest` tag will select the latest version of the module. The `dev` tag will select the `dev` branch of the module.
 
+> **NOTE:** The structure of the module repository has changed in the dev branch in a backwards-incompatible way. It is currently recommended to use the `--modules_branch dev` flag to use the dev branch of the module repository.
+
+> **NOTE:** The `add`/`rm`/`update` commands can also be used without specifying a module. In this case, you will be prompted to select a module from a list of available modules.
+
 ```
-python -m cellophane module add slims@latest
+python -m cellophane --modules_branch dev module add slims@latest
 ```
 
 After adding a module it is important to also install any dependencies required by the module. The `requirements.txt` file at the project root includes dependencies for all modules.
@@ -416,13 +420,13 @@ pip install -r requirements.txt
 To update a module to a specific version, use the `update` command. If a module is checked out at the `dev` branch, the `update` command will pull the latest changes from the remote repository.
 
 ```
-python -m cellophane module update slims@dev
+python -m cellophane --modules_branch dev module update slims@dev
 ```
 
 To remove a module, use the `rm` command. This essentially does the reverse of the `add` command and creates a git commit with the changes.
 
 ```
-python -m cellophane module rm slims
+python -m cellophane --modules_branch dev module rm slims
 ```
 
 # Configuration
