@@ -401,7 +401,7 @@ def options(schema: Schema) -> Callable:
                 and src.name != "DEFAULT"
             }
 
-            # Create the configuration object
+            # Merge config file and the commandline arguments into a single config
             config = Config(
                 schema=schema,
                 tag=_dummy_params.pop("tag", None) or timestamp,

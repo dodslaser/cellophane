@@ -7,7 +7,6 @@ from functools import singledispatch
 from types import ModuleType
 from typing import Any
 
-# from gelidum.collections import frozendict, frozenlist, frozenzet
 from frozendict import frozendict
 
 

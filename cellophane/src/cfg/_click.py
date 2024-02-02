@@ -35,7 +35,6 @@ SCHEMA_TYPES = Literal[
     "size",
 ]
 
-
 class InvertibleParamType(click.ParamType):
     """
     A custom Click parameter type for representing types that can be inverted back to a
