@@ -267,10 +267,13 @@ class Executor:
         """
         if uuid in self.jobs:
             self.jobs[uuid].wait()
+            self.locks[uuid].acquire()
+            self.locks[uuid].release()
         elif uuid is None:
             self.pool.stop_and_join(keep_alive=True)
-        for uuid, lock in self.locks.items():
-            lock.acquire()
+            for uuid, lock in self.locks.items():
+                lock.acquire()
+                lock.release()
 
 
 EXECUTOR: type[Executor] = Executor
