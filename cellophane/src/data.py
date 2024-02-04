@@ -302,10 +302,6 @@ class OutputGlob:  # type: ignore[no-untyped-def]
                         dst_name = m.name
                     case str() as n:
                         dst_name = n.format(**meta)
-                    case _:
-                        if self.dst_dir is None and m.is_relative_to(workdir):
-                            dst_dir /= m.parent.relative_to(workdir)
-                        dst_name = m.name
 
                 dst = Path(dst_dir) / dst_name
 
