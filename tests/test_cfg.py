@@ -143,6 +143,74 @@ class Test_TypedArray:
             _array.convert(value, None, None)  # type: ignore[arg-type]
 
 
+class Test_ParsedSize:
+    """Test ParsedSize."""
+
+    @staticmethod
+    @mark.parametrize(
+        "value,expected",
+        [
+            param(
+                1337,
+                1337,
+                id="int",
+            ),
+            param(
+                "1337",
+                1337,
+                id="str",
+            ),
+            param(
+                "1337B",
+                1337,
+                id="str_B",
+            ),
+            param(
+                "1337K",
+                1337 * 1000,
+                id="str_K",
+            ),
+            param(
+                "1337KB",
+                1337 * 1000,
+                id="str_KB",
+            ),
+            param(
+                "1337KiB",
+                1337 * 1024,
+                id="str_KiB",
+            ),
+        ],
+    )
+    def test_convert(
+        value: str | int,
+        expected: list[int],
+    ) -> None:
+        """Test TypedArray.convert."""
+        _array = cfg._click.ParsedSize()
+        assert _array.convert(value, None, None) == expected
+
+    @staticmethod
+    @mark.parametrize(
+        "value,exception",
+        [
+            param(
+                "INVALID",
+                click.BadParameter,
+                id="invalid value",
+            ),
+        ],
+    )
+    def test_convert_exception(
+        value: str | int,
+        exception: type[Exception],
+    ) -> None:
+        """Test TypedArray.convert exceptions."""
+        with raises(exception):
+            _array = cfg._click.ParsedSize()
+            _array.convert(value, None, None)
+
+
 class Test_Flag:
     """Test cfg._click.Flag."""
 
