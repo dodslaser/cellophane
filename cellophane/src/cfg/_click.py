@@ -41,7 +41,7 @@ class InvertibleParamType(click.ParamType):
     string representation.
     """
 
-    def invert(self, value: Any) -> str:
+    def invert(self, value: Any) -> str:  # pragma: no cover
         """
         Inverts the value back to a string representation.
         """
