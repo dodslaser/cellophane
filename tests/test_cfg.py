@@ -405,70 +405,13 @@ class Test_Schema:
 
 class Test__get_flags:
     """Test cfg._get_flags."""
+
     @staticmethod
     @mark.parametrize(
         "definition",
         [
-            param(
-                LIB / "schema" / "flags" / "nested.yaml",
-                id="nested",
-            ),
-            param(
-                LIB / "schema" / "flags" / "multiple.yaml",
-                id="multiple",
-            ),
-            param(
-                LIB / "schema" / "flags" / "default.yaml",
-                id="default",
-            ),
-            param(
-                LIB / "schema" / "flags" / "required_default.yaml",
-                id="required_default",
-            ),
-            param(
-                LIB / "schema" / "flags" / "required.yaml",
-                id="required",
-            ),
-            param(
-                LIB / "schema" / "flags" / "dependent_required.yaml",
-                id="dependent_required",
-            ),
-            param(
-                LIB / "schema" / "flags" / "dependent_schemas.yaml",
-                id="dependent_schemas",
-            ),
-            param(
-                LIB / "schema" / "flags" / "parent_required.yaml",
-                id="parent_required",
-            ),
-            param(
-                LIB / "schema" / "flags" / "nested_required.yaml",
-                id="nested_required",
-            ),
-            param(
-                LIB / "schema" / "flags" / "if_else.yaml",
-                id="if_else",
-            ),
-            param(
-                LIB / "schema" / "flags" / "all_of.yaml",
-                id="all_of",
-            ),
-            param(
-                LIB / "schema" / "flags" / "any_of.yaml",
-                id="any_of",
-            ),
-            param(
-                LIB / "schema" / "flags" / "one_of.yaml",
-                id="one_of",
-            ),
-            param(
-                LIB / "schema" / "flags" / "nested_conditional.yaml",
-                id="nested_conditional",
-            ),
-            param(
-                LIB / "schema" / "flags" / "typed_array.yaml",
-                id="typed_array",
-            ),
+            param(path, id=path.stem)
+            for path in (LIB / "schema" / "flags").glob("*.yaml")
         ],
     )
     def test__get_flags(definition: Path) -> None:
