@@ -23,7 +23,7 @@ structure:
           # attrs features can be used as normal
           @my_field.validator
           def _validate_my_field(self, attribute, value):
-              if value is "nope":
+              if value == "nope":
                   raise ValueError("my_field cannot be 'nope'")
 
 
@@ -241,4 +241,3 @@ logs:
 - "Setting my_attribute for sample a"
 - "Running my_post_hook_a hook"
 - "Woah! A message from a: Hello from a!"
-- "Execution complete in 0.31 seconds"

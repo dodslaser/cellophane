@@ -305,7 +305,7 @@ class MySamples(Samples):
     # attrs features can be used as normal
     @my_field.validator
     def _validate_my_field(self, attribute, value):
-        if value is "nope":
+        if value == "nope":
             raise ValueError("my_field cannot be 'nope'")
 
 @pre_hook(
