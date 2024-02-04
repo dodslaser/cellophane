@@ -165,7 +165,7 @@ class Schema(data.Container):
         # Generate a list of flags and all of their parent nodes
         _nodes_flags = [
             ({(*flag.key[: i + 1],) for i in range(len(flag.key))}, flag)
-            for flag in _get_flags(self)
+            for flag in _get_flags(self, {})
         ]
 
         # Keep track of nodes to be commented
@@ -289,7 +289,7 @@ def _set_defaults(config: Config) -> None:
 
 @singledispatch
 def _get_flags(schema: Schema, _data: Mapping | None = None) -> list[Flag]:
-    return _get_flags(util.freeze(data.as_dict(schema)), util.freeze(_data or {}))
+    return _get_flags(util.freeze(data.as_dict(schema)), util.freeze(_data))
 
 
 @_get_flags.register
