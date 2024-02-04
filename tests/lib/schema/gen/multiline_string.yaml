@@ -1,0 +1,16 @@
+schema:
+  properties:
+    multiline:
+      type: string
+      default: |
+        VERY
+        LONG
+        STRING
+      description: MULTILINE STRING
+
+example: |
+  # # MULTILINE STRING [string]
+  # multiline: |
+  #   VERY
+  #   LONG
+  #   STRING
