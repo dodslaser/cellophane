@@ -1,0 +1,37 @@
+structure:
+  modules:
+    a.py: |
+      from cellophane import runner, Sample, Samples
+
+      class TestSample(Sample):
+          custom_prop: str | None = None
+
+      @runner(split_by="custom_prop")
+      def runner(samples, logger, **_):
+          logger.info(f"{samples[0].custom_prop}: {len(samples)}")
+          return samples
+
+  samples.yaml: |
+    - id: a
+      custom_prop: x
+      files:
+      - input/a.txt
+    - id: b
+      custom_prop: y
+      files:
+      - input/b.txt
+    - id: c
+      custom_prop: y
+      files:
+      - input/c.txt
+
+  input:
+    a.txt: "INPUT_A"
+    b.txt: "INPUT_B"
+    c.txt: "INPUT_C"
+args:
+  --samples_file: samples.yaml
+  --workdir: out
+logs:
+  - "x: 1"
+  - "y: 2"
