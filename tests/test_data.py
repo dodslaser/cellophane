@@ -2,6 +2,8 @@
 
 # pylint: disable=pointless-statement
 
+import logging
+import os
 from copy import deepcopy
 from pathlib import Path
 from typing import ClassVar
@@ -9,7 +11,7 @@ from typing import ClassVar
 import cloudpickle
 import dill
 from attrs import define, field
-from pytest import fixture, mark, param, raises
+from pytest import FixtureRequest, MonkeyPatch, fixture, mark, param, raises
 
 from cellophane.src import data
 
@@ -151,11 +153,9 @@ class Test_Sample:
     def test_and() -> None:
         """Test __and__."""
 
-        class _SampleSubA(data.Sample):
-            ...
+        class _SampleSubA(data.Sample): ...
 
-        class _SampleSubB(data.Sample):
-            ...
+        class _SampleSubB(data.Sample): ...
 
         _sample_a1 = _SampleSubA(id="a1", files=["a1"])
         _sample_a2 = _SampleSubA(id="a2", files=["a2"])
@@ -181,6 +181,7 @@ class Test_Sample:
     @staticmethod
     def test_with_mixins() -> None:
         """Test with_mixins."""
+
         @define(slots=False)
         class _mixin(data.Sample):  # type: ignore[no-untyped-def]
             a: str = "Hello"
@@ -199,9 +200,21 @@ class Test_Sample:
         assert _sample.b == "World"
         assert _sample.c == 1339
 
+    @staticmethod
+    def test_slotted_mixin() -> None:
+        """Test slotted mixin."""
+
+        @define(slots=True)
+        class _mixin(data.Sample):
+            a: str = "Hello"
+
+        with raises(TypeError):
+            _sample_class: type[_mixin] = data.Sample.with_mixins([_mixin])  # type: ignore[assignment]
+
 
 class Test_Samples:
     """Test data.Samples."""
+
     @staticmethod
     @fixture(scope="function")
     def samples() -> data.Samples[data.Sample]:
@@ -301,6 +314,15 @@ class Test_Samples:
         assert len(valid_samples.with_files) == 2
 
     @staticmethod
+    def test_without_files(
+        samples: data.Samples[data.Sample],
+        valid_samples: data.Samples[data.Sample],
+    ) -> None:
+        """Test with_files."""
+        assert len(samples.without_files) == 3
+        assert len(valid_samples.without_files) == 0
+
+    @staticmethod
     def test_str(samples: data.Samples[data.Sample]) -> None:
         """Test __str__."""
         assert str(samples) == "\n".join([s.id for s in samples])
@@ -308,8 +330,8 @@ class Test_Samples:
     @staticmethod
     def test_with_sample_class() -> None:
         """Test with_sample_class."""
-        class _SampleSub(data.Sample):
-            ...
+
+        class _SampleSub(data.Sample): ...
 
         _samples = data.Samples.with_sample_class(_SampleSub)
         assert _samples is not data.Samples
@@ -318,6 +340,7 @@ class Test_Samples:
     @staticmethod
     def test_with_mixins() -> None:
         """Test with_mixins."""
+
         class _mixin(data.Samples):
             a: str = "Hello"
             b: str = field(default="World")
@@ -388,11 +411,10 @@ class Test_Samples:
     @staticmethod
     def test_and() -> None:
         """Test __and__."""
-        class _SamplesSubA(data.Samples):
-            ...
 
-        class _SamplesSubB(data.Samples):
-            ...
+        class _SamplesSubA(data.Samples): ...
+
+        class _SamplesSubB(data.Samples): ...
 
         _samples_a1 = _SamplesSubA(
             [
@@ -423,8 +445,8 @@ class Test_Samples:
     @staticmethod
     def test_or() -> None:
         """Test __or__."""
-        class _SamplesSub(data.Samples):
-            ...
+
+        class _SamplesSub(data.Samples): ...
 
         _sample_a = data.Sample(id="a", files=["a", "b"])
         _sample_b = data.Sample(id="b", files=["c", "d"])
@@ -440,3 +462,183 @@ class Test_Samples:
 
         with raises(data.MergeSamplesTypeError):
             _samples_1 | _samples_3
+
+
+class Test_Output:
+    def test_hash(self) -> None:
+        """Test __hash__."""
+        a = data.Output(src="src", dst="dst")
+        b = data.Output(src="src", dst="dst")
+        c = data.Output(src="src", dst="dst_2")
+
+        assert {a, b, c} == {a, c}
+
+
+class Test_OutputGlob:
+    @fixture(scope="function")
+    @staticmethod
+    def meta(tmp_path: Path, monkeypatch: MonkeyPatch) -> dict:
+        """Dummy metadata for output formatting."""
+        workdir = tmp_path / "workdir"
+        workdir.mkdir(exist_ok=True)
+        (workdir / "x_a").touch()
+        (workdir / "x_b").touch()
+        (workdir / "y_a").touch()
+        (workdir / "y_b").touch()
+        (workdir / "z").mkdir()
+        (workdir / "z" / "a").touch()
+        (workdir / "z" / "b").touch()
+        (workdir / "z" / "c").mkdir()
+        (workdir / "z" / "c" / "a").touch()
+
+        monkeypatch.chdir(tmp_path)
+
+        yield {
+            "_workdir": tmp_path / "workdir",
+            "_resultdir": tmp_path / "resultdir",
+        }
+
+    @fixture(scope="function")
+    @staticmethod
+    def expected_outputs(
+        meta: dict,
+        request: FixtureRequest,
+    ) -> set[data.Output]:
+        """Append tmp_path to expected outputs."""
+        outputs = request.param
+        for output in outputs:
+            output.src = Path(str(output.src).format(**meta))
+            output.dst = Path(str(output.dst).format(**meta))
+        yield {*outputs}
+
+    @fixture(scope="function")
+    @staticmethod
+    def config() -> data.Container:
+        """Dummy config fixture."""
+        yield data.Container(resultdir=Path("resultdir"))
+    @staticmethod
+    def test_hash() -> None:
+        """Test __hash__."""
+        a = data.OutputGlob(
+            src="src", dst_dir="dst_parent/dst_dir", dst_name="dst_name"
+        )
+        b = data.OutputGlob(
+            src="src", dst_dir="dst_parent/dst_dir", dst_name="dst_name"
+        )
+        c = data.OutputGlob(
+            src="src", dst_dir="dst_parent/dst_dir", dst_name="dst_name_2"
+        )
+
+        assert {a, b, c} == {a, c}
+
+    @staticmethod
+    @mark.parametrize(
+        "kwargs,expected_outputs",
+        [
+            param(
+                {"src": "*", "dst_dir": None, "dst_name": None},
+                [
+                    data.Output(src="workdir/x_a", dst="resultdir/x_a"),
+                    data.Output(src="workdir/x_b", dst="resultdir/x_b"),
+                    data.Output(src="workdir/y_a", dst="resultdir/y_a"),
+                    data.Output(src="workdir/y_b", dst="resultdir/y_b"),
+                    data.Output(src="workdir/z", dst="resultdir/z"),
+                ],
+                id="wildcard",
+            ),
+            param(
+                {"src": "x_*", "dst_dir": None, "dst_name": None},
+                [
+                    data.Output(src="workdir/x_a", dst="resultdir/x_a"),
+                    data.Output(src="workdir/x_b", dst="resultdir/x_b"),
+                ],
+                id="partial_wildcard",
+            ),
+            param(
+                {"src": "{_workdir}/x_*", "dst_dir": None, "dst_name": None},
+                [
+                    data.Output(src="{_workdir}/x_a", dst="resultdir/x_a"),
+                    data.Output(src="{_workdir}/x_b", dst="resultdir/x_b"),
+                ],
+                id="absolute_src",
+            ),
+            param(
+                {"src": "workdir/x_*", "dst_dir": None, "dst_name": None},
+                [
+                    data.Output(src="workdir/x_a", dst="resultdir/x_a"),
+                    data.Output(src="workdir/x_b", dst="resultdir/x_b"),
+                ],
+                id="relative_src",
+            ),
+            param(
+                {"src": "workdir/x_*", "dst_dir": "{_resultdir}", "dst_name": None},
+                [
+                    data.Output(src="workdir/x_a", dst="{_resultdir}/x_a"),
+                    data.Output(src="workdir/x_b", dst="{_resultdir}/x_b"),
+                ],
+                id="absolute_dst",
+            ),
+            param(
+                {"src": "workdir/x_*", "dst_dir": "DUMMY", "dst_name": None},
+                [
+                    data.Output(src="workdir/x_a", dst="resultdir/DUMMY/x_a"),
+                    data.Output(src="workdir/x_b", dst="resultdir/DUMMY/x_b"),
+                ],
+                id="relative_dst",
+            ),
+            param(
+                {"src": "workdir/x_a", "dst_dir": None, "dst_name": "RENAME"},
+                [
+                    data.Output(src="workdir/x_a", dst="resultdir/RENAME"),
+                ],
+                id="rename",
+            ),
+            param(
+                {"src": "workdir/*_a", "dst_dir": None, "dst_name": "RENAME"},
+                [
+                    data.Output(src="workdir/x_a", dst="resultdir/x_a"),
+                    data.Output(src="workdir/y_a", dst="resultdir/y_a"),
+                ],
+                id="invalid_multi_rename",
+            ),
+            param(
+                {"src": "INVALID", "dst_dir": None, "dst_name": None},
+                [],
+                id="no_match",
+            ),
+        ],
+        indirect=["expected_outputs"],
+    )
+    def test_resolve(
+        meta: dict,
+        config: data.Container,
+        kwargs: dict,
+        expected_outputs: set[data.Output],
+    ) -> None:
+        """Test resolve."""
+        logger = logging.LoggerAdapter(logging.getLogger("test"), {})
+
+        glob = data.OutputGlob(
+            src=kwargs.pop("src").format(**meta),
+            dst_dir=(
+                dst_dir.format(**meta)
+                if (dst_dir := kwargs.pop("dst_dir"))
+                else None
+            ),
+            dst_name=(
+                dst_name.format(**meta)
+                if (dst_name := kwargs.pop("dst_name"))
+                else None
+            ),
+            **kwargs,
+        )
+
+        assert (
+            glob.resolve(
+                samples=[None],
+                workdir=Path("workdir"),
+                config=config,
+                logger=logger,
+            )
+            == expected_outputs
+        )
