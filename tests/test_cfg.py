@@ -419,8 +419,20 @@ class Test__get_flags:
         _definition = _YAML.load(definition.read_text())
         _schema = cfg.Schema(_definition["schema"])
         _config = _definition.get("config", {})
-        _expected = [cfg._click.Flag(**flag) for flag in _definition["flags"]]
-        assert cfg._get_flags(_schema, _config) == _expected
+        if flags := _definition.get("flags"):
+            assert cfg._get_flags(_schema, _config) == [
+                cfg._click.Flag(**flag) for flag in flags
+            ]
+
+        if flags_noconfig := _definition.get("flags_noconfig"):
+            assert cfg._get_flags(_schema, {}) == [
+                cfg._click.Flag(**flag) for flag in flags_noconfig
+            ]
+
+        if flags_base := _definition.get("flags_base"):
+            assert cfg._get_flags(_schema) == [
+                cfg._click.Flag(**flag) for flag in flags_base
+            ]
 
 
 class Test_Config:
