@@ -24,3 +24,17 @@ flags:
   - key: ["c"]
     type: boolean
   - key: ["b"]
+
+flags_base:
+  - key: ["a"]
+    type: boolean
+  - key: ["c"]
+    type: boolean
+  - key: ["b"]
+  - key: ["d"]
+
+flags_noconfig:
+  - key: ["a"]
+    type: boolean
+  - key: ["c"]
+    type: boolean
