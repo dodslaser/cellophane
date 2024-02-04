@@ -120,7 +120,7 @@ def properties_(
             if (default := subschema.get("default")) is not None:
                 try:
                     flags[prop].default = flags[prop].convert(default)
-                except Exception:
+                except Exception:  # pylint: disable=broad-except
                     flags[prop].default = default
 
 
