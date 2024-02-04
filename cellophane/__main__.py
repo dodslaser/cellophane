@@ -697,8 +697,8 @@ def module(
             ctx.obj["modules_repo_url"],
             ctx.obj["modules_repo_branch"],
         )
-    except InvalidGitRepositoryError as e:
-        _logger.critical(e, exc_info=ctx.obj["log_level"] == "DEBUG")
+    except InvalidCellophaneRepoError as e:
+        _logger.critical(e, exc_info=True)
         raise SystemExit(1) from e
 
     if _repo.is_dirty():
