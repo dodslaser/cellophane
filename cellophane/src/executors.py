@@ -304,10 +304,9 @@ class SubprocesExecutor(Executor, name="subprocess"):
             open(logdir / f"{uuid.hex}.err", "w", encoding="utf-8") as stderr,
         ):
             proc = sp.Popen(
-                shlex.join(args),
+                shlex.split(shlex.join(args)),
                 cwd=workdir,
                 env=env | ({**os.environ} if os_env else {}),
-                shell=True,
                 stdout=stdout,
                 stderr=stderr,
             )
