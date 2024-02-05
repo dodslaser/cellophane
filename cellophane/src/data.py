@@ -1,4 +1,4 @@
-"""Utilities for interacting with SLIMS"""
+"""Classes and functions for working with samples and sample data."""
 
 from collections import UserList
 from collections.abc import Mapping
