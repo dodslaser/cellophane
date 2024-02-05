@@ -1,4 +1,9 @@
-# Dependencies
+<!-- markdownlint-disable MD033 Used for spoilers -->
+<!-- markdownlint-disable MD028 Used as notes -->
+
+# Usage
+
+## Dependencies
 
 At the very least wou will need an environment with python 3.11+ and pip installed. In this example micromamba is used to create a new environment.
 
@@ -8,7 +13,7 @@ micromamba activate my_cellphane_env
 pip install git+https://github.com/ClinicalGenomicsGBG/cellophane.git@dev
 ```
 
-# Initializing a wrapper
+## Initializing a wrapper
 
 The `cellphane init` command will initialize a new wrapper in the current directory. This command does the following:
 
@@ -19,7 +24,7 @@ The `cellphane init` command will initialize a new wrapper in the current direct
 - Create `__main__.py` and `<WRAPPER>.py` files as entrypoints for the wrapper.
 - Create a git repository and add a `.gitignore` file (you will need to add a remote manually).
 
-```
+```text
 mkdir my_awesome_wrapper
 cd my_awesome_wrapper
 
@@ -28,7 +33,7 @@ python -m cellophane init my_awesome_wrapper
 
 You should end up with this directory structure.
 
-```
+```text
 ./my_awesome_wrapper/
 ├── __init__.py
 │
@@ -54,7 +59,7 @@ You should end up with this directory structure.
 └── my_awesome_wrapper.py
 ```
 
-# Defining a wrapper
+## Defining a wrapper
 
 All cellophane wrapper code is be defined inside one or more module(s). A module can be a `.py` file, or a directory containing a `__init__.py` file, placed in the `modules` directory. Cellophane will automatically import all modules, and make them available to the wrapper.
 
@@ -87,13 +92,13 @@ At runtime, the decorated function (hook) will be called with the following keyw
 
 Argument    | Type                    | Description
 ------------|-------------------------|-------------
-`samples`   | `cellophane.Samples`          | Samples to process.
+`samples`   | `cellophane.Samples`    | Samples to process.
 `config`    | `cellophane.Config`     | Wrapper configuration.
 `timestamp` | `str`                   | A string representation of the current timestamp (YYYYMMDDHHMMSS).
 `logger`    | `logging.LoggerAdapter` | A logger that can be used to log messages.
-`root`      | `pathlib.Path`          | A `pathlib.Path` pointing to the root directory of the wrapper repo.
+`root`      | `pathlib.Path`          | A `pathlib.Path` pointing to the root directory of the wrapper repository.
 `workdir`   | `pathlib.Path`          | A `pathlib.Path` pointing to the working directory of the hook.
-`executor`  | `cellophane.Executor`    | An `Executor` that can be used to run external commands.
+`executor`  | `cellophane.Executor`   | An `Executor` that can be used to run external commands.
 
 ---
 
@@ -156,7 +161,7 @@ Argument    | Type                    | Description
 `config`    | `cellophane.Config`     | Wrapper configuration.
 `timestamp` | `str`                   | A string representation of the current timestamp (YYYYMMDDHHMMSS).
 `logger`    | `logging.LoggerAdapter` | A logger that can be used to log messages.
-`root`      | `pathlib.Path`          | A `pathlib.Path` pointing to the root directory of the wrapper repo.
+`root`      | `pathlib.Path`          | A `pathlib.Path` pointing to the root directory of the wrapper repository.
 `workdir`   | `pathlib.Path`          | A `pathlib.Path` pointing to the working directory of the hook.
 `executor`  | `cellophane.Executor`   | An `Executor` that can be used to run external commands.
 
@@ -196,13 +201,12 @@ Attribute           | Type                                            | Descript
 `with_mixins`       | `Callable`                                      | A function used to create a new `Samples` object with additional mixins (Used internally, rarely accessed).
 `with_sample_class` | `Callable`                                      | A function used to create a new `Samples` object with a different sample class (Used internally, rarely accessed).
 `split`             | `Callable`                                      | A function used to split the samples into subsets based on an attribute. By default `uuid` is used as the attribute, splitting the samples into subsets of one sample each.
-`unique_ids`        | `str (property)`                                | A function used to get a set of unique sample ids.
+`unique_ids`        | `str (property)`                                | A function used to get a set of unique sample IDs.
 `with_files`        | `cellophane.Samples (property)`                 | A function used to create a new `Samples` object with only samples that have files.
 `without_files`     | `cellophane.Samples (property)`                 | A function used to create a new `Samples` object with only samples that do not have files.
 `complete`          | `cellophane.Samples (property)`                 | A function used to create a new `Samples` object with only samples that have been processed by all runners nad not explicitly or implicitly failed.
 `failed`            | `cellophane.Samples (property)`                 | A function used to create a new `Samples` object with only samples that have explicitly or implicitly failed for at least one runner.
 ---
-
 
 Mixins are used to add attributes and methods to the `Samples` and `Sample` classes. They are defined by creating a class that inherits from `Samples` or `Sample`. The classes use `attrs` under the hood, so all `attrs` features are available (eg. validators, on_setattr, fields, etc.).
 
@@ -282,6 +286,7 @@ Argument        | Type                    | Description
 </details>
 
 ## Example module
+
 ```python
 # modules/my_module.py
 
@@ -395,37 +400,37 @@ def my_post_hook_b(
 
 Cellophane includes a CLI to add/remove/update external modules. The CLI requires a clean git repository to work, and will not run otherwise. Any changes need to be committed, discarded, or stashed before adding, updating, or removing modules.
 
-```
+```text
 python -m cellophane module add
 ```
 
 This command will ask what module(s) to add and then what version to use for each module. The module(s) will be installed in the `modules` directory as a git submodule. The `config.example.yaml` and `requirements.txt` will be automatically updated. Finally, a git commit will be created with the changes.
 
-Alternatively, you can select a module and version directly from the command line. The `latest` tag will select the latest version of the module. The `dev` tag will select the `dev` branch of the module.
+Alternatively, you can select a module and version directly from the command-line. The `latest` tag will select the latest version of the module. The `dev` tag will select the `dev` branch of the module.
 
 > **NOTE:** The structure of the module repository has changed in the dev branch in a backwards-incompatible way. It is currently recommended to use the `--modules_branch dev` flag to use the dev branch of the module repository.
 
 > **NOTE:** The `add`/`rm`/`update` commands can also be used without specifying a module. In this case, you will be prompted to select a module from a list of available modules.
 
-```
+```text
 python -m cellophane --modules_branch dev module add slims@latest
 ```
 
 After adding a module it is important to also install any dependencies required by the module. The `requirements.txt` file at the project root includes dependencies for all modules.
 
-```
+```text
 pip install -r requirements.txt
 ```
 
 To update a module to a specific version, use the `update` command. If a module is checked out at the `dev` branch, the `update` command will pull the latest changes from the remote repository.
 
-```
+```text
 python -m cellophane --modules_branch dev module update slims@dev
 ```
 
 To remove a module, use the `rm` command. This essentially does the reverse of the `add` command and creates a git commit with the changes.
 
-```
+```text
 python -m cellophane --modules_branch dev module rm slims
 ```
 
@@ -448,6 +453,7 @@ Cellophane aims to be JSON Schema Draft 7 compliant, but complex schemas may bre
 - `mapping` - Used to denote JSON objects that will be parsed when specified as a string (eg. `foo=bar,baz=qux` will be parsed as `{"foo": "bar", "baz": "qux"}`).
 
 [Conditional validation](https://json-schema.org/understanding-json-schema/reference/conditionals.html) is supported but has a few caveats:
+
 - `allOf` will simply combine the schemas without validating against current parameters.
 - `oneOf` will select the *FIRST* schema that validates against current parameters.
 - `anyOf` cannot be used to mark parameters as required, since validation will fail if the parameter is not present.
@@ -455,6 +461,7 @@ Cellophane aims to be JSON Schema Draft 7 compliant, but complex schemas may bre
 > **NOTE:** It is possible to "hide" options using conditionals that define properties absent from the base schema (e.g. only expose flag `--a` if flag `--b` is set to `foo`). This should be used with caution as it will be confusing to users.
 
 ## Example schema
+
 ```yaml
 # schema.yaml
 
@@ -533,6 +540,7 @@ properties:
     # If a required option has a default value, it will not be marked as required in the help text
     default: "100 MiB"
 ```
+
 # Running a wrapper
 
 Wrappers can be run as a module using the `python -m my_awesome_wrapper` command, or using `python my_awesome_wrapper.py`. The `--config_file` parameter can be used to specify a YAML configuration file. The `--help` flag can be used to list all available options and their descriptions.
@@ -558,11 +566,12 @@ bar:
 
 
 ```
+
 > **Note:** CLI flags will override values specified in the configuration file.
 
 > **Note:** If `--help` is specified along with other flags, the schema will be evaluated using the current configuration and flags. This means that the help text will only show options that are still required given the current configuration and flags.
 
-```
+```text
 $ python -m my_awesome_wrapper --config_file config.yaml  --bongo bar --help
 
 Usage: my_awesome_wrapper [OPTIONS]

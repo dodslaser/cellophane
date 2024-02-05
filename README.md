@@ -1,10 +1,17 @@
-<p align="center">
-  <img src="cellophane.png" width="400px" />
-</p>
+<!-- markdownlint-disable MD033 Used for centered logo -->
+<!-- markdownlint-disable MD036 -->
 
 # Cellophane
 
+<p align="center">
+  <img src="cellophane.png" width="400px" alt="Cellophane Logo"/>
+</p>
+
+[![codecov](https://codecov.io/gh/dodslaser/cellophane/graph/badge.svg?token=GQ6MOR6CYL)](https://codecov.io/gh/dodslaser/cellophane)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Super-Linter](https://github.com/dodslaser/cellophane/actions/workflows/lint.yml/badge.svg)](https://github.com/marketplace/actions/super-linter)
+
+---
 
 Cellophane is a library for creating modular wrappers. The purpose is both to facilitate wrapping a pipeline with a common framework, and also to simplify the process of porting the wrapper to a different HPC environment, LIMS, long term storage, etc.
 
@@ -16,7 +23,7 @@ Cellophane is not battle tested and may break, blow up, and/or eat your pet(s), 
 
 See [USAGE.md](USAGE.md) for a detailed explanation of how to use cellophane.
 
-## To-do:
+## To-do
 
 - Ensure common exceptions are handled
 - Implement missing JSON Schema features (e.g. pattern, format, etc.) if possible
