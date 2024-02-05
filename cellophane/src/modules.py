@@ -235,7 +235,7 @@ class Hook:
                 case None:
                     logger.debug("Hook did not return any samples")
                     _ret = samples
-                case _:
+                case returned:
                     logger.warning(f"Unexpected return type {type(returned)}")
                     _ret = samples
             pool.stop_and_join()
