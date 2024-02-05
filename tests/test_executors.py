@@ -1,8 +1,8 @@
 """Test cellphane.src.executors."""
 
-import multiprocessing as mp
 import time
 from pathlib import Path
+from typing import Generator
 from unittest.mock import MagicMock
 
 from mpire import WorkerPool
@@ -13,7 +13,7 @@ from cellophane import data, executors, logs
 
 
 @fixture(scope="function")
-def spe(tmp_path: Path) -> executors.SubprocesExecutor:
+def spe(tmp_path: Path) -> Generator[executors.SubprocesExecutor, None, None]:
     """Return a SubprocesExecutor."""
     config = data.Container(
         workdir=tmp_path,

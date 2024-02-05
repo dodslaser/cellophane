@@ -5,7 +5,7 @@
 import logging
 from copy import deepcopy
 from pathlib import Path
-from typing import ClassVar
+from typing import ClassVar, Generator
 
 import cloudpickle
 import dill
@@ -190,7 +190,9 @@ class Test_Sample:
             c: int = 1337
             d: ClassVar[int] = 1338
 
-        _sample_class: type[_mixin] = data.Sample.with_mixins([_mixin])
+        _sample_class: type[_mixin] = data.Sample.with_mixins(
+            [_mixin]  # type: ignore[assignment]
+        )
 
         assert _sample_class is not data.Samples
         assert _sample_class.d == 1338
@@ -349,7 +351,9 @@ class Test_Samples:
             c: int = 1337
             d: ClassVar[int] = 1338
 
-        _samples_class: type[_mixin] = data.Samples.with_mixins([_mixin])
+        _samples_class: type[_mixin] = data.Samples.with_mixins(
+            [_mixin]  # type: ignore[assignment]
+        )
         assert _samples_class is not data.Samples
         assert _samples_class.d == 1338
 
@@ -486,7 +490,10 @@ class Test_OutputGlob:
 
     @fixture(scope="function")
     @staticmethod
-    def meta(tmp_path: Path, monkeypatch: MonkeyPatch) -> dict:
+    def meta(
+        tmp_path: Path,
+        monkeypatch: MonkeyPatch,
+    ) -> Generator[dict[str, Path], None, None]:
         """Dummy metadata for output formatting."""
         workdir = tmp_path / "workdir"
         workdir.mkdir(exist_ok=True)
@@ -512,7 +519,7 @@ class Test_OutputGlob:
     def expected_outputs(
         meta: dict,
         request: FixtureRequest,
-    ) -> set[data.Output]:
+    ) -> Generator[set[data.Output], None, None]:
         """Append tmp_path to expected outputs."""
         outputs = request.param
         for output in outputs:
@@ -522,7 +529,7 @@ class Test_OutputGlob:
 
     @fixture(scope="function")
     @staticmethod
-    def config() -> data.Container:
+    def config() -> Generator[data.Container, None, None]:
         """Dummy config fixture."""
         yield data.Container(resultdir=Path("resultdir"))
 
