@@ -4,7 +4,7 @@ import logging
 import multiprocessing as mp
 import os
 import shlex
-import subprocess as sp
+import subprocess as sp  # nosec
 import sys
 from functools import partial
 from multiprocessing.synchronize import Lock
@@ -303,7 +303,7 @@ class SubprocesExecutor(Executor, name="subprocess"):
             open(logdir / f"{uuid.hex}.out", "w", encoding="utf-8") as stdout,
             open(logdir / f"{uuid.hex}.err", "w", encoding="utf-8") as stderr,
         ):
-            proc = sp.Popen(
+            proc = sp.Popen(  # nosec
                 shlex.split(shlex.join(args)),
                 cwd=workdir,
                 env=env | ({**os.environ} if os_env else {}),
