@@ -696,9 +696,9 @@ def module(
             ctx.obj["modules_repo_url"],
             ctx.obj["modules_repo_branch"],
         )
-    except InvalidCellophaneRepoError as e:
-        _logger.critical(e, exc_info=True)
-        raise SystemExit(1) from e
+    except InvalidCellophaneRepoError as exception:
+        _logger.critical(exception, exc_info=True)
+        raise SystemExit(1) from exception  # pylint: disable=bad-exception-cause
 
     if _repo.is_dirty():
         _logger.critical("Repository has uncommited changes")

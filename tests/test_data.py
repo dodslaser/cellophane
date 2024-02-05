@@ -379,7 +379,7 @@ class Test_Samples:
                 data.Sample(id="b", files=["c", "d"]),
             ]
         )
-        assert samples[samples[0].uuid] == samples[0]
+        assert samples[samples[0].uuid] == samples[0]  # pylint: disable=no-member
 
         sample_c = data.Sample(id="c", files=["e", "f"])
         with raises(KeyError):
