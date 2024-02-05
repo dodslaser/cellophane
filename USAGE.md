@@ -1,5 +1,6 @@
 <!-- markdownlint-disable MD033 Used for spoilers -->
 <!-- markdownlint-disable MD028 Used as notes -->
+<!-- markdownlint-disable MD013 Allow long lines -->
 
 # Usage
 
