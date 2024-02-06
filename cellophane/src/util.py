@@ -1,10 +1,7 @@
 """Utility functions and classes"""
 
-import importlib.util
-import sys
 from collections.abc import Hashable
 from functools import singledispatch
-from types import ModuleType
 from typing import Any
 
 from frozendict import frozendict
@@ -178,35 +175,3 @@ def merge_mappings(m_1: Any, m_2: Any) -> Any:
             return [*dict.fromkeys(m_1 + m_2)]
         case _:
             return m_2
-
-
-def lazy_import(name: str) -> ModuleType:
-    """
-    Performs a lazy import of a module. The module is added to `sys.modules`,
-    but not loaded until it is accessed.
-
-    Args:
-        name (str): The name of the module to import.
-
-    Returns:
-        ModuleType: The imported module.
-
-    Raises:
-        ModuleNotFoundError: Raised when the module is not found.
-
-    Example:
-        ```python
-        module = lazy_import("my_module")
-        module.my_function()
-        ```
-    """
-
-    spec = importlib.util.find_spec(name)
-    if spec is None or spec.loader is None:
-        raise ModuleNotFoundError(f"No module named '{name}'")
-    loader = importlib.util.LazyLoader(spec.loader)
-    spec.loader = loader
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[name] = module
-    loader.exec_module(module)
-    return module

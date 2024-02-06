@@ -1,8 +1,6 @@
 """Test cellophane.src.util."""
 
-import sys
-
-from pytest import mark, param, raises
+from pytest import mark, param
 
 from cellophane.src import util
 
@@ -69,18 +67,3 @@ class Test_merge_mappings:
     def test_merge_mappings(m_1: dict, m_2: dict, expected: dict) -> None:
         """Test merge_mappings."""
         assert util.merge_mappings(m_1, m_2) == expected
-
-
-class Test_lazy_import:
-    """Test lazy_import."""
-
-    @staticmethod
-    def test_lazy_import() -> None:
-        """Test lazy_import."""
-        assert raises(ImportError, util.lazy_import, ".INVALID")
-        assert raises(ModuleNotFoundError, util.lazy_import, "INVALID")
-
-        assert "lib.util.DUMMY" not in sys.modules
-        dummy = util.lazy_import("lib.util.DUMMY")
-        assert "lib.util.DUMMY" in sys.modules
-        assert dummy.DUMMY_VALUE == 42
