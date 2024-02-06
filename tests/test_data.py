@@ -208,7 +208,8 @@ class Test_Sample:
         """Test slotted mixin."""
 
         @define(slots=True)
-        class _mixin(data.Sample):
+        # FIXME: What triggers this mypy error?
+        class _mixin(data.Sample):  # type: ignore[no-untyped-def]
             a: str = "Hello"
 
         with raises(TypeError):
@@ -224,18 +225,9 @@ class Test_Samples:
         """Dummy data.Samples fixture."""
         return data.Samples(
             [
-                data.Sample(
-                    id="a",
-                    files=["a", "b"],
-                ),
-                data.Sample(
-                    id="a",
-                    files=["c", "d"],
-                ),
-                data.Sample(
-                    id="b",
-                    files=["e", "f"],
-                ),
+                data.Sample(id="a", files=["a", "b"]),
+                data.Sample(id="a", files=["c", "d"]),
+                data.Sample(id="b", files=["e", "f"]),
             ]
         )
 
@@ -245,14 +237,8 @@ class Test_Samples:
         """Dummy data.Samples fixture."""
         return data.Samples(
             [
-                data.Sample(
-                    id="a",
-                    files=[LIB / "misc" / "dummy_1"],
-                ),
-                data.Sample(
-                    id="b",
-                    files=[LIB / "misc" / "dummy_2"],
-                ),
+                data.Sample(id="a", files=[LIB / "misc" / "dummy_1"]),
+                data.Sample(id="b", files=[LIB / "misc" / "dummy_2"]),
             ]
         )
 
@@ -440,7 +426,7 @@ class Test_Samples:
 
         _samples_b = _SamplesSubB(
             [
-                data.Sample(id="b1", files=["b1"]),  # type: ignore[var-annotated]
+                data.Sample(id="b1", files=["b1"]),
                 data.Sample(id="b2", files=["b2"]),
             ]
         )

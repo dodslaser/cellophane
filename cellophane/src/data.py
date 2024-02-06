@@ -401,6 +401,10 @@ def as_dict(data: Container, exclude: list[str] | None = None) -> dict[str, Any]
     }
 
 
+def _convert_path_list(data: list[str | Path]) -> list[Path]:
+    return [Path(p) for p in data]
+
+
 S = TypeVar("S", bound="Sample")
 
 
@@ -423,9 +427,9 @@ class Sample(_BASE):  # type: ignore[no-untyped-def]
     """
 
     id: str = field(kw_only=True)
-    files: list[Path] = field(  # type: ignore[var-annotated]
+    files: list[Path] = field(
         factory=list,
-        converter=lambda v: [Path(p) for p in v],
+        converter=_convert_path_list,
         on_setattr=convert,
     )
     processed: bool = False
