@@ -19,17 +19,64 @@ attrs = "^23.1.0"
 
 
 [tool.poetry.group.dev.dependencies]
-pylint = "^2.15.10"
 mypy = "^0.991"
 bandit = "^1.7.4"
 types-pyyaml = "^6.0.12.2"
 black = "^22.12.0"
 pyright = "^1.1.288"
 flake8 = "^6.0.0"
-ipdb = "^0.13.13"
-gitpython = "^3.1.31"
-questionary = "^1.10.0"
+pytest = "^7.3.1"
+pytest-mock = "^3.10.0"
+pytest-cov = "^4.1.0"
+isort = "^5.12.0"
+pytest-repeat = "^0.9.1"
+pytest-clarity = "^1.0.1"
+pytest-xdist = "^3.3.1"
+types-jsonschema = "^4.19.0.3"
+types-humanfriendly = "^10.0.1.10"
+types-psutil = "^5.9.5.16"
+pylint = "^3.0.2"
+
+[tool.mypy]
+python_version = "3.11"
+disallow_untyped_defs = true
+
+
+[[tool.mypy.overrides]]
+module = [
+    "cloudpickle",
+    "dill",
+    "mpire",
+    "mpire.exception",
+    "mpire.async_result",
+    "drmaa2",
+    "jsonschema",
+]
+ignore_errors = true
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "referencing.jsonschema"
+ignore_errors = true
+
+[tool.coverage.run]
+omit = ["cellophane/src/testing/*"]
+sigterm = true
+concurrency = ["multiprocessing"]
+branch = true
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+addopts = """
+    --cov cellophane
+    --cov-report term-missing
+    --dist loadfile -n 2
+    """
+
+[tool.pylint.'MESSAGES CONTROL']
+max-line-length = 88
+exit-zero = true
+fail-on = ["F","E","W"]

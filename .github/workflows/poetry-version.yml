@@ -1,0 +1,30 @@
+# Bump version in pyproject.toml and commit the change
+---
+  on:
+    workflow_call:
+      inputs:
+        version:
+          required: true
+          type: string
+
+  jobs:
+    poetry_version:
+      name: Bump pyproject.toml version
+      runs-on: ubuntu-latest
+      permissions:
+        contents: write
+      steps:
+        - uses: actions/checkout@v4
+          with:
+            ref: ${{ github.head_ref }}
+        - uses: actions/setup-python@v4
+          with:
+            python-version: '3.11'
+        - name: Install poetry
+          uses: abatilo/actions-poetry@v2
+        - name: Set version
+          run: poetry version -- "${{ inputs.version }}"
+        - uses: stefanzweifel/git-auto-commit-action@v5
+          name: Commit version change
+          with:
+            commit_message: "chore: Bump version to ${{ inputs.version }}"

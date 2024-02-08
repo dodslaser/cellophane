@@ -1,0 +1,33 @@
+# Run tests using pytest
+---
+  on:
+    workflow_call:
+
+  jobs:
+    pytest:
+      name: Run pytest
+      runs-on: ubuntu-latest
+      permissions:
+        pull-requests: write
+        checks: write
+
+      steps:
+        - uses: actions/checkout@v4
+          with:
+              ref: ${{ github.head_ref }}
+        - uses: actions/setup-python@v4
+          with:
+              python-version: '3.11'
+        - name: Install poetry
+          uses: abatilo/actions-poetry@v2
+        - name: Install project dependencies
+          run: poetry install
+        - name: Run tests
+          env:
+            TERM: dumb
+          run: poetry run pytest --junit-xml=pytest.xml
+        - name: Publish Test Results
+          if: always()
+          uses: EnricoMi/publish-unit-test-result-action@v2
+          with:
+            files: pytest.xml
