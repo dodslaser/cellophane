@@ -180,7 +180,6 @@ def dependent_schemas_(
     compiled.pop("dependentSchemas")
 
 
-
 def all_of_(
     validator: Draft7Validator,
     all_of: list[dict],

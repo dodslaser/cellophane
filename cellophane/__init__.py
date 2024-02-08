@@ -1,11 +1,11 @@
 """Cellophane: A library for writing modular wrappers"""
+
 import logging
 import time
 from copy import deepcopy
 from functools import reduce
 from multiprocessing import Queue
 from pathlib import Path
-from shutil import copyfile, copytree
 from typing import Any, Literal, Sequence
 
 import rich_click as click
@@ -284,9 +284,8 @@ def cellophane(
                 logger.critical(f"Unhandled exception: {exception}", exc_info=True)
                 raise SystemExit(1) from exception
 
-            else:
-                time_elapsed = format_timespan(time.time() - config.start_time)
-                logger.info(f"Execution complete in {time_elapsed}")
+            time_elapsed = format_timespan(time.time() - config.start_time)
+            logger.info(f"Execution complete in {time_elapsed}")
 
     except Exception as exc:
         logger.critical(exc)

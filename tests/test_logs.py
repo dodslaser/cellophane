@@ -8,6 +8,7 @@ from cellophane.src import logs
 
 class Test_logs:
     """Test logs."""
+
     @staticmethod
     def test_logs(tmp_path: Path) -> None:
         """Test logs."""

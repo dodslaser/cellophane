@@ -22,9 +22,9 @@ MODULES_REPO_URL = "https://github.com/ClinicalGenomicsGBG/cellophane_modules"
 def _mock_recursive(endpoints: list[str], **kwargs: Any) -> MagicMock:
     return MagicMock(
         **{
-            (k := e.split(".", 1))[0]: _mock_recursive([k[1]], **kwargs)
-            if len(k) > 1
-            else MagicMock(**kwargs)
+            (k := e.split(".", 1))[0]: (
+                _mock_recursive([k[1]], **kwargs) if len(k) > 1 else MagicMock(**kwargs)
+            )
             for e in endpoints
         }
     )
@@ -49,6 +49,7 @@ def cellophane_repo(
 
 class Test_CellophaneRepo:
     """Test cellophane repository."""
+
     @staticmethod
     def test_initialize(cellophane_repo: tuple[dev.CellophaneRepo, Path]) -> None:
         """Test cellophane repository initialization."""
@@ -84,6 +85,7 @@ class Test_CellophaneRepo:
 
 class Test_ModulesRepo:
     """Test modules repository."""
+
     @staticmethod
     def test_from_url(modules_repo: dev.ModulesRepo) -> None:
         """Test modules repository initialization from URL."""

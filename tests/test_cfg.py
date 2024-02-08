@@ -394,7 +394,7 @@ class Test_Schema:
             param(LIB / "schema" / "gen" / "mapping.yaml", id="mapping"),
             param(LIB / "schema" / "gen" / "nested.yaml", id="nested"),
             param(LIB / "schema" / "gen" / "required.yaml", id="required"),
-            param(LIB / "schema" / "gen" / "multiline_string.yaml", id="multiline_string"),
+            param(LIB / "schema" / "gen" / "multiline.yaml", id="multiline"),
         ],
     )
     def test_example_config(definition: Path) -> None:
@@ -438,6 +438,7 @@ class Test__get_flags:
 
 class Test_Config:
     """Test cfg.Config."""
+
     def test_empty(self) -> None:
         """Test empty cfg.Config."""
         assert raises(ValueError, cfg.Config, {})

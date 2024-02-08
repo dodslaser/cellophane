@@ -80,10 +80,10 @@ class Test__instance_or_subclass:
     """Test _is_instance_or_subclass function."""
 
     class _SampleSub(data.Sample):
-        ...
+        pass
 
     class _SamplesSub(data.Samples):
-        ...
+        pass
 
     hook = modules.pre_hook()(lambda: ...)
     runner = modules.runner()(lambda: ...)
@@ -106,15 +106,17 @@ class Test__instance_or_subclass:
     )
     def test_instance_or_subclass(
         obj: type[_SampleSub] | type[_SamplesSub] | Any | Runner,
-        cls: type[Sample]
-        | type[dict]
-        | type[Samples]
-        | type[UserList]
-        | type[list]
-        | type[Hook]
-        | type[Callable[..., Any]]
-        | type[str]
-        | type[Runner],
+        cls: (
+            type[Sample]
+            | type[dict]
+            | type[Samples]
+            | type[UserList]
+            | type[list]
+            | type[Hook]
+            | type[Callable[..., Any]]
+            | type[str]
+            | type[Runner]
+        ),
         expected: bool,
     ) -> None:
         """Test _is_instance_or_subclass function."""
@@ -155,7 +157,7 @@ class Test_Runner:
 
         @modules.runner(**kwargs)
         def _dummy() -> None:
-            ...
+            pass
 
         assert _dummy.__name__ == "_dummy"
         assert _dummy.label == kwargs.get("label", "_dummy")
@@ -330,8 +332,7 @@ class Test_Hook:
         with raises(exception):
 
             @_decorator(**kwargs)
-            def _() -> None:
-                ...
+            def _() -> None: ...
 
     @staticmethod
     @mark.parametrize(
@@ -407,12 +408,13 @@ class Test_Hook:
 
 class Test__resolve_hook_dependencies:
     """Test _resolve_hook_dependencies function."""
+
     @staticmethod
     def func(name: str) -> Callable[[], None]:
         """Create dummy function."""
 
         def _dummy() -> None:
-            ...
+            pass
 
         _dummy.__name__ = name
         _dummy.__qualname__ = name
@@ -525,6 +527,7 @@ class Test__resolve_hook_dependencies:
 
 class Test_load:
     """Test modules load function."""
+
     @staticmethod
     @mark.parametrize(
         "path,expected",

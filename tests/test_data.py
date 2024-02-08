@@ -3,7 +3,6 @@
 # pylint: disable=pointless-statement
 
 import logging
-import os
 from copy import deepcopy
 from pathlib import Path
 from typing import ClassVar
@@ -153,9 +152,11 @@ class Test_Sample:
     def test_and() -> None:
         """Test __and__."""
 
-        class _SampleSubA(data.Sample): ...
+        class _SampleSubA(data.Sample):
+            pass
 
-        class _SampleSubB(data.Sample): ...
+        class _SampleSubB(data.Sample):
+            pass
 
         _sample_a1 = _SampleSubA(id="a1", files=["a1"])
         _sample_a2 = _SampleSubA(id="a2", files=["a2"])
@@ -209,7 +210,7 @@ class Test_Sample:
             a: str = "Hello"
 
         with raises(TypeError):
-            _sample_class: type[_mixin] = data.Sample.with_mixins([_mixin])  # type: ignore[assignment]
+            data.Sample.with_mixins([_mixin])
 
 
 class Test_Samples:
@@ -331,7 +332,8 @@ class Test_Samples:
     def test_with_sample_class() -> None:
         """Test with_sample_class."""
 
-        class _SampleSub(data.Sample): ...
+        class _SampleSub(data.Sample):
+            pass
 
         _samples = data.Samples.with_sample_class(_SampleSub)
         assert _samples is not data.Samples
@@ -412,9 +414,11 @@ class Test_Samples:
     def test_and() -> None:
         """Test __and__."""
 
-        class _SamplesSubA(data.Samples): ...
+        class _SamplesSubA(data.Samples):
+            pass
 
-        class _SamplesSubB(data.Samples): ...
+        class _SamplesSubB(data.Samples):
+            pass
 
         _samples_a1 = _SamplesSubA(
             [
@@ -446,7 +450,8 @@ class Test_Samples:
     def test_or() -> None:
         """Test __or__."""
 
-        class _SamplesSub(data.Samples): ...
+        class _SamplesSub(data.Samples):
+            pass
 
         _sample_a = data.Sample(id="a", files=["a", "b"])
         _sample_b = data.Sample(id="b", files=["c", "d"])
@@ -465,6 +470,8 @@ class Test_Samples:
 
 
 class Test_Output:
+    """Test data.Output."""
+
     def test_hash(self) -> None:
         """Test __hash__."""
         a = data.Output(src="src", dst="dst")
@@ -475,6 +482,8 @@ class Test_Output:
 
 
 class Test_OutputGlob:
+    """Test data.OutputGlob."""
+
     @fixture(scope="function")
     @staticmethod
     def meta(tmp_path: Path, monkeypatch: MonkeyPatch) -> dict:
@@ -516,6 +525,7 @@ class Test_OutputGlob:
     def config() -> data.Container:
         """Dummy config fixture."""
         yield data.Container(resultdir=Path("resultdir"))
+
     @staticmethod
     def test_hash() -> None:
         """Test __hash__."""
@@ -621,9 +631,7 @@ class Test_OutputGlob:
         glob = data.OutputGlob(
             src=kwargs.pop("src").format(**meta),
             dst_dir=(
-                dst_dir.format(**meta)
-                if (dst_dir := kwargs.pop("dst_dir"))
-                else None
+                dst_dir.format(**meta) if (dst_dir := kwargs.pop("dst_dir")) else None
             ),
             dst_name=(
                 dst_name.format(**meta)
@@ -635,7 +643,7 @@ class Test_OutputGlob:
 
         assert (
             glob.resolve(
-                samples=[None],
+                samples=[None],  # type: ignore[arg-type]
                 workdir=Path("workdir"),
                 config=config,
                 logger=logger,

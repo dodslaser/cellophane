@@ -1,6 +1,5 @@
 """CLI for managing cellophane projects"""
 
-
 import logging
 import os
 import re
@@ -258,8 +257,8 @@ class ModulesRepo(Repo):
         if tags := [t for t in self.tags if t.name in self.module_branches(_module)]:
             # FIXME: This assumes that the most recent release is the latest version
             return sorted(tags, key=lambda t: t.object.committed_date)[-1].name
-        else:
-            raise AttributeError(f"Could not find any releases for {_module}")
+
+        raise AttributeError(f"Could not find any releases for {_module}")
 
     @property
     def url(self) -> str:
@@ -553,8 +552,8 @@ def _ask_modules(valid_modules: Sequence[str]) -> list[tuple[str, None]]:
         validate=lambda x: len(x) > 0 or "Select at least one module",
     ).ask():
         return _modules
-    else:
-        raise NoModulesError("No modules selected")
+
+    raise NoModulesError("No modules selected")
 
 
 def _ask_branch(_module: str, modules_repo: ModulesRepo) -> str:
@@ -706,12 +705,12 @@ def module(
         raise SystemExit(1)
 
     try:
-        common_kwargs = dict(
-            modules=modules,
-            repo=_repo,
-            path=_path,
-            logger=_logger,
-        )
+        common_kwargs = {
+            "modules": modules,
+            "repo": _repo,
+            "path": _path,
+            "logger": _logger,
+        }
 
         match command:
             case "add":

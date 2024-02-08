@@ -1,4 +1,5 @@
 """Base classes and functions for cellophane modules."""
+
 import logging
 import sys
 from copy import deepcopy

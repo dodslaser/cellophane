@@ -29,15 +29,18 @@ from . import util
 
 class MergeSamplesTypeError(Exception):
     """Raised when trying to merge samples of different types"""
+
     msg: str = "Cannot merge samples of different types"
 
 
 class MergeSamplesUUIDError(Exception):
     """Raised when trying to merge samples with different UUIDs"""
+
     msg: str = "Cannot merge samples with different UUIDs"
 
+
 class _BASE:
-    ...
+    """Dummy base class for adding mixins to the Sample and Samples classes."""
 
 
 class _Merger:
@@ -85,10 +88,8 @@ class _Merger:
         """
         if name in self._impls:
             return self._impls[name](this, that)
-        elif this is None or that is None:
-            return this or that
-        else:
-            return (this, that)
+
+        return this or that if this is None or that is None else (this, that)
 
 
 @define(init=False, slots=False)
@@ -113,7 +114,12 @@ class Container(Mapping):
             raise TypeError("Cannot merge containers of different types")
         return self.__class__(**util.merge_mappings(self, other))
 
-    def __init__(self, __data__: dict | None = None, *args: Any, **kwargs: Any) -> None:  # pylint: disable=keyword-arg-before-vararg
+    def __init__(  # pylint: disable=keyword-arg-before-vararg
+        self,
+        __data__: dict | None = None,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
         _data = __data__ or {}
         for key in [k for k in kwargs if k not in fields_dict(self.__class__)]:
             _data[key] = kwargs.pop(key)
@@ -174,10 +180,10 @@ class Container(Mapping):
     def __getattr__(self, key: str) -> Any:
         if key in self.__data__:
             return self.__data__[key]
-        else:
-            raise AttributeError(
-                f"'{self.__class__.__name__}' object has no attribute '{key}'"
-            )
+
+        raise AttributeError(
+            f"'{self.__class__.__name__}' object has no attribute '{key}'"
+        )
 
     def __deepcopy__(self, memo: dict[int, Any]) -> Any:
         _instance = self.__class__(
@@ -319,7 +325,7 @@ def _apply_mixins(
     base: type,
     mixins: Sequence[type["Samples"]],
 ) -> type["Samples"]:
-    ...  # pragma: no cover
+    pass  # pragma: no cover
 
 
 @overload
@@ -328,7 +334,7 @@ def _apply_mixins(
     base: type,
     mixins: Sequence[type["Sample"]],
 ) -> type["Sample"]:
-    ...  # pragma: no cover
+    pass  # pragma: no cover
 
 
 def _apply_mixins(
@@ -394,7 +400,9 @@ def as_dict(data: Container, exclude: list[str] | None = None) -> dict[str, Any]
         if k not in (exclude or [])
     }
 
+
 S = TypeVar("S", bound="Sample")
+
 
 @define(slots=False)
 class Sample(_BASE):  # type: ignore[no-untyped-def]
@@ -470,7 +478,8 @@ class Sample(_BASE):  # type: ignore[no-untyped-def]
     def __and__(self, other: "Sample") -> "Sample":
         if self.__class__ != other.__class__:
             raise MergeSamplesTypeError
-        elif self.uuid != other.uuid:
+
+        if self.uuid != other.uuid:
             raise MergeSamplesUUIDError
 
         _sample = deepcopy(self)
@@ -499,12 +508,8 @@ class Sample(_BASE):  # type: ignore[no-untyped-def]
         """
         Checks if the sample is failed by any runner
         """
-        if self._fail:
-            return self._fail
-        elif not self.processed:
-            return "Sample was not processed"
-        else:
-            return False
+
+        return self._fail or (False if self.processed else "Sample was not processed")
 
     @classmethod
     def with_mixins(cls, mixins: Sequence[type["Sample"]]) -> type["Sample"]:
@@ -558,12 +563,14 @@ class Samples(UserList[S]):
     def __getitem__(self, key: int | UUID) -> S:  # type: ignore[override]
         if isinstance(key, int):
             return super().__getitem__(key)
-        elif isinstance(key, UUID) and key in self:
+
+        if isinstance(key, UUID) and key in self:
             return next(s for s in self if s.uuid == key)
-        elif isinstance(key, UUID):
+
+        if isinstance(key, UUID):
             raise KeyError(f"Sample with UUID {key.hex} not found")
-        else:
-            raise TypeError(f"Key {key} is not an int or a UUID")
+
+        raise TypeError(f"Key {key} is not an int or a UUID")
 
     def __setitem__(self, key: int | UUID, value: S) -> None:  # type: ignore[override]
         if isinstance(key, int):
@@ -585,9 +592,11 @@ class Samples(UserList[S]):
     @staticmethod
     def _merge_data(this: list[Sample], that: list[Sample]) -> list[Sample]:
         return [
-            (a & next(b for b in that if b.uuid == a.uuid))
-            if a.uuid in [s.uuid for s in that]
-            else a
+            (
+                (a & next(b for b in that if b.uuid == a.uuid))
+                if a.uuid in [s.uuid for s in that]
+                else a
+            )
             for a in this
         ]
 

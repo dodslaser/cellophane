@@ -7,6 +7,7 @@ from cellophane.src import testing
 
 LIB = Path(__file__).parent / "lib"
 
+
 class Test_cellophane:
     """
     This test suite serves as a small integration test for cellophane.

@@ -9,6 +9,7 @@ from cellophane.src import util
 
 class Test_map_nested_keys:
     """Test map_nested_keys."""
+
     @staticmethod
     @mark.parametrize(
         "data,expected",
@@ -19,7 +20,7 @@ class Test_map_nested_keys:
                 id="nested dict",
             ),
             # FIXME: Add more test cases
-        ]
+        ],
     )
     def test_map_nested_keys(data: dict, expected: list) -> None:
         """Test map_nested_keys."""
@@ -28,6 +29,7 @@ class Test_map_nested_keys:
 
 class Test_merge_mappings:
     """Test merge_mappings."""
+
     @staticmethod
     @mark.parametrize(
         "m_1,m_2,expected",
@@ -61,7 +63,7 @@ class Test_merge_mappings:
                 {"a": [{"c": 2}]},
                 {"a": [{"b": 1, "c": 2}]},
                 id="nested list, nested list",
-            )
+            ),
         ],
     )
     def test_merge_mappings(m_1: dict, m_2: dict, expected: dict) -> None:
@@ -71,6 +73,7 @@ class Test_merge_mappings:
 
 class Test_lazy_import:
     """Test lazy_import."""
+
     @staticmethod
     def test_lazy_import() -> None:
         """Test lazy_import."""

@@ -1,10 +1,8 @@
 """Test cellphane.src.executors."""
 
-import logging
 import multiprocessing as mp
 import time
 from pathlib import Path
-from typing import Any
 from unittest.mock import MagicMock
 
 from mpire import WorkerPool

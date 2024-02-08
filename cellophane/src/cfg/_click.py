@@ -1,6 +1,5 @@
 """Click related utilities for configuration."""
 
-
 import json
 import re
 from ast import literal_eval
@@ -34,6 +33,7 @@ SCHEMA_TYPES = Literal[
     "path",
     "size",
 ]
+
 
 class InvertibleParamType(click.ParamType):
     """
@@ -501,9 +501,11 @@ class Flag:
             Callable: A click.option decorator
         """
         return click.option(
-            f"--{self.flag}/--{self.no_flag}"
-            if self.type == "boolean"
-            else f"--{self.flag}",
+            (
+                f"--{self.flag}/--{self.no_flag}"
+                if self.type == "boolean"
+                else f"--{self.flag}"
+            ),
             type=self.click_type,
             default=(
                 True
@@ -515,9 +517,11 @@ class Flag:
             show_default=(
                 False
                 if self.secret
-                else self.click_type.invert(default)
-                if (default := self.value or self.default)
-                and isinstance(self.click_type, InvertibleParamType)
-                else str(default)
+                else (
+                    self.click_type.invert(default)
+                    if (default := self.value or self.default)
+                    and isinstance(self.click_type, InvertibleParamType)
+                    else str(default)
+                )
             ),
         )

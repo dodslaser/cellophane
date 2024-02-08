@@ -32,7 +32,7 @@ from ._jsonschema import (
 
 
 class Blank:
-    ...
+    """Represents a blank value in YAML"""
 
 
 def _dump_yaml(data_: Any) -> str:
@@ -416,10 +416,7 @@ def options(schema: Schema) -> Callable:
 
             # Set the workdir, resultdir, and logdir (if possible)
             if "workdir" in config:
-                (
-                    config["resultdir"],
-                    config["logdir"],
-                ) = (
+                (config["resultdir"], config["logdir"]) = (
                     config.get("resultdir", config.workdir / "results"),
                     config.get("logdir", config.workdir / "logs"),
                 )

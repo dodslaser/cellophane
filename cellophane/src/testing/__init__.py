@@ -4,7 +4,6 @@
 
 import logging
 import traceback
-from functools import partial
 from pathlib import Path
 from typing import Any, Callable, Iterator
 
@@ -69,10 +68,12 @@ def _execute_from_structure(
     # Extract --flag value pairs from args. If a value is None, the flag is
     # considered to be a flag without a value.
     _args = [p for f in (args or {}).items() for p in f if p is not None]
+
     def _setup_logging(*args: Any, **kwargs: Any) -> logging.NullHandler:
         del args, kwargs  # unused
         logging.getLogger().handlers = logging.getLogger().handlers[1:]
         return logging.NullHandler()
+
     try:
         mocker.patch(
             "cellophane.logs.setup_logging",
@@ -85,9 +86,7 @@ def _execute_from_structure(
                 exc()
                 if isinstance(exc := (mock or {}).get("exception"), type)
                 and issubclass(exc, BaseException)
-                else Exception(exc)
-                if exc
-                else None
+                else Exception(exc) if exc else None
             )
             mocker.patch(
                 target=target,
