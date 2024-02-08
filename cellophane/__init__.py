@@ -11,7 +11,18 @@ from humanfriendly import format_timespan
 from mpire import WorkerPool
 from ruamel.yaml.scanner import ScannerError
 
-from .src import cfg, data, logs, modules, sge, util  # pylint: disable=unused-import
+from .src import cfg, data, logs, modules, sge, util
+
+__all__ = [
+    "CELLOPHANE_ROOT",
+    "cellophane",
+    "cfg",
+    "data",
+    "logs",
+    "modules",
+    "sge",
+    "util",
+]
 
 CELLOPHANE_ROOT = Path(__file__).parent
 
@@ -121,34 +132,6 @@ def _main(
     samples = _run_hooks(hooks, "post", samples, **common_kwargs)
 
 
-def _add_config_defaults(
-    ctx: click.Context,
-    config_path: str,
-    schema: cfg.Schema,
-    logger: logging.LoggerAdapter,
-) -> str:
-    if config_path is not None:
-        try:
-            _config = cfg.Config.from_file(
-                schema=schema,
-                path=config_path,
-                validate=False,
-            )
-
-        except Exception as exception:
-            logger.critical(f"Failed to load config: {exception}")
-            raise SystemExit(1) from exception
-
-        else:
-            ctx.default_map = {}
-            for flag in _config.flags:
-                ctx.default_map |= {flag.flag: flag.default}
-                param = next(p for p in ctx.command.params if p.name == flag.flag)
-                param.required = flag.required and not flag.default
-
-    return config_path
-
-
 def cellophane(
     label: str,
     root: Path,
@@ -195,76 +178,44 @@ def cellophane(
             sample_mixins,
             samples_mixins,
         ) = modules.load(root / "modules")
-    except Exception as exc:
-        logger.error(exc)
-        raise SystemExit(1) from exc
 
-    _SAMPLE = data.Sample.with_mixins(sample_mixins)
-    _SAMPLES = data.Samples.with_sample_class(_SAMPLE).with_mixins(samples_mixins)
 
-    @schema.add_options
-    @click.command()
-    @click.option(
-        "config_path",
-        "--config",
-        type=click.Path(exists=True),
-        help="Path to config file",
-        is_eager=True,
-        callback=lambda ctx, _, value: _add_config_defaults(ctx, value, schema, logger),
-    )
-    @click.option(
-        "--log_level",
-        type=click.Choice(
-            ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-            case_sensitive=False,
-        ),
-        default="INFO",
-        help="Log level",
-        show_default=True,
-    )
-    def inner(log_level: str, outprefix: str, **kwargs: Any) -> None:
-        """Run cellophane"""
-        start_time = time.time()
-        console_handler.setLevel(log_level)
-        logger.debug(f"Found {len(hooks)} hooks")
-        logger.debug(f"Found {len(runners)} runners")
-        logger.debug(f"Found {len(sample_mixins)} sample mixins")
-        logger.debug(f"Found {len(samples_mixins)} samples mixins")
+        _SAMPLE = data.Sample.with_mixins(sample_mixins)
+        _SAMPLES = data.Samples.with_sample_class(_SAMPLE).with_mixins(samples_mixins)
 
-        config = cfg.Config(
-            schema=schema,
-            **{k: v for k, v in kwargs.items() if v is not None},
-        )
-        config.analysis = label  # type: ignore[attr-defined]
-        config.log_level = log_level  # type: ignore[attr-defined]
-        config.timestamp = time.strftime(  # type: ignore[attr-defined]
-            "%Y%m%d_%H%M%S",
-            time.localtime(start_time),
-        )
-        config.outprefix = outprefix or config.timestamp  # type: ignore[attr-defined]
-        logs.add_file_handler(
-            logger, path=config.logdir / f"{label}.{config.outprefix}.log"
-        )
-        try:
-            _main(
-                hooks=hooks,
-                runners=runners,
-                samples_class=_SAMPLES,
-                config=config,
-                logger=logger,
-                root=root,
+        @cfg.options(schema)
+        def inner(config: cfg.Config, **_) -> None:
+            """Run cellophane"""
+            console_handler.setLevel(config.log_level)
+            logger.debug(f"Found {len(hooks)} hooks")
+            logger.debug(f"Found {len(runners)} runners")
+            logger.debug(f"Found {len(sample_mixins)} sample mixins")
+            logger.debug(f"Found {len(samples_mixins)} samples mixins")
+
+            config.analysis = label  # type: ignore[attr-defined]
+            logs.add_file_handler(
+                logger, path=config.logdir / f"{label}.{config.outprefix}.log"
             )
-        except ImportError as exc:
-            logger.critical(exc)
-            raise SystemExit(1) from exc
+            try:
+                _main(
+                    hooks=hooks,
+                    runners=runners,
+                    samples_class=_SAMPLES,
+                    config=config,
+                    logger=logger,
+                    root=root,
+                )
 
-        except Exception as exception:
-            logger.critical(f"Unhandled exception: {exception}", exc_info=True)
-            raise SystemExit(1) from exception
+            except Exception as exception:
+                logger.critical(f"Unhandled exception: {exception}", exc_info=True)
+                raise SystemExit(1) from exception
 
-        else:
-            time_elapsed = format_timespan(time.time() - start_time)
-            logger.info(f"Execution complete in {time_elapsed}")
-            raise SystemExit(0)
+            else:
+                time_elapsed = format_timespan(time.time() - config.start_time)
+                logger.info(f"Execution complete in {time_elapsed}")
+                raise SystemExit(0)
+    except Exception as exc:
+        logger.critical(exc)
+        raise SystemExit(1) from exc
 
     return inner

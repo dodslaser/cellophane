@@ -1,0 +1,7 @@
+schema:
+  properties:
+    no_default:
+      type: string
+
+example: |
+  no_default: ~  # (string)

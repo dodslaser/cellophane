@@ -1,0 +1,12 @@
+schema:
+  properties:
+    a:
+      type: string
+      default: SCHEMA
+  required: [a]
+
+flags:
+  - key: ["a"]
+    type: string
+    default: SCHEMA
+    required: false

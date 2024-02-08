@@ -20,6 +20,7 @@ multiprocessing-logging = "^0.3.4"
 gitpython = "^3.1.31"
 questionary = "^2.0.1"
 cloudpickle = "^2.2.1"
+frozendict = "^2.3.8"
 
 [tool.poetry.group.dev.dependencies]
 mypy = "^0.991"

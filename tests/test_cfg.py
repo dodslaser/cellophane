@@ -9,25 +9,8 @@ from ruamel.yaml import YAML
 
 from cellophane.src import cfg
 
-_YAML = YAML(typ="safe", pure=True)
+_YAML = YAML(typ="unsafe")
 LIB = Path("__file__").parent / "tests" / "lib"
-SCHEMAS = {
-    "nested": _YAML.load(
-        (LIB / "schema" / "nested.yaml").read_text(),
-    ),
-    "multiple": _YAML.load(
-        (LIB / "schema" / "multiple.yaml").read_text(),
-    ),
-    "default": _YAML.load(
-        (LIB / "schema" / "default.yaml").read_text(),
-    ),
-    "required": _YAML.load(
-        (LIB / "schema" / "required.yaml").read_text(),
-    ),
-    "parent_required": _YAML.load(
-        (LIB / "schema" / "parent_required.yaml").read_text(),
-    ),
-}
 
 
 class Test_StringMapping:
@@ -50,10 +33,15 @@ class Test_StringMapping:
                 {"a": "a", "c": "d"},
                 id="single quoted",
             ),
+            param(
+                "",
+                {},
+                id="empty",
+            ),
         ],
     )
     def test_convert(value, expected):
-        _mapping = cfg.StringMapping()
+        _mapping = cfg._click.StringMapping()
         assert _mapping.convert(value, None, None) == expected
 
     @staticmethod
@@ -83,7 +71,7 @@ class Test_StringMapping:
         ],
     )
     def test_convert_exception(value):
-        _mapping = cfg.StringMapping()
+        _mapping = cfg._click.StringMapping()
         with raises(click.BadParameter):
             _mapping.convert(value, None, None)
 
@@ -94,38 +82,37 @@ class Test__Flag:
         "flag,click_option",
         [
             param(
-                cfg.Flag(
+                cfg._click.Flag(
+                    required=True,
                     key=("a", "b"),
                     type="string",
-                    node_required=True,
-                    parent_required=True,
                 ),
                 click.option("--a_b", type=str, required=True),
                 id="required",
             ),
             param(
-                cfg.Flag(key=("a", "b"), type="string", default="default"),
+                cfg._click.Flag(key=("a", "b"), type="string", default="default"),
                 click.option("--a_b", type=str, default="default"),
                 id="default",
             ),
             param(
-                cfg.Flag(key=("a", "b"), type="string", secret=True),
+                cfg._click.Flag(key=("a", "b"), type="string", secret=True),
                 click.option("--a_b", type=str, show_default=False),
                 id="secret",
             ),
             param(
-                cfg.Flag(key=("a", "b"), type="boolean"),
+                cfg._click.Flag(key=("a", "b"), type="boolean"),
                 click.option("--a_b/--no-a_b", type=bool, default=True),
                 id="boolean",
             ),
             param(
-                cfg.Flag(key=("a", "b"), type="string", enum=["A", "B", "C"]),
+                cfg._click.Flag(key=("a", "b"), type="string", enum=["A", "B", "C"]),
                 click.option("--a_b", type=click.Choice(["A", "B", "C"])),
                 id="boolean",
             ),
             *(
                 param(
-                    cfg.Flag(key=("a", "b"), type=_type),  # type: ignore[arg-type]
+                    cfg._click.Flag(key=("a", "b"), type=_type),  # type: ignore[arg-type]
                     click.option("--a_b", type=pytype),
                     id=_type,
                 )
@@ -134,8 +121,9 @@ class Test__Flag:
                     ("integer", int),
                     ("number", float),
                     ("array", list),
-                    ("mapping", cfg.StringMapping()),
+                    ("mapping", cfg._click.StringMapping()),
                     ("path", click.Path()),
+                    (None, str),
                 ]
             ),
         ],
@@ -149,17 +137,17 @@ class Test__Flag:
     @staticmethod
     def test_invalid_type():
         with raises(ValueError):
-            cfg.Flag(key=("a", "b"), type="invalid")
+            cfg._click.Flag(key=("a", "b"), type="invalid")
 
     @staticmethod
     def test_invalid_key():
-        _flag = cfg.Flag()
+        _flag = cfg._click.Flag()
         with raises(ValueError):
             _flag.key = "INVALID"
 
     @staticmethod
     def test_unset_key():
-        _flag = cfg.Flag()
+        _flag = cfg._click.Flag()
         with raises(ValueError):
             _ = _flag.key
 
@@ -170,7 +158,7 @@ class Test_Schema:
         "schema,expected",
         [
             param(
-                LIB / "schema" / "nested.yaml",
+                LIB / "schema" / "parse" / "nested.yaml",
                 {
                     "type": "object",
                     "properties": {
@@ -181,10 +169,10 @@ class Test_Schema:
             ),
             param(
                 [
-                    LIB / "schema" / "merge_a.yaml",
-                    LIB / "schema" / "merge_b.yaml",
-                    LIB / "schema" / "merge_c.yaml",
-                    LIB / "schema" / "merge_d.yaml",
+                    LIB / "schema" / "parse" / "merge_a.yaml",
+                    LIB / "schema" / "parse" / "merge_b.yaml",
+                    LIB / "schema" / "parse" / "merge_c.yaml",
+                    LIB / "schema" / "parse" / "merge_d.yaml",
                 ],
                 {
                     "properties": {
@@ -203,113 +191,94 @@ class Test_Schema:
     )
     def test_from_file(schema, expected):
         _schema = cfg.Schema.from_file(schema)
-        assert _schema.as_dict == expected
+        assert _schema.as_dict() == expected
 
     @staticmethod
     @mark.parametrize(
-        "schema,expected",
+        "definition",
         [
-            param(
-                LIB / "schema" / "gen_basic.yaml",
-                "basic: BASIC  # DESCRIPTION (string)\n",
-                id="basic",
-            ),
-            param(
-                LIB / "schema" / "gen_no_default.yaml",
-                "no_default: ~  # (string)\n",
-                id="no_default",
-            ),
-            param(
-                LIB / "schema" / "gen_array.yaml",
-                "array:  # ARRAY (array)\n" "- A\n" "- B\n" "- C\n",
-                id="array",
-            ),
-            param(
-                LIB / "schema" / "gen_mapping.yaml",
-                "mapping:  # MAPPING (mapping)\n" "  a: A\n" "  b: B\n",
-                id="object",
-            ),
-            param(
-                LIB / "schema" / "gen_nested.yaml",
-                "nested:\n" "  a:\n" "    b:\n" "      c: C  # NESTED (string)\n",
-                id="nested",
-            ),
+            param(LIB / "schema" / "gen" / "basic.yaml", id="basic"),
+            param(LIB / "schema" / "gen" / "no_default.yaml", id="no_default"),
+            param(LIB / "schema" / "gen" / "array.yaml", id="array"),
+            param(LIB / "schema" / "gen" / "mapping.yaml", id="object"),
+            param(LIB / "schema" / "gen" / "nested.yaml", id="nested"),
         ],
     )
-    def test_example_config(schema, expected):
-        _schema = cfg.Schema.from_file(schema)
-        _example = _schema.example_config
-        assert _example == expected
+    def test_example_config(definition):
+        _definition = _YAML.load(definition.read_text())
+        _schema = cfg.Schema(_definition["schema"])
+        assert _schema.example_config == _definition["example"]
 
+
+class Test__get_flags:
     @staticmethod
     @mark.parametrize(
-        "expected,required",
+        "definition",
         [
             param(
-                [cfg.Flag(key=["a", "b"], type="string")],
-                [False],
+                LIB / "schema" / "flags" / "nested.yaml",
                 id="nested",
             ),
             param(
-                [
-                    cfg.Flag(parent_present=True, key=["a"], type="string"),
-                    cfg.Flag(parent_present=True, key=["b"], type="string"),
-                ],
-                [False, False],
+                LIB / "schema" / "flags" / "multiple.yaml",
                 id="multiple",
             ),
             param(
-                [
-                    cfg.Flag(
-                        parent_present=True, key=["a"], type="string", default="SCHEMA"
-                    )
-                ],
-                [False],
+                LIB / "schema" / "flags" / "default.yaml",
                 id="default",
             ),
             param(
-                [
-                    cfg.Flag(
-                        parent_present=True,
-                        key=["a"],
-                        type="string",
-                        node_required=True,
-                    )
-                ],
-                [True],
+                LIB / "schema" / "flags" / "required_default.yaml",
+                id="required_default",
+            ),
+            param(
+                LIB / "schema" / "flags" / "required.yaml",
                 id="required",
             ),
             param(
-                [
-                    cfg.Flag(
-                        parent_required=True,
-                        node_required=True,
-                        key=["a", "x"],
-                        type="string",
-                    ),
-                    cfg.Flag(parent_required=True, key=["a", "y"], type="string"),
-                    cfg.Flag(
-                        parent_required=False,
-                        node_required=True,
-                        key=["b", "x"],
-                        type="string",
-                    ),
-                    cfg.Flag(parent_required=False, key=["b", "y"], type="string"),
-                ],
-                [True, False, False, False],
+                LIB / "schema" / "flags" / "dependent_required.yaml",
+                id="dependent_required",
+            ),
+            param(
+                LIB / "schema" / "flags" / "dependent_schemas.yaml",
+                id="dependent_schemas",
+            ),
+            param(
+                LIB / "schema" / "flags" / "parent_required.yaml",
                 id="parent_required",
+            ),
+            param(
+                LIB / "schema" / "flags" / "nested_required.yaml",
+                id="nested_required",
+            ),
+            param(
+                LIB / "schema" / "flags" / "if_else.yaml",
+                id="if_else",
+            ),
+            param(
+                LIB / "schema" / "flags" / "all_of.yaml",
+                id="all_of",
+            ),
+            param(
+                LIB / "schema" / "flags" / "any_of.yaml",
+                id="any_of",
+            ),
+            param(
+                LIB / "schema" / "flags" / "one_of.yaml",
+                id="one_of",
             ),
         ],
     )
-    def test_schema_flags(expected, required, request):
-        _schema = cfg.Schema(SCHEMAS[request.node.callspec.id])
-        _flags = [*_schema.flags]
-        assert _flags == expected
-        assert [f.required for f in _flags] == required
+    def test__get_flags(definition):
+        _definition = _YAML.load(definition.read_text())
+        _schema = cfg.Schema(_definition["schema"])
+        _config = _definition.get("config", {})
+        _expected = [cfg._click.Flag(**flag) for flag in _definition["flags"]]
+        assert cfg._get_flags(_schema, _config) == _expected
 
 
 class Test_Config:
-    schema = cfg.Schema.from_file(LIB / "schema" / "config_simple.yaml")
+    schema = cfg.Schema.from_file(LIB / "schema" / "config" / "simple.yaml")
 
     expected = {
         "string": "STRING",
@@ -334,25 +303,22 @@ class Test_Config:
     def test_empty(self):
         assert raises(ValueError, cfg.Config, self.schema)
 
-    def test_from_file(self):
-        _config = cfg.Config.from_file(LIB / "config" / "simple.yaml", self.schema)
-        assert _config.as_dict == self.expected
-
     def test_from_kwargs(self):
         _config = cfg.Config(
             self.schema,
             **self.kwargs,
         )
-        assert _config.as_dict == self.expected
+        assert _config.as_dict() == self.expected
 
     def test_from_cli(self):
         runner = CliRunner()
 
         @click.command()
         def _cli(**kwargs):
+            kwargs.pop("config_file")
             _YAML.dump(kwargs, sys.stdout)
 
-        _cli = reduce(lambda x, y: y.click_option(x), self.schema.flags, _cli)
+        _cli = reduce(lambda x, y: y.click_option(x), cfg._get_flags(self.schema), _cli)
 
         result = runner.invoke(
             _cli,
@@ -380,22 +346,21 @@ class Test_Config:
         [
             param(
                 {"a": "CONFIG"},
-                cfg.Flag(
-                    parent_present=True, key=["a"], type="string", default="CONFIG"
-                ),
+                cfg._click.Flag(key=["a"], type="string", default="CONFIG"),
                 id="from_config",
             ),
             param(
                 {},
-                cfg.Flag(
-                    parent_present=True, key=["a"], type="string", default="SCHEMA"
-                ),
+                cfg._click.Flag(key=["a"], type="string", default="SCHEMA"),
                 id="from_schema",
             ),
         ],
     )
     def test_flags(self, kwargs, expected):
-        _schema = cfg.Schema(SCHEMAS["default"])
+        _definition = _YAML.load(
+            (LIB / "schema" / "flags" / "default.yaml").read_text()
+        )
+        _schema = cfg.Schema(_definition["schema"])
         _config = cfg.Config(_schema, allow_empty=True, **kwargs)
 
-        assert _config.flags == [expected]
+        assert cfg._get_flags(_schema, _config.as_dict()) == [expected]

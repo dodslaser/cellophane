@@ -1,0 +1,25 @@
+schema:
+  properties:
+    a:
+      type: null
+    b:
+      type: null
+  allOf:
+    - required: [a]
+    - required: [b]
+    - properties:
+        c:
+          type: string
+    - properties:
+        c:
+          default: C
+
+flags:
+  - key: [a]
+    required: true
+  - key: [b]
+    required: true
+  - key: [c]
+    required: false
+    type: string
+    default: C

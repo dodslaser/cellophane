@@ -1,0 +1,29 @@
+schema:
+  properties:
+    a:
+      type: object
+      properties:
+        x:
+          type: null
+        y:
+          type: null
+      required: [x]
+    b:
+      type: object
+      properties:
+        x:
+          type: null
+        y:
+          type: null
+      required: [x]
+  required: [a]
+
+flags:
+  - key: ["a", "x"]
+    required: true
+  - key: ["a", "y"]
+    required: false
+  - key: ["b", "x"]
+    required: false
+  - key: ["b", "y"]
+    required: false

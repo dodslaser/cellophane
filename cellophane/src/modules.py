@@ -91,7 +91,7 @@ class Runner:
         logger = logging.LoggerAdapter(root_logger, {"label": self.label})
 
         signal(SIGTERM, _cleanup(logger))
-        outdir = config.outdir / config.get("outprefix", config.timestamp) / self.label
+        outdir = config.outdir / config.outprefix / self.label
         if self.individual_samples:
             outdir /= samples[0].id
         try:
@@ -190,7 +190,7 @@ class Hook:
             timestamp=config.timestamp,
             logger=logger,
             root=root,
-            outdir=config.outdir / config.get("outprefix", config.timestamp),
+            outdir=config.outdir / config.outprefix,
         ):
             case returned if isinstance(returned, data.Samples):
                 _ret = returned

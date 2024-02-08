@@ -1,0 +1,9 @@
+schema:
+  properties:
+    a:
+      type: null
+  required: [a]
+
+flags:
+  - key: ["a"]
+    required: true

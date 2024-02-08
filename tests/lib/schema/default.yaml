@@ -1,4 +1,0 @@
-properties:
-  a:
-    type: string
-    default: SCHEMA

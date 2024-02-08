@@ -1,0 +1,10 @@
+schema:
+  properties:
+    a:
+      type: null
+    b:
+      type: null
+
+flags:
+  - key: ["a"]
+  - key: ["b"]

@@ -13,6 +13,10 @@ properties:
       - ERROR
       - CRITICAL
     type: string
+  
+  config_file:
+    description: Path to config file
+    type: path
 
   logdir:
     description: Log directory

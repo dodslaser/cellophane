@@ -1,0 +1,26 @@
+schema:
+  properties:
+    a:
+      type: boolean
+    c:
+      type: boolean
+  dependentSchemas:
+    a:
+      properties:
+        b:
+          type: null
+    c:
+      properties:
+        d:
+          type: null
+
+config:
+  a: true
+
+flags:
+  - key: ["a"]
+    type: boolean
+    default: true
+  - key: ["c"]
+    type: boolean
+  - key: ["b"]

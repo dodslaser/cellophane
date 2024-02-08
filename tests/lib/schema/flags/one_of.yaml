@@ -1,0 +1,25 @@
+schema:
+  properties:
+    a:
+      type: boolean
+    b:
+      type: null
+  oneOf:
+    - required: [a]
+      properties:
+        depends_on_a:
+          type: null
+    - required: [b]
+      properties:
+        depends_on_b:
+          type: null
+
+config:
+  a: true
+
+flags:
+  - key: [a]
+    type: boolean
+    default: true
+  - key: [b]
+  - key: [depends_on_a]

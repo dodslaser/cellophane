@@ -87,7 +87,7 @@ class Test_Container:
         _container = data.Container(a={"b": 1337})
         _container.a.f = 1338
         _container.c = 1339
-        assert _container.as_dict == {"a": {"b": 1337, "f": 1338}, "c": 1339}
+        assert _container.as_dict() == {"a": {"b": 1337, "f": 1338}, "c": 1339}
 
     @staticmethod
     def test_contains():

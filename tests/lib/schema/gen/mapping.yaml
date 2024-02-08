@@ -1,0 +1,14 @@
+schema:
+  type: object
+  properties:
+    mapping:
+      type: mapping
+      description: MAPPING
+      default:
+        a: "A"
+        b: "B"
+
+example: |
+  mapping:  # MAPPING (mapping)
+    a: A
+    b: B

@@ -2,9 +2,36 @@
 
 import importlib.util
 import sys
-from types import ModuleType
+from functools import singledispatch
 from typing import Any, Hashable
 
+# from gelidum.collections import frozendict, frozenlist, frozenzet
+from frozendict import frozendict
+
+
+@singledispatch
+def freeze(data: Any):
+    return data
+
+@freeze.register
+def _(data: dict):
+    return frozendict({k: freeze(v) for k, v in data.items()})
+
+@freeze.register
+def _(data: list | tuple):
+    return tuple(freeze(v) for v in data)
+
+@singledispatch
+def unfreeze(data: Any):
+    return data
+
+@unfreeze.register
+def _(data: dict | frozendict):
+    return {k: unfreeze(v) for k, v in data.items()}
+
+@unfreeze.register
+def _(data: list | tuple):
+    return [unfreeze(v) for v in data]
 
 def map_nested_keys(data: Any) -> list[list[str]]:
     """
@@ -66,9 +93,9 @@ def merge_mappings(m_1: Any, m_2: Any) -> Any:
     match m_1, m_2:
         case {**m_1}, {**m_2} if not any(k in m_1 for k in m_2):
             return m_1 | m_2
-        case {**m_1}, {**m_2} if m_1:
+        case {**m_1,}, {**m_2,}:
             return {k: merge_mappings(v, m_2.get(k, v)) for k, v in (m_2 | m_1).items()}
-        case [dict(m_1)], [dict(m_2)]:
+        case [{**m_1,},], [{**m_2,},]:
             return [merge_mappings(m_1, m_2)]
         case [*m_1], [*m_2] if all(isinstance(v, Hashable) for v in m_1 + m_2):
             # dict is used to preserve order while removing duplicates

@@ -45,11 +45,14 @@ class Container(UserDict):
         object.__setattr__(instance, "data", {})
         return instance
 
-    @property
-    def as_dict(self) -> dict[str, Any]:
+    def as_dict(self, exclude: list[str] | None = None) -> dict[str, Any]:
         """Dictionary representation of the container.
 
         The dictionary will have the same nested structure as the container.
+
+        Args:
+            exclude (list[str] | None): A list of keys to exclude from the returned
+                dictionary. Defaults to None.
 
         Returns:
             dict: A dictionary representation of the container object.
@@ -73,12 +76,13 @@ class Container(UserDict):
             # }
             ```
         """
-
-        ret = dict(self)
-        for k, v in ret.items():
-            if isinstance(v, Container):
-                ret[k] = v.as_dict
-        return ret
+        return dict(
+            **{
+                k: v.as_dict() if isinstance(v, Container) else v
+                for k, v in self.data.items()
+                if k not in (exclude or [])
+            }
+        )
 
     @property
     def _container_attributes(self) -> list[str]:

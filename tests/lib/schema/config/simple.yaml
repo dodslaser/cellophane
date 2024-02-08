@@ -1,4 +1,6 @@
 properties:
+  config_file:
+    type: path
   string:
     type: string
   integer:
