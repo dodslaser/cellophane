@@ -40,12 +40,25 @@ data: &data
   string: "STRING"
   integer: 1337
   number: 13.37
-  boolean: True
-  array: ["one", "two", "three"]
-  typed_array: [1.0, 2.0, 3.0]
-  mapping_array: [{"a": "X"}, {"b": "Y"}]
-  mapping: {"a": "X", "b": "Y"}
-  nested: {"a": {"b": {"c": "Z"}}}
+  boolean: true
+  array:
+  - "one"
+  - "two"
+  - "three"
+  typed_array:
+  - 1.0
+  - 2.0
+  - 3.0
+  mapping_array:
+  - a: "X"
+  - b: "Y"
+  mapping:
+    a: "X"
+    b: "Y"
+  nested:
+    a:
+      b:
+        c: "Z"
 
 config:
   <<: *data
