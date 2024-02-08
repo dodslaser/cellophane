@@ -204,7 +204,7 @@ class Hook:
         return _ret
 
 
-def resolve_hook_dependencies(
+def _resolve_hook_dependencies(
     hooks: list[Hook],
 ) -> list[Hook]:
     """
@@ -295,6 +295,10 @@ def load(
                 samples_mixins.append(obj)
             elif _is_instance_or_subclass(obj, Runner):
                 runners.append(obj)
+    try:
+        hooks = _resolve_hook_dependencies(hooks)
+    except Exception as exc:  # pylint: disable=broad-except
+        raise ImportError(f"Unable to resolve hook dependencies: {exc}") from exc
 
     return hooks, runners, sample_mixins, samples_mixins
 

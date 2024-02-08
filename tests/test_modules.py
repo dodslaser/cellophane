@@ -389,7 +389,7 @@ class Test_Hook:
         assert _ret.value == expected
 
 
-class Test_resolve_hook_dependencies:
+class Test__resolve_hook_dependencies:
     @staticmethod
     def func(name: str):
         def _dummy():
@@ -457,7 +457,7 @@ class Test_resolve_hook_dependencies:
     @mark.repeat(10)
     def test_resolve(hooks: list[modules.Hook], expected: list[str]):
         # FIXME: Hook order is non-deterministic if there are no dependencies
-        _resolved = modules.resolve_hook_dependencies(hooks)
+        _resolved = modules._resolve_hook_dependencies(hooks)
         assert [m.label for m in _resolved] == expected
 
     @staticmethod
@@ -496,7 +496,7 @@ class Test_resolve_hook_dependencies:
         ],
     )
     def test_resolve_exception(hooks: list[type[modules.Hook]]):
-        assert raises(CycleError, modules.resolve_hook_dependencies, hooks)
+        assert raises(CycleError, modules._resolve_hook_dependencies, hooks)
 
 
 class Test_load:

@@ -62,18 +62,17 @@ def _start_runners(
             ):
                 result = pool.apply_async(
                     runner,
-                    kwargs=kwargs | {
+                    kwargs=kwargs
+                    | {
                         "samples_pickle": dumps(_samples),
-                        "root_logger": logging.getLogger()
+                        "root_logger": logging.getLogger(),
                     },
                 )
                 results.append(result)
 
             pool.stop_and_join(keep_alive=True)
 
-            return samples.__class__(
-                [s for r in results for s in loads(r.get())]
-            )
+            return samples.__class__([s for r in results for s in loads(r.get())])
 
         except KeyboardInterrupt:
             logger.critical("Received SIGINT, telling runners to shut down...")
@@ -84,33 +83,6 @@ def _start_runners(
             logger.critical(f"Unhandled exception in runner: {exception}")
             pool.terminate()
             return samples
-
-
-def _load_modules(
-    root: Path,
-    logger: logging.LoggerAdapter,
-) -> tuple[list[modules.Hook], list[modules.Runner], type[data.Samples]]:
-    (
-        hooks,
-        runners,
-        sample_mixins,
-        samples_mixins,
-    ) = modules.load(root / "modules")
-
-    logger.debug(f"Found {len(hooks)} hooks")
-    logger.debug(f"Found {len(runners)} runners")
-    logger.debug(f"Found {len(sample_mixins)} sample mixins")
-    logger.debug(f"Found {len(samples_mixins)} samples mixins")
-    # Resolve hook dependencies using topological sort
-    try:
-        hooks = modules.resolve_hook_dependencies(hooks)
-    except Exception as exception:
-        logger.error(f"Failed to resolve hook dependencies: {exception}")
-        raise SystemExit(1) from exception
-
-    _SAMPLE = data.Sample.with_mixins(sample_mixins)
-    _SAMPLES = data.Samples.with_sample_class(_SAMPLE).with_mixins(samples_mixins)
-    return hooks, runners, _SAMPLES
 
 
 def _main(
@@ -147,6 +119,7 @@ def _main(
 
     samples = _start_runners(runners, samples, logger, **common_kwargs)
     samples = _run_hooks(hooks, "post", samples, **common_kwargs)
+
 
 def _add_config_defaults(
     ctx: click.Context,
@@ -211,9 +184,23 @@ def cellophane(
                 *(root / "modules").glob("*/schema.yaml"),
             ],
         )
-    except ScannerError as exception:
-        logger.critical(f"Failed to load schema: {exception}")
-        raise SystemExit(1) from exception
+    except ScannerError as exc:
+        logger.critical(f"Failed to load schema: {exc}")
+        raise SystemExit(1) from exc
+
+    try:
+        (
+            hooks,
+            runners,
+            sample_mixins,
+            samples_mixins,
+        ) = modules.load(root / "modules")
+    except Exception as exc:
+        logger.error(exc)
+        raise SystemExit(1) from exc
+
+    _SAMPLE = data.Sample.with_mixins(sample_mixins)
+    _SAMPLES = data.Samples.with_sample_class(_SAMPLE).with_mixins(samples_mixins)
 
     @schema.add_options
     @click.command()
@@ -239,6 +226,10 @@ def cellophane(
         """Run cellophane"""
         start_time = time.time()
         console_handler.setLevel(log_level)
+        logger.debug(f"Found {len(hooks)} hooks")
+        logger.debug(f"Found {len(runners)} runners")
+        logger.debug(f"Found {len(sample_mixins)} sample mixins")
+        logger.debug(f"Found {len(samples_mixins)} samples mixins")
 
         config = cfg.Config(
             schema=schema,
@@ -254,14 +245,11 @@ def cellophane(
         logs.add_file_handler(
             logger, path=config.logdir / f"{label}.{config.outprefix}.log"
         )
-
         try:
-            hooks, runners, samples_class = _load_modules(root, logger)
-
             _main(
                 hooks=hooks,
                 runners=runners,
-                samples_class=samples_class,
+                samples_class=_SAMPLES,
                 config=config,
                 logger=logger,
                 root=root,

@@ -23,5 +23,5 @@ args:
   --outdir: out
   --log_level: DEBUG
 logs:
-  - "Failed to resolve hook dependencies"
+  - "Unable to resolve hook dependencies"
 exception: SystemExit(1)
