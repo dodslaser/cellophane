@@ -36,6 +36,7 @@ types-jsonschema = "^4.19.0.3"
 types-humanfriendly = "^10.0.1.10"
 types-psutil = "^5.9.5.16"
 pylint = "^3.0.2"
+pre-commit = "^3.6.0"
 
 [tool.mypy]
 python_version = "3.11"
