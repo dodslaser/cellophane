@@ -32,12 +32,11 @@ jobs:
             poetry.lock
       - name: install-poetry
         if: steps.cache.outputs.cache-hit != 'true'
-        run: |
-          pipx install poetry
+        run: pipx install poetry
       - uses: actions/setup-python@v5
         if: steps.cache.outputs.cache-hit != 'true'
         with:
-          python-version: 3.11
+          python-version: '3.11'
           cache: "poetry"
       - name: check
         if: steps.cache.outputs.cache-hit != 'true'

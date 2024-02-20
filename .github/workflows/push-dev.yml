@@ -58,6 +58,7 @@ jobs:
       group: ${{ github.ref }}-${{ github.workflow }}-reviewdog-test
     with:
       head: dev
+      pr-head-sha: '${{ needs.release-pr.outputs.pr-head-sha }}'
 
   reviewdog-lint:
     name: Lint code

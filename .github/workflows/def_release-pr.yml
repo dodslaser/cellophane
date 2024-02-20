@@ -27,6 +27,9 @@ on: # yamllint disable-line rule:truthy
       pr-number:
         description: The number of the created PR
         value: ${{ jobs.release-pr.outputs.pr-number }}
+      pr-head-sha:
+        description: The SHA of the head of the created PR
+        value: ${{ jobs.release-pr.outputs.pr-head-sha }}
 
 jobs:
   release-pr:
@@ -35,6 +38,7 @@ jobs:
       pull-requests: write
     outputs:
       pr-number: ${{ steps.create-or-update-pr.outputs.pull-request-number }}
+      pr-head-sha: ${{ steps.create-or-update-pr.outputs.pull-request-head-sha }}
     steps:
       - uses: actions/checkout@v4
         with:

@@ -52,10 +52,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: install-poetry
         run: pipx install poetry mypy
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'poetry'
+      - name: poetry-install
+        run: poetry install
       - uses: tsuyoshicho/action-mypy@v4
         with:
           execute_command: 'poetry run mypy'
@@ -67,8 +69,18 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.inputs.head }}
-      - uses: dciborow/action-pylint@0.1.0
+      - name: install-poetry
+        run: pipx install poetry
+      - uses: actions/setup-python@v5
         with:
+          python-version: '3.11'
+          cache: 'poetry'
+      - name: poetry-install
+        run: poetry install
+      - uses: dodslaser/action-pylint@main
+        with:
+          execute_command: 'poetry run pylint'
+          pylint_rc: ./pyproject.toml
           reporter: github-check
           glob_pattern: '**/*.py'
 

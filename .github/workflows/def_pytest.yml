@@ -11,6 +11,9 @@ on: # yamllint disable-line rule:truthy
       head:
         required: true
         type: string
+      pr-head-sha:
+        required: true
+        type: string
 
 jobs:
   pytest:
@@ -24,7 +27,7 @@ jobs:
           ref: ${{ inputs.head }}
       - name: install-poetry
         run: pipx install poetry
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'poetry'
@@ -38,3 +41,4 @@ jobs:
         if: always()
         with:
           files: pytest.xml
+          commit: ${{ inputs.pr-head-sha }}

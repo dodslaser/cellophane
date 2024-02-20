@@ -1,5 +1,6 @@
 <!-- markdownlint-disable MD033 Used for centered logo -->
-<!-- markdownlint-disable MD036 -->
+<!-- markdownlint-disable MD013 Allow long lines -->
+<!-- markdownlint-disable MD036 Used for disclaimer -->
 
 # Cellophane
 
