@@ -1,0 +1,36 @@
+---
+name: Move PR
+
+permissions:
+  pull-requests: write
+
+on: # yamllint disable-line rule:truthy
+  workflow_call:
+    inputs:
+      pr-number:
+        description: The PR number to move
+        type: number
+        required: true
+      base:
+        description: The base branch to move the PR to
+        type: string
+        required: true
+
+jobs:
+  move-pr:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: move-pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          comment: |
+            # 🤖 \*bleep bloop\*
+
+            This PR will be moved to the ${{ inputs.base }} branch.
+
+        run: |
+          gh pr comment ${{ inputs.pr-number }} --body "$comment"
+          gh pr edit ${{ inputs.pr-number }} --base ${{ inputs.base }}

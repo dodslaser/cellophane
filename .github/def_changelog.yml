@@ -1,0 +1,36 @@
+---
+name: Generate Changelog
+
+permissions: read-all
+
+on: # yamllint disable-line rule:truthy
+  workflow_call:
+    inputs:
+      head:
+        description: The HEAD to get changes from
+        required: true
+        type: string
+      base:
+        description: The base tag to compare against
+        required: true
+        type: string
+    outputs:
+      changes:
+        description: "The changes between the two tags"
+        value: "${{ jobs.changelog.outputs.changes }}"
+
+jobs:
+  changelog:
+    runs-on: ubuntu-latest
+    outputs:
+      changes: "${{ steps.changelog.outputs.changes }}"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: requarks/changelog-action@v1
+        id: changelog
+        with:
+          token: ${{ github.token }}
+          fromTag: ${{ inputs.head }}
+          toTag: ${{ inputs.base }}
+          writeToFile: false
+          excludeScopes: "bump"
