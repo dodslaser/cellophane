@@ -38,12 +38,12 @@ jobs:
         with:
           python-version: '3.11'
           cache: "poetry"
-      - name: check
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: poetry check
       - name: lock
         if: steps.cache.outputs.cache-hit != 'true'
         run: poetry lock
+      - name: check
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: poetry check
       - name: version
         id: poetry-version
         if: steps.cache.outputs.cache-hit != 'true'
