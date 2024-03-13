@@ -19,10 +19,20 @@ jobs:
     with:
       head: ${{ github.event.pull_request.base.ref }}
 
+  poetry:
+    name: Synchonize poetry
+    needs: [semver]
+    uses: ./.github/workflows/def_poetry.yml
+    permissions:
+      contents: write
+    with:
+      head: main
+      version: ${{ needs.semver.outputs.next }}
+
   publish-release:
     name: Publish Release
     if: github.event.pull_request.merged == true
-    needs: semver
+    needs: [semver, poetry]
     uses: ./.github/workflows/def_publish-release.yml
     permissions:
       contents: write

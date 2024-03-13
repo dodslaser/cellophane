@@ -33,7 +33,7 @@ jobs:
       contents: write
     with:
       head: dev
-      version: ${{ needs.semver.outputs.next }}
+      version: ${{ needs.semver.outputs.next }}-dev
 
   release-pr:
     name: Create/update release PR
