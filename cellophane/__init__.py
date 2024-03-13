@@ -4,6 +4,7 @@ import logging
 import time
 from copy import deepcopy
 from functools import reduce
+from importlib.metadata import version
 from multiprocessing import Queue
 from pathlib import Path
 from typing import Any, Literal, Sequence
@@ -15,7 +16,7 @@ from mpire import WorkerPool
 from ruamel.yaml.scanner import ScannerError
 
 from .src import cfg, data, executors, logs, modules, util
-from .src.cfg import Config
+from .src.cfg import Config, Schema
 from .src.data import Output, OutputGlob, Sample, Samples
 from .src.executors import Executor
 from .src.modules import output, post_hook, pre_hook, runner
@@ -43,9 +44,11 @@ __all__ = [
     "Executor",
     # cfg
     "Config",
+    "Schema",
 ]
 
 CELLOPHANE_ROOT = Path(__file__).parent
+CELLOPHANE_VERSION = version("cellophane")
 
 
 def _run_hooks(
