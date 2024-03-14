@@ -1,0 +1,94 @@
+schema:
+  required:
+    - a
+    - b
+    - c
+    - d
+    - e
+  properties:
+    a:
+      type: object
+      required:
+        - x
+        - y
+      properties:
+        x:
+          type: string
+          description: "A_X"
+        y:
+          type: string
+          description: "A_Y"
+    b:
+      type: object
+      required:
+        - x
+      properties:
+        x:
+          type: string
+          description: "B_X"
+        y:
+          type: string
+          description: "B_Y"
+    c:
+      type: object
+      properties:
+        x:
+          type: string
+          description: "C_X"
+        y:
+          type: string
+          description: "C_Y"
+    d:
+      type: object
+      required:
+        - x
+        - y
+      properties:
+        x:
+          type: string
+          description: "D_X"
+        y:
+          type: string
+          description: "D_Y"
+    e:
+      type: object
+      required:
+        - x
+        - y
+      properties:
+        x:
+          type: string
+          description: "E_X"
+          default: "DEFAULT_E_X"
+        y:
+          type: string
+          description: "E_Y"
+          default: "DEFAULT_E_Y"
+
+example: |
+  a:
+    # A_X [string] (REQUIRED)
+    x: ~
+    # A_Y [string] (REQUIRED)
+    y: ~
+  b:
+    # B_X [string] (REQUIRED)
+    x: ~
+  #   # B_Y [string]
+  #   y: ~
+  # c:
+  #   # C_X [string]
+  #   x: ~
+  #   # C_Y [string]
+  #   y: ~
+  d:
+    # D_X [string] (REQUIRED)
+    x: ~
+    # D_Y [string] (REQUIRED)
+    y: ~
+  # e:
+  #   # E_X [string]
+  #   x: "DEFAULT_E_X"
+  #   # E_Y [string]
+  #   y: "DEFAULT_E_Y"
+

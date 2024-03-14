@@ -1,0 +1,49 @@
+schema:
+  properties:
+    a:
+      type: object
+      if:
+        properies:
+          b:
+            const: true
+      then:
+        required: [c]
+
+      properties:
+        b:
+          type: boolean
+        c:
+          type: null
+        d:
+          type: object
+          dependentSchemas:
+            f:
+              required: [x]
+              properties:
+                x:
+                  type: null
+                y:
+                  type: null
+          properties:
+            f:
+              type: boolean
+config:
+  a:
+    b: true
+    d:
+      f: true
+
+flags:
+  - key: [a, b]
+    type: boolean
+    value: true
+  - key: [a, c]
+    required: true
+  - key: [a, d, f]
+    type: boolean
+    value: true
+  - key: [a, d, x]
+    required: true
+  - key: [a, d, y]
+    required: false
+  

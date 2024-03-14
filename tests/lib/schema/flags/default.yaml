@@ -1,0 +1,10 @@
+schema:
+  properties:
+    a:
+      type: string
+      default: SCHEMA
+
+flags:
+  - key: ["a"]
+    type: string
+    default: SCHEMA

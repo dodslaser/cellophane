@@ -1,0 +1,25 @@
+structure:
+  modules:
+    a.py: |
+      from cellophane import pre_hook
+
+      @pre_hook(after=["pre_hook_a"])
+      def pre_hook_a(**_):
+          ...
+      
+      @pre_hook(after=["pre_hook_b"])
+      def pre_hook_b(**_):
+          ...
+  input:
+    a: "INPUT_A"
+  samples.yaml: |
+    - id: a
+      meta: x
+      files:
+      - "input/a"
+args:
+  --samples_file: samples.yaml
+  --workdir: out
+logs:
+  - "Unable to resolve hook dependencies"
+exception: SystemExit(1)

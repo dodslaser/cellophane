@@ -1,0 +1,22 @@
+structure:
+  modules:
+    a.py: |
+      from cellophane import runner
+
+      @runner()
+      def runner(samples, **_):
+          return samples.with_call_id("runner")
+  samples.yaml: |
+    - id: a
+      files:
+      - input/a.txt
+  input:
+    a.txt: "INPUT_A"
+args:
+  --samples_file: samples.yaml
+  --workdir: out
+mocks:
+  cellophane.WorkerPool.apply_async:
+    exception: DUMMY
+logs:
+  - "Unhandled exception in runner: DUMMY"

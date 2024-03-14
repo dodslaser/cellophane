@@ -1,0 +1,10 @@
+schema:
+  properties:
+    a:
+      type: integer
+      default: "INVALID"
+
+flags:
+  - key: [a]
+    type: integer
+    default: "INVALID"

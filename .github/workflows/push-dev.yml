@@ -1,0 +1,75 @@
+# Create or update a release PR for merging dev -> main
+---
+name: Push to dev
+
+permissions: read-all
+
+on: # yamllint disable-line rule:truthy
+  push:
+    branches: [dev]
+
+concurrency:
+  group: ${{ github.workflow }}
+
+jobs:
+  semver:
+    name: Calculate next version
+    uses: ./.github/workflows/def_semver.yml
+    with:
+      head: dev
+
+  changelog:
+    name: Generate changelog
+    uses: ./.github/workflows/def_changelog.yml
+    with:
+      head: dev
+      base: main
+
+  poetry:
+    name: Synchonize poetry
+    needs: [semver]
+    uses: ./.github/workflows/def_poetry.yml
+    permissions:
+      contents: write
+    with:
+      head: dev
+      version: ${{ needs.semver.outputs.next }}-dev
+
+  release-pr:
+    name: Create/update release PR
+    needs: [semver, changelog, poetry]
+    uses: ./.github/workflows/def_release-pr.yml
+    permissions:
+      pull-requests: write
+    with:
+      head: dev
+      base: main
+      version: ${{ needs.semver.outputs.next }}
+      changes: ${{ needs.changelog.outputs.changes }}
+
+  pytest:
+    name: Run tests
+    needs: [poetry, release-pr]
+    uses: ./.github/workflows/def_pytest.yml
+    permissions:
+      checks: write
+      pull-requests: write
+    concurrency:
+      group: ${{ github.ref }}-${{ github.workflow }}-reviewdog-test
+    with:
+      head: dev
+      pr-head-sha: '${{ needs.release-pr.outputs.pr-head-sha }}'
+
+  reviewdog-lint:
+    name: Lint code
+    needs: [poetry, release-pr]
+    uses: ./.github/workflows/def_reviewdog-lint.yml
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      statuses: write
+    concurrency:
+      group: ${{ github.ref }}-${{ github.workflow }}-reviewdog-lint
+    with:
+      head: dev

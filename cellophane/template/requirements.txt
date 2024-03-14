@@ -1,0 +1,5 @@
+# Add required libraries for local modules here.
+# Requirements for modules added via 'cellophane module add' are automatically managed by cellophane
+
+### DO NOT REMOVE OR EDIT THE FOLLOWING LINE ###
+-r modules/requirements.txt

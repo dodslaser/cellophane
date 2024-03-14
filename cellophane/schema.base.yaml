@@ -1,6 +1,8 @@
 required:
+  - workdir
+  - resultdir
   - logdir
-  - outdir
+
 
 properties:
   log_level:
@@ -14,34 +16,43 @@ properties:
       - CRITICAL
     type: string
 
+  executor:
+    type: object
+    properties:
+      name:
+        type: string
+        description: Name of the executor to use
+        default: subprocess
+      cpus:
+        type: integer
+        description: Number of CPUs to allocate to jobs started (if supported by the executor)
+        default: 1
+      memory:
+        type: size
+        description: Ammount of memory to allocate to jobs started (if supported by the executor)
+        default: 2 GB
+
+  config_file:
+    description: Path to config file
+    type: path
+
   logdir:
     description: Log directory
     type: path
 
-  outdir:
-    description: Output directory
+  workdir:
+    description: Working directory where intermediate files are stored
+    type: path
+  
+  resultdir:
+    description: Results base directory where output files are copied
     type: path
 
-  outprefix:
-    description: Output prefix (defaults to a timestamp)
+  tag:
+    description: Tag identifying the pipeline run (defaults to a timestamp - YYMMDDHHMMSS)
     type: string
 
   samples_file:
-    description: "Path YAML file with sample names and paths to fastq files (eg. sample: {files: [fastq1, fastq2]})"
+    description: "Path YAML file with samples - eg [{id: ID, files: [F1, F2]}, ...]"
     type: path
-  
-  sge:
-    type: object
-    properties:
-      queue:
-        description: SGE queue
-        type: string
-        default: all.q
-      pe:
-        description: SGE parallel environment
-        type: string
-        default: mpi
-      slots:
-        description: Default number of slots
-        type: integer
-        default: 1
+

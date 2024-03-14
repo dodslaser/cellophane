@@ -1,0 +1,10 @@
+schema:
+  properties:
+    basic:
+      type: string
+      default: BASIC
+      description: DESCRIPTION
+
+example: |
+  # # DESCRIPTION [string]
+  # basic: "BASIC"

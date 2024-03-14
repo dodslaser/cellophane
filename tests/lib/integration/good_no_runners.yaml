@@ -1,0 +1,27 @@
+structure:
+  modules:
+    a.py: |
+      from cellophane import modules
+
+      @modules.pre_hook()
+      def pre_hook(samples, **_):
+          return samples
+
+      @modules.post_hook(condition="failed")
+      def post_hook(samples, **_):
+          return samples
+  samples.yaml: |
+    - id: a
+      files:
+      - input/a.txt
+  input:
+    a.txt: "INPUT_A"
+args:
+  --samples_file: samples.yaml
+  --workdir: out
+logs:
+- |
+  Running pre_hook hook
+  No runners to execute
+  Running post_hook hook
+  

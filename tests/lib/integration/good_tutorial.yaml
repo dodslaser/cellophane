@@ -1,0 +1,243 @@
+structure:
+  modules:
+    my_module.py: |
+      import attrs
+      import logging
+      import pathlib
+
+      from cellophane import pre_hook, runner, post_hook, Sample, Samples, Config, Executor
+
+      # Mixins can be defined as simple classes...
+
+      class MySample(Sample):
+          # Add a new attribute
+          my_attribute: str | None = None
+
+      # ...or more advanced using attrs
+
+      @attrs.define(slots=False)
+      class MySamples(Samples):
+          # Add a new field using attrs
+          my_field: str | None = attrs.field(default=None, on_setattr=attrs.setters.validate)
+
+          # attrs features can be used as normal
+          @my_field.validator
+          def _validate_my_field(self, attribute, value):
+              if value == "nope":
+                  raise ValueError("my_field cannot be 'nope'")
+
+
+      @pre_hook(
+          label="Some hook label",
+          before="all"
+      )
+      def my_pre_hook(
+          samples: Samples,
+          config: Config,
+          logger: logging.LoggerAdapter,
+          **_,
+      ) -> Samples:
+          for sample in samples.copy():
+              # Example hook that removes samples with too large files
+              if any(
+                  # max_file_size should be defined in schema.yaml
+                  file.stat().st_size > config.max_file_size
+                  for file in sample.files
+              ):
+                  logger.warning(f"Sample {sample.id} has a file larger than {config.max_file_size} bytes")
+                  samples.remove(sample)
+
+          return samples
+
+      @runner(
+          label="My runner",
+          split_by="my_attribute"
+      )
+      def my_runner(
+          samples: Samples,
+          config: Config,
+          logger: logging.LoggerAdapter,
+          workdir: pathlib.Path,
+          executor: Executor,
+          root: pathlib.Path,
+          **_,
+      ) -> Samples:
+          # Execute a script for each sample in parallel using the executor
+          for sample in samples:
+              executor.submit(
+                  root / "scripts" / "my_script.sh",
+                  "--some-argument",
+                  workdir=workdir,
+                  env={
+                      "FILE1": sample.files[0],
+                      "FILE2": sample.files[1],
+                  },
+                  wait=False,
+              )
+
+          # Wait for all submitted scripts to finish
+          executor.wait()
+
+          return samples
+
+      @post_hook(
+          after="my_post_hook_b"
+      )
+      def my_post_hook_a(
+          samples: Samples,
+          config: Config,
+          logger: logging.LoggerAdapter,
+          workdir: pathlib.Path,
+          **_,
+      ) -> Samples:
+          for sample in samples:
+              if sample.my_attribute is not None:
+                  logger.info(f"Woah! A message from {sample.id}: {sample.my_attribute}")
+          return samples
+
+      @post_hook()
+      def my_post_hook_b(
+          samples: Samples,
+          config: Config,
+          logger: logging.LoggerAdapter,
+          workdir: pathlib.Path,
+          **_,
+      ) -> Samples:
+          for sample in samples:
+              logger.info(f"Setting my_attribute for sample {sample.id}")
+              sample.my_attribute = f"Hello from {sample.id}!"
+          return samples
+
+  schema.yaml: |
+    # schema.yaml
+
+    # Required options are marked with an asterisk in the help text.
+    required:
+      - bingo
+      - max_file_size
+
+    # Dependent required options will be marked as required if the specified option is set
+    dependentRequired:
+      bongo:
+        - foo
+
+    # if-then-else can be used to specify conditional validation
+    if:
+      # NOTE: If 'required' is not specified the if-schema will evaluate to 'true' even if 'bongo' is not present in the config
+      required:
+        - bongo
+      properties:
+        bongo:
+          const: bar
+    then:
+      required:
+        - bar
+    else:
+      required:
+        - baz
+
+    properties:
+      bingo:
+        # The 'object' type is used to nest options
+        type: object
+        # Nested required options will be marked if the parent is required or if the parent node is present in the config
+        required:
+          - bango
+        properties:
+          # When a nested option is converted to a CLI flag, the levels will be separated by underscores (eg. --bingo_bango)
+          bango:
+            # The 'type' keyword will be used to convert the value to the correct type
+            type: string
+            # The 'description' keyword will be used to generate the help text
+            description: Some string
+
+      bongo:
+        type: string
+        # The 'enum' keyword can be used to specify a list of allowed values
+        enum:
+          - foo
+          - bar
+        description: A string with a limited set of allowed values
+
+      foo:
+        type: array
+        # Arrays can specify the type of their items
+        items:
+          type: integer
+        description: A list of strings
+
+      bar:
+        type: mapping
+        # The 'mapping' type is used to interpret a nested object as a mapping
+        # When specified in the CLI, the mapping will be parsed from a string (eg. foo=bar,baz=qux)
+        description: A mapping
+        # The 'secret' keyword can be used to hide the value of an option in the help text
+        # secret: true
+
+
+      baz:
+        # Boolean options will be converted to flags (eg. --baz/--no_baz)
+        type: boolean
+        description: A boolean
+
+      max_file_size:
+        # The 'size' type is used to convert a string to bytes
+        type: size
+        description: The maximum file size in bytes
+        # If a required option has a default value, it will not be marked as required in the help text
+        default: "100 MiB"
+
+  samples.yaml: |
+    - id: a
+      files:
+      - input/a_1.txt
+      - input/a_2.txt
+    - id: b
+      files:
+      - input/b_1.txt
+      - input/b_2.txt
+
+  config.yaml: |
+    # config.yaml
+    bongo: foo
+
+    foo:
+      - 13
+      # Values will be converted to the correct type (or die trying)
+      - "37"
+
+    bar:
+      some_nested_key: some_value
+      another_nested_key: another_value
+      we:
+        have:
+          to:
+            go:
+              deeper: "to get to the bottom of this"
+
+  input:
+    a_1.txt: "smol"
+    a_2.txt: "smol"
+    b_1.txt: "BIG CHUNGUS"
+    b_2.txt: "BIG CHUNGUS"
+
+  scripts:
+    my_script.sh: |
+      echo "Hello from $FILE1 and $FILE2"
+
+args:
+  --samples_file: samples.yaml
+  --workdir: out
+  --tag: DUMMY
+  --max_file_size: 6 B
+  --bongo: bar
+  --bingo_bango: "some string"
+  --config_file: config.yaml
+logs:
+- "Running Some hook label hook"
+- "Sample b has a file larger than 6 bytes"
+- "Sample a processed successfully"
+- "Running my_post_hook_b hook"
+- "Setting my_attribute for sample a"
+- "Running my_post_hook_a hook"
+- "Woah! A message from a: Hello from a!"

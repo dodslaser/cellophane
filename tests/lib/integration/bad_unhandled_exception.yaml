@@ -1,0 +1,8 @@
+args:
+  --workdir: out
+logs:
+  - "Unhandled exception: DUMMY"
+mocks:
+  cellophane._run_hooks:
+    exception: DUMMY
+exception: SystemExit(1)

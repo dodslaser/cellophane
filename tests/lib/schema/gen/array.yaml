@@ -1,0 +1,17 @@
+schema: 
+  type: object
+  properties:
+    array:
+      type: array
+      description: "ARRAY"
+      default:
+        - "A"
+        - "B"
+        - "C"
+
+example: |
+  # # ARRAY [array]
+  # array:
+  # - A
+  # - B
+  # - C

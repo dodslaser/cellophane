@@ -1,0 +1,14 @@
+- id: a
+  files:
+  - a
+  - b
+
+- id: a
+  files:
+  - c
+  - d
+
+- id: b
+  files:
+  - e
+  - f

@@ -1,0 +1,12 @@
+structure:
+  samples.yaml: |
+    - id: INVALID
+      files:
+      - input/MISSING
+args:
+  --samples_file: samples.yaml
+  --workdir: out
+logs:
+  - |
+    Sample INVALID will be skipped as it has no files
+    No samples to process

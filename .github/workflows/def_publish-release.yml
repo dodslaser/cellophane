@@ -1,0 +1,38 @@
+---
+name: Publish Release
+
+permissions:
+  contents: write
+
+on: # yamllint disable-line rule:truthy
+  workflow_call:
+    inputs:
+      changes:
+        description: "The changelog for the release"
+        required: true
+        type: string
+
+      version:
+        description: "The version to bump to"
+        type: string
+        required: true
+
+jobs:
+  publish-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: write-changelog
+        shell: python
+        run: |
+          with open('CHANGELOG.md', 'w') as f:
+            f.write(${{ toJSON(inputs.changes) }})
+      - name: publish-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create '${{ inputs.version }}' \
+            --notes-file CHANGELOG.md \
+            --title '${{ inputs.version }}'
