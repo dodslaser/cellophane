@@ -24,10 +24,15 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+      - name: write-changelog
+        shell: python
+        run: |
+          with open('CHANGELOG.md', 'w') as f:
+            f.write(${{ toJSON(inputs.changes) }})
       - name: publish-release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create '${{ inputs.version }}' \
-            --notes '${{ inputs.changes }}' \
+            --notes-file CHANGELOG.md \
             --title '${{ inputs.version }}'
