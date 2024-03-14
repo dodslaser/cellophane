@@ -37,7 +37,7 @@ from .util import (
     "modules_repo_url",
     type=str,
     help="URL to the module repository",
-    default="https://github.com/dodslaser/cellophane_modules",
+    default="https://github.com/ClinicalGenomicsGBG/cellophane_modules",
 )
 @click.option(
     "--modules-branch",
