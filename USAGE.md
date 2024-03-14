@@ -11,7 +11,7 @@ At the very least wou will need an environment with python 3.11+ and pip install
 ```shell
 micromamba env create -p my_cellphane_env python=3.11
 micromamba activate my_cellphane_env
-pip install git+https://github.com/ClinicalGenomicsGBG/cellophane.git@dev
+pip install git+https://github.com/ClinicalGenomicsGBG/cellophane.git@latest
 ```
 
 ## Initializing a wrapper
