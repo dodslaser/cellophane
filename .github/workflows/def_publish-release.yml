@@ -36,3 +36,5 @@ jobs:
           gh release create '${{ inputs.version }}' \
             --notes-file CHANGELOG.md \
             --title '${{ inputs.version }}'
+          git tag -f 'latest'
+          git push origin 'latest' --force
