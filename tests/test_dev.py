@@ -5,18 +5,33 @@
 import logging
 from os import chdir
 from pathlib import Path
-from shutil import rmtree
+from shutil import copytree, rmtree
 from typing import Any, Iterator
 from unittest.mock import MagicMock
 
 from click.testing import CliRunner
-from pytest import LogCaptureFixture, TempPathFactory, fixture, mark, param, raises
+from git import Repo
+from pytest import (
+    LogCaptureFixture,
+    MonkeyPatch,
+    TempPathFactory,
+    fixture,
+    mark,
+    param,
+    raises,
+)
 from pytest_mock import MockerFixture
 
 from cellophane.src import dev
 
-# FIXME: Create a dummy repo to test against
-MODULES_REPO_URL = "https://github.com/dodslaser/cellophane_modules"
+LIB = Path(__file__).parent / "lib"
+
+
+@fixture(scope="class")
+def classy_monkey() -> Iterator[MonkeyPatch]:
+    """Class scoped monkeypatch."""
+    with MonkeyPatch.context() as mp:
+        yield mp
 
 
 def _mock_recursive(endpoints: list[str], **kwargs: Any) -> MagicMock:
@@ -30,21 +45,51 @@ def _mock_recursive(endpoints: list[str], **kwargs: Any) -> MagicMock:
     )
 
 
-@fixture(scope="function")
-def modules_repo() -> dev.ModulesRepo:
+@fixture(scope="module")
+def modules_repo(
+    tmp_path_factory: TempPathFactory,
+) -> Iterator[tuple[dev.ModulesRepo, Path]]:
     """Create a dummy modules repository."""
-    return dev.ModulesRepo.from_url(MODULES_REPO_URL, branch="main")
+    path = tmp_path_factory.mktemp("modules_repo")
+    Repo.init(path)
+    repo = dev.ModulesRepo(path)
+    repo.create_remote("origin", url=str(path))
+    copytree(LIB / "repo", path, dirs_exist_ok=True)
+    repo.index.add("**")
+    repo.index.commit("Initial commit")
+    repo.create_tag("a/1.0.0")
+    repo.create_tag("b/1.0.0")
+    (path / "modules" / "a" / "A").write_text("2.0.0")
+    repo.index.add("**")
+    repo.index.commit("Dummy commit")
+    repo.create_tag("a/2.0.0")
+    repo.create_head("dev")
+
+    repo.remote("origin").push("master")
+    repo.remote("origin").push("dev")
+
+
+    yield repo, path
+    rmtree(path)
 
 
 @fixture(scope="class")
 def cellophane_repo(
     tmp_path_factory: TempPathFactory,
+    modules_repo: tuple[dev.ModulesRepo, Path],
+    classy_monkey: MonkeyPatch,
 ) -> Iterator[tuple[dev.ProjectRepo, Path]]:
     """Create a dummy cellophane repository."""
-    _path = tmp_path_factory.mktemp("repo")
-    _repo = dev.initialize_project("DUMMY", _path, MODULES_REPO_URL, "main")
-    yield _repo, _path
-    rmtree(_path)
+    m_repo, m_path = modules_repo
+    def _modules_repo(*args: Any, **kwargs: Any) -> dev.ModulesRepo:
+        del args, kwargs  # Unused
+        return m_repo
+
+    classy_monkey.setattr(dev.ModulesRepo, "from_url", _modules_repo)
+    path = tmp_path_factory.mktemp("repo")
+    repo = dev.initialize_project("DUMMY", path, str(m_path), "main")
+    yield repo, path
+    rmtree(path)
 
 
 class Test_ProjectRepo:
@@ -70,7 +115,7 @@ class Test_ProjectRepo:
         """Test cellophane repository initialization with existing file."""
         _, _path = cellophane_repo
         with raises(FileExistsError):
-            dev.initialize_project("DUMMY", _path, MODULES_REPO_URL, "main")
+            dev.initialize_project("DUMMY", _path, "DUMMY", "main")
 
     @staticmethod
     def test_invalid_repository(tmp_path: Path) -> None:
@@ -87,9 +132,10 @@ class Test_ModulesRepo:
     """Test modules repository."""
 
     @staticmethod
-    def test_from_url(modules_repo: dev.ModulesRepo) -> None:
+    def test_from_url(modules_repo: tuple[dev.ModulesRepo, Path]) -> None:
         """Test modules repository initialization from URL."""
-        assert modules_repo
+        repo, _ = modules_repo
+        assert repo
 
     @staticmethod
     def test_invalid_remote_url() -> None:
@@ -98,14 +144,16 @@ class Test_ModulesRepo:
             dev.ModulesRepo.from_url("__INVALID__", branch="main")
 
     @staticmethod
-    def test_tags(modules_repo: dev.ModulesRepo) -> None:
+    def test_tags(modules_repo: tuple[dev.ModulesRepo, Path]) -> None:
         """Test tags."""
-        assert modules_repo.tags
+        repo, _ = modules_repo
+        assert repo.tags
 
     @staticmethod
-    def test_url(modules_repo: dev.ModulesRepo) -> None:
+    def test_url(modules_repo: tuple[dev.ModulesRepo, Path]) -> None:
         """Test URL."""
-        assert modules_repo.url == MODULES_REPO_URL
+        repo, path = modules_repo
+        assert repo.url == str(path)
 
 
 class Test_update_example_config:
@@ -113,7 +161,6 @@ class Test_update_example_config:
 
     def test_update_example_config(self, tmp_path: Path) -> None:
         """Test updating example config."""
-        # FIXME: Should the contents be verified? It is tested in test_cfg
         chdir(tmp_path)
         (tmp_path / "modules").mkdir()
         (tmp_path / "schema.yaml").touch()
@@ -151,13 +198,14 @@ class Test_ask_modules_branch:
     def test_ask_version(
         self,
         mocker: MockerFixture,
-        modules_repo: dev.ModulesRepo,
+        modules_repo: tuple[dev.ModulesRepo, Path],
     ) -> None:
         """Test asking for branch."""
+        repo, _ = modules_repo
         _select_mock = MagicMock(ask=MagicMock(return_value="latest"))
         mocker.patch("cellophane.src.dev.util.select", return_value=_select_mock)
         assert dev.ask_version(
-            [*modules_repo.modules.keys()][0], valid=[("foo/1.33.7", "1.33.7")]
+            [*repo.modules.keys()][0], valid=[("foo/1.33.7", "1.33.7")]
         )
         assert _select_mock.ask.call_count == 1
 
@@ -171,24 +219,24 @@ class Test_module_cli:
         "command,mocks,exit_code,logs",
         [
             param(
-                "add rsync@dev",
+                "add a@1.0.0",
                 {"add": {"side_effect": Exception("DUMMY")}},
                 1,
                 ["Unhandled Exception: Exception('DUMMY')"],
                 id="module_unhandled_exception",
             ),
             param(
-                "add rsync@dev",
+                "add a@1.0.0",
                 {"update_example_config": {"side_effect": Exception("DUMMY")}},
                 0,
-                ["Unable to add 'rsync@dev': Exception('DUMMY')"],
+                ["Unable to add 'a@1.0.0': Exception('DUMMY')"],
                 id="add_unhandled_exception",
             ),
             param(
-                "add rsync@INVALID",
+                "add a@INVALID",
                 {},
                 1,
-                ["Version 'INVALID' is invalid for 'rsync'"],
+                ["Version 'INVALID' is invalid for 'a'"],
                 id="invalid_branch",
             ),
             param(
@@ -199,38 +247,59 @@ class Test_module_cli:
                 id="invalid_module",
             ),
             param(
-                "add rsync@latest",
+                "add a@1.0.0",
                 {},
                 0,
-                ["Added 'rsync@"],
-                id="add",
+                ["Added 'a@1.0.0"],
+                id="add_a",
             ),
             param(
-                "update rsync@dev",
+                "add a@1.0.0",
+                {},
+                1,
+                ["Module 'a' is not valid"],
+                id="add_a_exists",
+            ),
+            param(
+                "add b@1.0.0",
+                {},
+                0,
+                ["Added 'b@1.0.0"],
+                id="add_b",
+            ),
+            param(
+                "update a@dev",
                 {"update_example_config": {"side_effect": Exception("DUMMY")}},
                 0,
-                ["Unable to update 'rsync->dev': Exception('DUMMY')"],
+                ["Unable to update 'a->dev': Exception('DUMMY')"],
                 id="update_unhandled_exception",
             ),
             param(
-                "update rsync@dev",
+                "update a@dev",
                 {},
                 0,
-                ["Updated 'rsync->dev'"],
+                ["Updated 'a->dev'"],
                 id="update",
             ),
             param(
-                "rm rsync",
+                "update a@latest",
+                {},
+                0,
+                ["Updated 'a->2.0.0'"],
+                id="update_latest",
+            ),
+            param(
+                "rm a",
                 {"update_example_config": {"side_effect": Exception("DUMMY")}},
                 0,
-                ["Unable to remove 'rsync': Exception('DUMMY')"],
+                ["Unable to remove 'a': Exception('DUMMY')"],
                 id="rm_unhandled_exception",
             ),
             param(
-                "rm rsync",
+                "rm a b",
                 {},
                 0,
-                ["Removed 'rsync'"],
+                ["Removed 'a'", "Removed 'b'"],
                 id="rm",
             ),
             param(
@@ -260,10 +329,10 @@ class Test_module_cli:
         chdir(path)
         with caplog.at_level(logging.DEBUG):
             result = self.runner.invoke(dev.main, f"module {command}")
-        assert result.exit_code == exit_code, result
         for log_line in logs:
             assert log_line in "\n".join(caplog.messages)
         assert not repo.is_dirty(), repo.git.status()
+        assert result.exit_code == exit_code, result
 
     def test_module_cli_invalid_repo(
         self,
