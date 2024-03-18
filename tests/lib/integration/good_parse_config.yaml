@@ -74,7 +74,7 @@
   - key='array' i=1 v='3' (str)
   - key='array' i=2 v='3' (str)
   - key='array' i=3 v='7' (str)
-  - key='mapping' (dict_)
+  - key='mapping' (PreservedDict)
   - key='mapping' k='a' v='a' (str)
   - key='mapping' k='b' v=1 (int)
   - key='mapping' k='c' v=1.0 (float)

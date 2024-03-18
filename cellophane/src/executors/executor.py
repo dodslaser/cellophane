@@ -2,88 +2,19 @@
 
 import logging
 import multiprocessing as mp
-import os
-import shlex
-import subprocess as sp  # nosec
-import sys
 from functools import partial
 from multiprocessing.synchronize import Lock
 from pathlib import Path
 from typing import Any, Callable, ClassVar
 from uuid import UUID, uuid4
 
-import psutil
 from attrs import define, field
 from mpire import WorkerPool
 from mpire.async_result import AsyncResult
-from mpire.exception import InterruptWorker
 
-from . import cfg, logs
+from cellophane.src import cfg
 
-
-def _target(
-    shared: tuple[mp.Queue, cfg.Config, Callable, Callable],
-    *,
-    args: tuple[str | Path, ...],
-    uuid: UUID,
-    name: str,
-    workdir: Path | None,
-    env: dict[str, str],
-    os_env: bool,
-    cpus: int,
-    memory: int,
-) -> None:
-    sys.stdout = sys.stderr = open(os.devnull, "w", encoding="utf-8")
-    log_queue, config, target, terminate_hook = shared
-    logs.setup_queue_logging(log_queue)
-    logger = logging.LoggerAdapter(logging.getLogger(), {"label": name})
-
-    _workdir = workdir or config.workdir / uuid.hex
-    _workdir.mkdir(parents=True, exist_ok=True)
-
-    def _terminate_hook(*args: Any, **kwargs: Any) -> None:
-        del args, kwargs  # Unused
-        code = terminate_hook(uuid, logger)
-        raise SystemExit(code or 143)
-
-    try:
-        target(
-            *(word for arg in args for word in shlex.split(str(arg))),
-            name=name,
-            uuid=uuid,
-            workdir=_workdir,
-            env={k: str(v) for k, v in env.items()} if env else {},
-            os_env=os_env,
-            logger=logger,
-            cpus=cpus or config.executor.cpus,
-            memory=memory or config.executor.memory,
-        )
-    except InterruptWorker:
-        logger.warning(f"Terminating job with uuid {uuid}")
-        _terminate_hook()
-    except SystemExit as exc:
-        if exc.code != 0:
-            logger.warning(f"Command failed with exit code: {exc.code}")
-            raise exc
-    except Exception as exc:  # pylint: disable=broad-except
-        logger.warning(f"Command failed with exception: {exc!r}")
-        raise SystemExit(1) from exc
-
-
-def _callback(
-    result: Any,
-    fn: Callable | None,
-    msg: str,
-    logger: logging.LoggerAdapter,
-    lock: Lock,
-) -> None:
-    logger.debug(msg)
-    if fn:
-        try:
-            fn(result)
-        except Exception as exc:  # pylint: disable=broad-except
-            logger.error(f"Callback failed: {exc!r}")
-    lock.release()
+from .util import callback_wrapper, target_wrapper
 
 
 @define(slots=False)
@@ -202,7 +133,7 @@ class Executor:
         self.locks[_uuid].acquire()
 
         result = self.pool.apply_async(
-            func=_target,
+            func=target_wrapper,
             kwargs={
                 "uuid": _uuid,
                 "name": name,
@@ -214,14 +145,14 @@ class Executor:
                 "memory": memory,
             },
             callback=partial(
-                _callback,
+                callback_wrapper,
                 fn=callback,
                 msg=f"Job completed: {_uuid}",
                 logger=logger,
                 lock=self.locks[_uuid],
             ),
             error_callback=partial(
-                _callback,
+                callback_wrapper,
                 fn=error_callback,
                 msg=f"Job failed: {_uuid}",
                 logger=logger,
@@ -274,63 +205,3 @@ class Executor:
             for uuid, lock in self.locks.items():
                 lock.acquire()
                 lock.release()
-
-
-EXECUTOR: type[Executor] = Executor
-
-
-@define(slots=False)
-class SubprocesExecutor(Executor, name="subprocess"):
-    """Executor using multiprocessing."""
-
-    procs: dict[UUID, sp.Popen] = field(factory=dict, init=False)
-
-    def target(
-        self,
-        *args: str,
-        uuid: UUID,
-        workdir: Path,
-        env: dict,
-        os_env: bool = True,
-        logger: logging.LoggerAdapter,
-        **kwargs: Any,
-    ) -> None:
-        del kwargs  # Unused
-        logdir = self.config.logdir / "subprocess"
-        logdir.mkdir(parents=True, exist_ok=True)
-
-        with (
-            open(logdir / f"{uuid.hex}.out", "w", encoding="utf-8") as stdout,
-            open(logdir / f"{uuid.hex}.err", "w", encoding="utf-8") as stderr,
-        ):
-            proc = sp.Popen(  # nosec
-                shlex.split(shlex.join(args)),
-                cwd=workdir,
-                env=env | ({**os.environ} if os_env else {}),
-                stdout=stdout,
-                stderr=stderr,
-            )
-            self.procs[uuid] = proc
-            logger.debug(f"Started child process (pid={proc.pid})")
-
-            self.procs[uuid].wait()
-            logger.debug(
-                f"Child process (pid={proc.pid}) exited with code {proc.returncode}"
-            )
-            exit(self.procs[uuid].returncode)
-
-    def terminate_hook(self, uuid: UUID, logger: logging.LoggerAdapter) -> int | None:
-        if uuid in self.procs:
-            proc = psutil.Process(self.procs[uuid].pid)
-            children = proc.children(recursive=True)
-            logger.warning(f"Terminating process (pid={proc.pid})")
-            proc.terminate()
-            code = int(proc.wait())
-            logger.debug(f"Process (pid={proc.pid}) exited with code {code}")
-            for child in children:
-                logger.warning(f"Terminating orphan process (pid={child.pid})")
-                child.terminate()
-            psutil.wait_procs(children)
-            return code
-        else:
-            return None

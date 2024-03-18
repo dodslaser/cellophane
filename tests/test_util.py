@@ -1,8 +1,11 @@
 """Test cellophane.src.util."""
 
+from collections import UserList
+from typing import Any, Callable
+
 from pytest import mark, param
 
-from cellophane.src import util
+from cellophane.src import data, modules, util
 
 
 class Test_map_nested_keys:
@@ -10,7 +13,7 @@ class Test_map_nested_keys:
 
     @staticmethod
     @mark.parametrize(
-        "data,expected",
+        "data_,expected",
         [
             param(
                 {"a": {"b": {"c": 1, "d": 2}, "e": 3}, "f": 4},
@@ -20,9 +23,9 @@ class Test_map_nested_keys:
             # FIXME: Add more test cases
         ],
     )
-    def test_map_nested_keys(data: dict, expected: list) -> None:
+    def test_map_nested_keys(data_: dict, expected: list) -> None:
         """Test map_nested_keys."""
-        assert util.map_nested_keys(data) == expected
+        assert util.map_nested_keys(data_) == expected
 
 
 class Test_merge_mappings:
@@ -67,3 +70,39 @@ class Test_merge_mappings:
     def test_merge_mappings(m_1: dict, m_2: dict, expected: dict) -> None:
         """Test merge_mappings."""
         assert util.merge_mappings(m_1, m_2) == expected
+
+class Test__instance_or_subclass:
+    """Test _is_instance_or_subclass function."""
+
+    class _SampleSub(data.Sample):
+        pass
+
+    class _SamplesSub(data.Samples):
+        pass
+
+    hook = modules.pre_hook()(lambda: ...)
+    runner = modules.runner()(lambda: ...)
+
+    @staticmethod
+    @mark.parametrize(
+        "obj,cls,expected",
+        [
+            (_SampleSub, data.Sample, True),
+            (_SamplesSub, data.Samples, True),
+            (_SamplesSub, UserList, True),
+            (_SamplesSub, list, False),
+            (hook, modules.Hook, True),
+            (hook, Callable, True),
+            (hook, str, False),
+            (runner, modules.Runner, True),
+            (runner, Callable, True),
+            (runner, str, False),
+        ],
+    )
+    def test_instance_or_subclass(
+        obj: type[_SampleSub] | type[_SamplesSub] | Any | modules.Runner,
+        cls: type,
+        expected: bool,
+    ) -> None:
+        """Test _is_instance_or_subclass function."""
+        assert util.is_instance_or_subclass(obj, cls) == expected

@@ -4,7 +4,6 @@
 
 import logging
 import subprocess as sp
-from collections import UserList
 from copy import copy
 from graphlib import CycleError
 from logging.handlers import QueueListener
@@ -19,9 +18,9 @@ from pytest import LogCaptureFixture, mark, param, raises
 from pytest_mock import MockerFixture
 
 from cellophane.src import data, modules
-from cellophane.src.data import Sample, Samples
 from cellophane.src.executors import SubprocesExecutor
-from cellophane.src.modules import Hook, Runner
+from cellophane.src.modules.hook import resolve_dependencies
+from cellophane.src.modules.runner_ import _cleanup
 
 LIB = Path(__file__).parent / "lib"
 
@@ -55,13 +54,13 @@ class Test__cleanup:
         procs, pids = self.dummy_procs(3)
 
         mocker.patch(
-            "cellophane.src.modules.psutil.Process.children",
+            "cellophane.src.modules.runner_.Process.children",
             return_value=[Process(pid=p) for p in pids],
         )
 
         if timeout:
             mocker.patch(
-                "cellophane.src.modules.psutil.Process.terminate",
+                "cellophane.src.modules.runner_.Process.terminate",
                 side_effect=TimeoutExpired(10),
             )
 
@@ -69,58 +68,11 @@ class Test__cleanup:
 
         with raises(SystemExit), caplog.at_level("DEBUG"):
             logger = logging.LoggerAdapter(logging.getLogger(), {"label": "DUMMY"})
-            modules._cleanup(logger)()
+            _cleanup(logger)()
 
         assert all(p.poll() is not None for p in procs)
         for p in pids:
             assert log_line.format(pid=p) in caplog.messages
-
-
-class Test__instance_or_subclass:
-    """Test _is_instance_or_subclass function."""
-
-    class _SampleSub(data.Sample):
-        pass
-
-    class _SamplesSub(data.Samples):
-        pass
-
-    hook = modules.pre_hook()(lambda: ...)
-    runner = modules.runner()(lambda: ...)
-
-    @staticmethod
-    @mark.parametrize(
-        "obj,cls,expected",
-        [
-            (_SampleSub, data.Sample, True),
-            (_SamplesSub, data.Samples, True),
-            (_SamplesSub, UserList, True),
-            (_SamplesSub, list, False),
-            (hook, modules.Hook, True),
-            (hook, Callable, True),
-            (hook, str, False),
-            (runner, modules.Runner, True),
-            (runner, Callable, True),
-            (runner, str, False),
-        ],
-    )
-    def test_instance_or_subclass(
-        obj: type[_SampleSub] | type[_SamplesSub] | Any | Runner,
-        cls: (
-            type[Sample]
-            | type[dict]
-            | type[Samples]
-            | type[UserList]
-            | type[list]
-            | type[Hook]
-            | type[Callable[..., Any]]
-            | type[str]
-            | type[Runner]
-        ),
-        expected: bool,
-    ) -> None:
-        """Test _is_instance_or_subclass function."""
-        assert modules._is_instance_or_subclass(obj, cls) == expected
 
 
 class Test_Runner:
@@ -224,7 +176,7 @@ class Test_Runner:
         _config_mock = MagicMock()
 
         mocker.patch(
-            "cellophane.src.modules._cleanup",
+            "cellophane.src.modules.runner_._cleanup",
             return_value=_config_mock,
         )
 
@@ -406,7 +358,7 @@ class Test_Hook:
         assert _ret.value == expected
 
 
-class Test__resolve_hook_dependencies:
+class Test__resolve_dependencies:
     """Test _resolve_hook_dependencies function."""
 
     @staticmethod
@@ -482,7 +434,7 @@ class Test__resolve_hook_dependencies:
     ) -> None:
         """Test _resolve_hook_dependencies function."""
         # FIXME: Hook order is non-deterministic if there are no dependencies
-        _resolved = modules._resolve_hook_dependencies(hooks)
+        _resolved = resolve_dependencies(hooks)
         assert [m.label for m in _resolved] == expected
 
     @staticmethod
@@ -522,7 +474,7 @@ class Test__resolve_hook_dependencies:
     )
     def test_resolve_exception(hooks: list[type[modules.Hook]]) -> None:
         """Test _resolve_hook_dependencies function exceptions."""
-        assert raises(CycleError, modules._resolve_hook_dependencies, hooks)
+        assert raises(CycleError, resolve_dependencies, hooks)
 
 
 class Test_load:

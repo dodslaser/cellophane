@@ -89,7 +89,7 @@ class Test_SubprocessExecutor:
         """Test command exception."""
 
         mocker.patch(
-            "cellophane.executors.sp.Popen",
+            "cellophane.executors.subprocess_executor.sp.Popen",
             side_effect=Exception("DUMMY"),
         )
 

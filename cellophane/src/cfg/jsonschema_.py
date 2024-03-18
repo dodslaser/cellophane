@@ -1,14 +1,16 @@
 """JSON Schema validators for Cellophane configuration files."""
 
-from functools import partial, reduce
+from copy import deepcopy
+from functools import cache, partial, reduce, singledispatch
 from pathlib import Path
 from typing import Callable, Generator, Mapping
 
+from frozendict import frozendict
 from jsonschema.validators import Draft7Validator, extend
 
-from cellophane.src import util
+from cellophane.src import data, util
 
-from ._click import Flag
+from .flag import Flag
 
 _cellophane_type_checker = Draft7Validator.TYPE_CHECKER.redefine_many(
     {
@@ -256,3 +258,60 @@ def if_(
 
     compiled |= util.merge_mappings(compiled, _subschema)
     compiled.pop("if")
+
+@singledispatch
+def get_flags(schema: data.Container, _data: Mapping | None = None) -> list[Flag]:
+    """Get the flags for a configuration schema."""
+    return get_flags(util.freeze(data.as_dict(schema)), util.freeze(_data))
+
+
+@get_flags.register
+@cache
+def _(schema: frozendict, _data: frozendict | None = None) -> list[Flag]:
+    _data_thawed = util.unfreeze(_data)
+    _schema_thawed = util.unfreeze(schema)
+    _flags_mapping: dict = {}
+
+    while any(
+        keyword in (kw for node in util.map_nested_keys(_schema_thawed) for kw in node)
+        for keyword in [
+            "if",
+            "anyOf",
+            "oneOf",
+            "allOf",
+            "dependentSchemas",
+        ]
+    ):
+        _compiled = deepcopy(_schema_thawed)
+        _compile_conditional = extend(
+            NullValidator,
+            validators={
+                "properties": partial(properties_, compiled=_compiled),
+                "if": partial(if_, compiled=_compiled),
+                "anyOf": partial(any_of_, compiled=_compiled),
+                "oneOf": partial(one_of_, compiled=_compiled),
+                "allOf": partial(all_of_, compiled=_compiled),
+                "dependentSchemas": partial(dependent_schemas_, compiled=_compiled),
+            },
+        )
+
+        _compile_conditional(_schema_thawed).validate(_data_thawed)
+        _schema_thawed = _compiled
+
+    extend(
+        NullValidator,
+        validators={
+            "required": partial(required_, flags=_flags_mapping),
+            "dependentRequired": partial(dependent_required_, flags=_flags_mapping),
+            "properties": partial(properties_, flags=_flags_mapping),
+        },
+    )(_schema_thawed).validate(_data_thawed)
+
+    _flags: list[Flag] = []
+    _container = data.Container(_flags_mapping)
+    for key in util.map_nested_keys(_flags_mapping):
+        _flag = _container[key]
+        _flag.key = key
+        _flags.append(_flag)
+
+    return _flags

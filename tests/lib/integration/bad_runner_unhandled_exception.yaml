@@ -16,7 +16,7 @@ args:
   --samples_file: samples.yaml
   --workdir: out
 mocks:
-  cellophane.WorkerPool.apply_async:
+  cellophane.src.modules.runner_.WorkerPool.apply_async:
     exception: DUMMY
 logs:
   - "Unhandled exception in runner: DUMMY"

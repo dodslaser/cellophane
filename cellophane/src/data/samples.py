@@ -1,323 +1,25 @@
-"""Classes and functions for working with samples and sample data."""
+"""Sample and Samples class definitions."""
 
 from collections import UserList
-from collections.abc import Mapping
 from copy import deepcopy
-from functools import reduce
-from glob import glob
-from logging import LoggerAdapter
 from pathlib import Path
-from typing import (
-    Any,
-    Callable,
-    ClassVar,
-    Iterable,
-    Iterator,
-    Literal,
-    Sequence,
-    TypeVar,
-    overload,
-)
+from typing import Any, ClassVar, Iterable, Literal, Sequence, TypeVar, overload
 from uuid import UUID, uuid4
 
 from attrs import define, field, fields_dict, has, make_class
 from attrs.setters import convert, frozen
 from ruamel.yaml import YAML
 
-from . import util
-
-
-class MergeSamplesTypeError(Exception):
-    """Raised when trying to merge samples of different types"""
-
-    msg: str = "Cannot merge samples of different types"
-
-
-class MergeSamplesUUIDError(Exception):
-    """Raised when trying to merge samples with different UUIDs"""
-
-    msg: str = "Cannot merge samples with different UUIDs"
+from .. import util
+from .container import Container
+from .exceptions import MergeSamplesTypeError, MergeSamplesUUIDError
+from .merger import Merger
+from .output import Output, OutputGlob
+from .util import convert_path_list
 
 
 class _BASE:
     """Dummy base class for adding mixins to the Sample and Samples classes."""
-
-
-class _Merger:
-    _imps: dict[str, Callable]
-
-    def __init__(self) -> None:
-        self._impls: dict[str, Callable] = {}
-
-    def register(self, name: str) -> Callable:
-        """
-        Decorator for registering a new merge implementation for an attribute.
-
-        The decorated function should take the two values to merge as arguments
-        and return the merged value.
-
-        This function will be called via reduce, so the first argument will be
-        the result of the previous call to the function, or the first value if
-        no previous calls have been made.
-
-        Args:
-            name (str): The name of attribute to merge.
-
-        Returns:
-            Callable: A decorator that registers the decorated function as the
-                implementation for the specified name.
-        """
-
-        def wrapper(impl: Callable) -> Callable:
-            self._impls[name] = impl
-            return impl
-
-        return wrapper
-
-    def __call__(self, name: str, this: Any, that: Any) -> Any:
-        """
-        Reconciles two values based on their attribute name.
-
-        Args:
-            name (str): The name of the values (unused).
-            this (Any): The first value.
-            that (Any): The second value.
-
-        Returns:
-            Any: The reconciled value.
-        """
-        if name in self._impls:
-            return self._impls[name](this, that)
-
-        return this or that if this is None or that is None else (this, that)
-
-
-@define(init=False, slots=False)
-class Container(Mapping):
-    """Base container class for the Config, Sample, and Samples classes.
-
-    The container supports attribute-style access to its data and allows nested key
-    access using Sequence[str] keys.
-
-    Args:
-        __data__ (dict | None): The initial data for the container.
-            Defaults to an empty dictionary.
-
-    Attributes:
-        __data__ (dict): The dictionary that stores the data.
-    """
-
-    __data__: dict = field(factory=dict)
-
-    def __or__(self, other: "Container") -> "Container":
-        if self.__class__ != other.__class__:
-            raise TypeError("Cannot merge containers of different types")
-        return self.__class__(**util.merge_mappings(self, other))
-
-    def __init__(  # pylint: disable=keyword-arg-before-vararg
-        self,
-        __data__: dict | None = None,
-        *args: Any,
-        **kwargs: Any,
-    ) -> None:
-        _data = __data__ or {}
-        for key in [k for k in kwargs if k not in fields_dict(self.__class__)]:
-            _data[key] = kwargs.pop(key)
-        self.__attrs_init__(*args, **kwargs)
-        for k, v in _data.items():
-            self[k] = v
-
-    def __new__(cls, *args: Any, **kwargs: Any) -> "Container":
-        del args, kwargs  # unused
-        instance = super().__new__(cls)
-        object.__setattr__(instance, "__data__", {})
-        return instance
-
-    def __contains__(self, key: str | Sequence[str]) -> bool:  # type: ignore[override]
-        try:
-            self[key]  # pylint: disable=pointless-statement]
-            return True
-        except (KeyError, TypeError):
-            return False
-
-    def __setattr__(self, name: str, value: Any) -> None:
-        if name not in fields_dict(self.__class__):
-            self[name] = value
-        else:
-            super().__setattr__(name, value)
-
-    def __setitem__(self, key: str | Sequence[str], item: Any) -> None:
-        if isinstance(item, dict) and not isinstance(item, (Container, dict_)):
-            item = Container(item)
-
-        match key:
-            case str(k) if k in fields_dict(self.__class__):
-                self.__setattr__(k, item)
-            case str(k) if k.isidentifier():
-                self.__data__[k] = item
-            case *k, if all(isinstance(k_, str) for k_ in k):
-
-                def _set(d: dict, k: str) -> dict:
-                    if k not in d:
-                        d[k] = Container()
-                    return d[k]
-
-                reduce(_set, k[:-1], self.__data__)[k[-1]] = item
-            case k:
-                raise TypeError(f"Key {k} is not an string or a sequence of strings")
-
-    def __getitem__(self, key: str | Sequence[str]) -> Any:
-        match key:
-            case str(k) if k in fields_dict(self.__class__):
-                return super().__getattribute__(k)
-            case str(k):
-                return self.__data__[k]
-            case *k,:
-                return reduce(lambda d, k: d[k], k, self.__data__)
-            case k:
-                raise TypeError(f"Key {k} is not a string or a sequence of strings")
-
-    def __getattr__(self, key: str) -> Any:
-        if key in self.__data__:
-            return self.__data__[key]
-
-        raise AttributeError(
-            f"'{self.__class__.__name__}' object has no attribute '{key}'"
-        )
-
-    def __deepcopy__(self, memo: dict[int, Any]) -> Any:
-        _instance = self.__class__(
-            **{deepcopy(k): deepcopy(self[k]) for k in fields_dict(self.__class__)}
-        )
-        _instance.__data__ = deepcopy(self.__data__)
-        return _instance
-
-    def __len__(self) -> int:
-        return len(self.__data__)
-
-    def __iter__(self) -> Iterator[str]:
-        return iter(self.__data__)
-
-
-@define
-class Output:
-    """
-    Output file to be copied to the another directory.
-    """
-
-    src: Path = field(
-        kw_only=True,
-        converter=Path,
-        on_setattr=convert,
-    )
-    dst: Path = field(
-        kw_only=True,
-        converter=Path,
-        on_setattr=convert,
-    )
-
-    def __hash__(self) -> int:
-        return hash((self.src, self.dst))
-
-
-@define
-class OutputGlob:  # type: ignore[no-untyped-def]
-    """
-    Output glob find files to be copied to the another directory.
-    """
-
-    src: str = field(
-        kw_only=True,
-        converter=str,
-        on_setattr=convert,
-    )
-    dst_dir: str | None = field(  # type: ignore[var-annotated]
-        kw_only=True,
-        converter=lambda v: v if v is None else str(v),
-        on_setattr=convert,
-    )
-    dst_name: str | None = field(  # type: ignore[var-annotated]
-        kw_only=True,
-        converter=lambda v: v if v is None else str(v),
-        on_setattr=convert,
-    )
-
-    def __hash__(self) -> int:
-        return hash((self.src, self.dst_dir, self.dst_name))
-
-    def resolve(
-        self,
-        samples: "Samples",
-        workdir: Path,
-        config: Container,
-        logger: LoggerAdapter,
-    ) -> set[Output]:
-        """
-        Resolve the glob pattern to a list of files to be copied.
-
-        Args:
-            samples (Samples): The samples being processed.
-            workdir (Path): The working directory
-                with tag and the value of the split_by attribute (if any) appended.
-            config (Container): The configuration object.
-            logger (LoggerAdapter): The logger.
-
-        Returns:
-            set[Output]: The list of files to be copied.
-
-        """
-        outputs = set()
-        warnings = set()
-
-        for sample in samples:
-            meta = {
-                "samples": samples,
-                "config": config,
-                "workdir": workdir,
-                "sample": sample,
-            }
-
-            match self.src.format(**meta):
-                case p if Path(p).is_absolute():
-                    pattern = p
-                case p if Path(p).is_relative_to(workdir):
-                    pattern = p
-                case p:
-                    pattern = str(workdir / p)
-
-            if not (matches := [Path(m) for m in glob(pattern)]):
-                warnings.add(f"No files matched pattern '{pattern}'")
-
-            for m in matches:
-                match self.dst_dir:
-                    case str(d) if Path(d).is_absolute():
-                        dst_dir = Path(d.format(**meta))
-                    case str(d):
-                        dst_dir = config.resultdir / d.format(**meta)
-                    case _:
-                        dst_dir = config.resultdir
-
-                match self.dst_name:
-                    case None:
-                        dst_name = m.name
-                    case _ if len(matches) > 1:
-                        warnings.add(
-                            f"Destination name {self.dst_name} will be ignored "
-                            f"as '{self.src}' matches multiple files"
-                        )
-                        dst_name = m.name
-                    case str() as n:
-                        dst_name = n.format(**meta)
-
-                dst = Path(dst_dir) / dst_name
-
-                outputs.add(Output(src=m, dst=dst))
-
-        for warning in warnings:
-            logger.warning(warning)
-
-        return outputs
-
 
 @overload
 def _apply_mixins(
@@ -359,52 +61,6 @@ def _apply_mixins(
     return _cls
 
 
-class dict_(dict):
-    """Dict subclass to allow dict inside Container"""
-
-
-def as_dict(data: Container, exclude: list[str] | None = None) -> dict[str, Any]:
-    """Dictionary representation of a container.
-
-    The returned dictionary will have the same nested structure as the container.
-
-    Args:
-        exclude (list[str] | None): A list of keys to exclude from the returned
-            dictionary. Defaults to None.
-
-    Returns:
-        dict: A dictionary representation of the container object.
-
-    Example:
-        ```python
-        data = Container(
-            key_1 = "value_1",
-            key_2 = Container(
-                key_3 = "value_3",
-                key_4 = "value_4"
-            )
-        )
-        print(as_dict(data))
-        # {
-        #     "key_1": "value_1",
-        #     "key_2": {
-        #         "key_3": "value_3",
-        #         "key_4": "value_4"
-        #     }
-        # }
-        ```
-    """
-    return {
-        k: as_dict(v) if isinstance(v, Container) else v
-        for k, v in data.__data__.items()
-        if k not in (exclude or [])
-    }
-
-
-def _convert_path_list(data: list[str | Path]) -> list[Path]:
-    return [Path(p) for p in data]
-
-
 S = TypeVar("S", bound="Sample")
 
 
@@ -429,7 +85,7 @@ class Sample(_BASE):  # type: ignore[no-untyped-def]
     id: str = field(kw_only=True)
     files: list[Path] = field(
         factory=list,
-        converter=_convert_path_list,
+        converter=convert_path_list,
         on_setattr=convert,
     )
     processed: bool = False
@@ -445,7 +101,7 @@ class Sample(_BASE):  # type: ignore[no-untyped-def]
         on_setattr=convert,
     )
     _fail: str | None = field(default=None, repr=False)
-    merge: ClassVar[_Merger] = _Merger()
+    merge: ClassVar[Merger] = Merger()
 
     def __str__(self) -> str:
         return self.id
@@ -555,7 +211,7 @@ class Samples(UserList[S]):
 
     data: list[S] = field(factory=list)
     sample_class: ClassVar[type[Sample]] = Sample
-    merge: ClassVar[_Merger] = _Merger()
+    merge: ClassVar[Merger] = Merger()
     output: set[Output | OutputGlob] = field(
         factory=set, converter=set, on_setattr=convert
     )
