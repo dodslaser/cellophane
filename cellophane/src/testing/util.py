@@ -80,7 +80,7 @@ def execute_from_structure(
     try:
         mocker.patch(
             "cellophane.cellophane.setup_logging",
-            side_effect=_setup_logging,
+            new=_setup_logging,
         )
         mocker.patch("cellophane.cellophane.add_file_handler")
         _main = cellophane.cellophane("DUMMY", root=root)
