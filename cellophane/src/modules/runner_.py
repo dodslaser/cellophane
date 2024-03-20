@@ -106,12 +106,15 @@ class Runner:
                     for output_ in samples.output.copy():
                         if isinstance(output_, data.OutputGlob):
                             samples.output.remove(output_)
-                            samples.output |= output_.resolve(
-                                samples=samples.complete,
-                                workdir=workdir,
-                                config=config,
-                                logger=logger,
-                            )
+                            try:
+                                samples.output |= output_.resolve(
+                                    samples=samples.complete,
+                                    workdir=workdir,
+                                    config=config,
+                                    logger=logger,
+                                )
+                            except Exception as exc:  # pylint: disable=broad-except
+                                logger.warning(f"Failed to resolve output glob {output_}: {exc}")
                 for sample in samples.complete:
                     logger.debug(f"Sample {sample.id} processed successfully")
                 if n_failed := len(samples.failed):
