@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Callable
 from unittest.mock import MagicMock
 
+from attrs import define
 from cloudpickle import dumps, loads
 from psutil import Process, TimeoutExpired
 from pytest import LogCaptureFixture, mark, param, raises
@@ -77,12 +78,15 @@ class Test__cleanup:
 
 class Test_Runner:
     """Test Runner class."""
+    @define(slots=False)
+    class DummySample(data.Sample):
+        dummy: str | None = None
 
     samples: data.Samples = data.Samples(
         [
-            data.Sample(id="a"),
-            data.Sample(id="b"),
-            data.Sample(id="c"),
+            DummySample(id="a", dummy="x"),
+            DummySample(id="b", dummy="y"),
+            DummySample(id="c", dummy=None),
         ]
     )
 
@@ -123,7 +127,14 @@ class Test_Runner:
                 {},
                 [False] * 3,
                 [["Runner did not return any samples"]],
-                id="None",
+                id="none",
+            ),
+            param(
+                MagicMock(return_value=None),
+                {"split_by": "dummy"},
+                [False] * 3,
+                [["Runner did not return any samples"]],
+                id="split",
             ),
             param(
                 MagicMock(side_effect=RuntimeError),
@@ -137,7 +148,7 @@ class Test_Runner:
                         "Sample c failed - Sample was not processed",
                     ]
                 ],
-                id="Exception",
+                id="exception",
             ),
             param(
                 lambda samples, **_: samples[0].fail("DUMMY") or samples,
@@ -163,7 +174,6 @@ class Test_Runner:
         self,
         caplog: LogCaptureFixture,
         tmp_path: Path,
-        mocker: MockerFixture,
         runner_mock: data.Samples,
         runner_kwargs: dict[str, Any],
         expected_fail: list[int],
@@ -173,13 +183,6 @@ class Test_Runner:
         setattr(runner_mock, "__name__", "runner_mock")
         setattr(runner_mock, "__qualname__", "runner_mock")
         _runner = modules.runner(**runner_kwargs)(runner_mock)
-        _config_mock = MagicMock()
-
-        mocker.patch(
-            "cellophane.src.modules.runner_._cleanup",
-            return_value=_config_mock,
-        )
-
         with caplog.at_level("DEBUG"):
             _log_queue: Queue = Queue()
             _listener = QueueListener(_log_queue, *logging.getLogger().handlers)
