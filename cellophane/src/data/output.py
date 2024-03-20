@@ -39,16 +39,17 @@ class OutputGlob:  # type: ignore[no-untyped-def]
     """
 
     src: str = field(
-        kw_only=True,
         converter=str,
         on_setattr=convert,
     )
     dst_dir: str | None = field(  # type: ignore[var-annotated]
+        default=None,
         kw_only=True,
         converter=lambda v: v if v is None else str(v),
         on_setattr=convert,
     )
     dst_name: str | None = field(  # type: ignore[var-annotated]
+        default=None,
         kw_only=True,
         converter=lambda v: v if v is None else str(v),
         on_setattr=convert,
