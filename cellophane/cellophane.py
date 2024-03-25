@@ -55,7 +55,7 @@ def cellophane(
     click.rich_click.DEFAULT_STRING = "{}"
     click.rich_click.STYLE_OPTION_DEFAULT = "green"
 
-    console_handler = setup_logging()
+    console_handler = setup_logging(internal_roots=(CELLOPHANE_ROOT, root))
     logger = LoggerAdapter(getLogger(), {"label": label})
 
     try:

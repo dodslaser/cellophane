@@ -2,11 +2,26 @@
 
 import atexit
 import logging
+from functools import cache
 from logging.handlers import QueueHandler, QueueListener
 from multiprocessing import Queue
 from pathlib import Path
 
+from attrs import define
 from rich.logging import RichHandler
+
+
+@define
+class _ExtFilter(logging.Filter):
+    internal_roots: tuple[Path, ...]
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return self._check_relative(Path(record.pathname), self.internal_roots)
+
+    @staticmethod
+    @cache
+    def _check_relative(path: Path, roots: tuple[Path, ...]) -> bool:
+        return any(path.is_relative_to(r) for r in roots)
 
 
 def setup_queue_logging(
@@ -44,14 +59,19 @@ def start_queue_listener() -> Queue:
 
     queue: Queue = Queue()
     listener = QueueListener(
-        queue, *logging.getLogger().handlers, respect_handler_level=True
+        queue,
+        *logging.getLogger().handlers,
+        respect_handler_level=True,
     )
     listener.start()
     atexit.register(listener.stop)
     return queue
 
 
-def setup_logging(logger: logging.Logger = logging.getLogger()) -> RichHandler:
+def setup_logging(
+    logger: logging.Logger = logging.getLogger(),
+    internal_roots: tuple[Path, ...] | None = None,
+) -> RichHandler:
     """
     Sets up logging for the cellophane module.
 
@@ -65,10 +85,11 @@ def setup_logging(logger: logging.Logger = logging.getLogger()) -> RichHandler:
         logging.Formatter(
             "%(label)s: %(message)s",
             datefmt="%H:%M:%S",
-            defaults={"label": "external"},
+            defaults={"label": "unknown"},
         )
     )
-
+    if internal_roots:
+        console_handler.addFilter(_ExtFilter(internal_roots))
     logger.setLevel(logging.DEBUG)
     logger.handlers = [console_handler]
     return console_handler
@@ -89,9 +110,9 @@ def add_file_handler(path: Path, logger: logging.Logger = logging.getLogger()) -
     file_handler = logging.FileHandler(path)
     file_handler.setFormatter(
         logging.Formatter(
-            "%(asctime)s : %(label)s : %(message)s",
+            "%(asctime)s : %(levelname)s : %(label)s : %(message)s",
             defaults={"label": "external"},
         )
     )
-    file_handler.setLevel(logging.DEBUG)
+    file_handler.setLevel(0)
     logger.addHandler(file_handler)

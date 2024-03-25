@@ -7,8 +7,9 @@ required:
 properties:
   log_level:
     default: INFO
-    description: Log level
+    description: Log level (NOTSET will log all messages, including those from external libraries)
     enum:
+      - NOTSET
       - DEBUG
       - INFO
       - WARNING
@@ -43,7 +44,7 @@ properties:
   workdir:
     description: Working directory where intermediate files are stored
     type: path
-  
+
   resultdir:
     description: Results base directory where output files are copied
     type: path
