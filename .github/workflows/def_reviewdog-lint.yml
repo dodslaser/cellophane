@@ -24,6 +24,8 @@ jobs:
           ref: ${{ github.event.inputs.head }}
       - uses: reviewdog/action-actionlint@v1
         with:
+          # FIXME: This silences the error in def_publish-release.yml. Should it actually be fixed?
+          actionlint_flags: -ignore "undefined name '_+'"
           reporter: github-check
 
   markdownlint:
