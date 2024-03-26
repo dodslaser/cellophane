@@ -8,9 +8,7 @@
   <img src="cellophane.png" width="400px" alt="Cellophane Logo"/>
 </p>
 
-[![codecov](https://codecov.io/gh/ClinicalGenomicsGBG/cellophane/graph/badge.svg?token=GQ6MOR6CYL)](https://codecov.io/gh/dodslaser/cellophane)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![MegaLinter](https://github.com/ClinicalGenomicsGBG/cellophane/workflows/MegaLinter/badge.svg)](https://github.com/ClinicalGenomicsGBG/cellophane/actions?query=workflow%3AMegaLinter)
 
 ---
 
