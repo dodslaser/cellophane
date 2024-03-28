@@ -16,7 +16,7 @@ pip install git+https://github.com/ClinicalGenomicsGBG/cellophane.git@latest
 
 ## Initializing a wrapper
 
-The `cellphane init` command will initialize a new wrapper in the current directory. This command does the following:
+The `cellophane init` command will initialize a new wrapper in the current directory. This command does the following:
 
 - Set up the directory structure for the wrapper.
 - Add an empty `schema.yaml` file where you can define configuration options.
