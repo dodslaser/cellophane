@@ -633,13 +633,9 @@ class Test_OutputGlob:
             ),
             **kwargs,
         )
-
-        assert (
-            glob.resolve(
-                samples=[None],  # type: ignore[arg-type]
-                workdir=Path("workdir"),
-                config=config,
-                logger=logger,
-            )
-            == expected_outputs
+        outputs, warnings = glob.resolve(
+            samples=[None],  # type: ignore[arg-type]
+            workdir=Path("workdir"),
+            config=config,
         )
+        assert outputs == expected_outputs, warnings

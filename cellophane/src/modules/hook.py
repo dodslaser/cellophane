@@ -68,6 +68,7 @@ class Hook:
         root: Path,
         executor_cls: type[executors.Executor],
         log_queue: Queue,
+        timestamp: str,
     ) -> data.Samples:
         logger = LoggerAdapter(getLogger(), {"label": self.label})
         logger.debug(f"Running {self.label} hook")
@@ -79,7 +80,7 @@ class Hook:
             match self.func(
                 samples=samples,
                 config=config,
-                timestamp=config.timestamp,
+                timestamp=timestamp,
                 logger=logger,
                 root=root,
                 workdir=config.workdir / config.tag,

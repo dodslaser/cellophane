@@ -1,7 +1,6 @@
 """Outut classes for copying files to another directory."""
 
 from glob import glob
-from logging import LoggerAdapter
 from pathlib import Path
 from typing import Iterable
 
@@ -25,6 +24,12 @@ class Output:
     dst: Path = field(
         kw_only=True,
         converter=Path,
+        on_setattr=convert,
+    )
+    checkpoint: str = field(
+        default="main",
+        kw_only=True,
+        converter=str,
         on_setattr=convert,
     )
 
@@ -84,8 +89,7 @@ class OutputGlob:  # type: ignore[no-untyped-def]
         samples: Iterable,
         workdir: Path,
         config: Container,
-        logger: LoggerAdapter,
-    ) -> set[Output]:
+    ) -> tuple[set[Output], set[str]]:
         """
         Resolve the glob pattern to a list of files to be copied.
 
@@ -150,10 +154,8 @@ class OutputGlob:  # type: ignore[no-untyped-def]
                         src=m,
                         dst=dst,
                         optional=self.optional,
+                        checkpoint=self.checkpoint.format(**meta),
                     )
                 )
 
-        for warning in warnings:
-            logger.warning(warning)
-
-        return outputs
+        return outputs, warnings

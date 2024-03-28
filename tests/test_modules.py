@@ -189,10 +189,11 @@ class Test_Runner:
             _listener.start()
             _ret = _runner(
                 _log_queue,
-                config=MagicMock(timestamp="DUMMY", log_level=None),
+                config=MagicMock(log_level=None),
                 root=tmp_path / "root",
                 samples_pickle=dumps(self.samples),
                 executor_cls=SubprocesExecutor,
+                timestamp="DUMMY",
             )
             _listener.stop()
 
@@ -350,10 +351,11 @@ class Test_Hook:
         with caplog.at_level("DEBUG"):
             _ret = _hook(
                 samples=input_value,
-                config=MagicMock(workdir=tmp_path, timestamp="DUMMY", log_level=None),
+                config=MagicMock(workdir=tmp_path, log_level=None),
                 root=Path(),
                 executor_cls=SubprocesExecutor,
                 log_queue=Queue(),
+                timestamp="DUMMY",
             )
 
         for log_line in logs:

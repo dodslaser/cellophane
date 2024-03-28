@@ -21,6 +21,7 @@ cloudpickle = "^2.2.1"
 frozendict = "^2.3.8"
 semver = "^3.0.2"
 packaging = "^24.0"
+xxhash = "^3.4.1"
 
 [tool.poetry.group.dev.dependencies]
 mypy = "^0.991"

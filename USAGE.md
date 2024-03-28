@@ -123,15 +123,16 @@ Argument      | Type        | Description
 
 At runtime, the decorated function (runner) will be called with the following keyword arguments:
 
-Argument    | Type                    | Description
-------------|-------------------------|-------------
-`samples`   | `cellophane.Samples`    | Samples to process.
-`config`    | `cellophane.Config`     | Wrapper configuration.
-`timestamp` | `str`                   | A string representation of the current timestamp (YYYYMMDDHHMMSS).
-`logger`    | `logging.LoggerAdapter` | A logger that can be used to log messages.
-`root`      | `pathlib.Path`          | A `pathlib.Path` pointing to the root directory of the wrapper.
-`workdir`   | `pathlib.Path`          | A `pathlib.Path` pointing to the working directory of the runner.
-`executor`  | `cellophane.Executor`   | An `Executor` that can be used to run external commands.
+Argument      | Type                     | Description
+--------------|--------------------------|-------------
+`samples`     | `cellophane.Samples`     | Samples to process.
+`config`      | `cellophane.Config`      | Wrapper configuration.
+`timestamp`   | `str`                    | A string representation of the current timestamp (YYYYMMDDHHMMSS).
+`logger`      | `logging.LoggerAdapter`  | A logger that can be used to log messages.
+`root`        | `pathlib.Path`           | A `pathlib.Path` pointing to the root directory of the wrapper.
+`workdir`     | `pathlib.Path`           | A `pathlib.Path` pointing to the working directory of the runner.
+`executor`    | `cellophane.Executor`    | An `Executor` that can be used to run external commands.
+`checkpoints` | `cellophane.Checkpoints` | A collections of checkpoints that can be used for skipping steps if the output already exists.
 
 ---
 
@@ -283,6 +284,77 @@ Argument        | Type                    | Description
 ----------------|-------------------------|------------
 `uuid`          | `uuid.UUID`             | A unique identifier for the command. If not specified, all submitted commands will be terminated.
 ---
+
+</details>
+
+<details>
+
+---
+
+<summary><strong>Output</strong></summary>
+
+Outputs for runners can be specified using the `@cellophane.output` decorator.
+
+Argument      | Type  | Description
+--------------|-------|-------------
+`src`         | `str` | A glob pattern specifying the output files. Paths are relative to workdir. Patterns will be formatted with access to the `sample` and `samples` objects.
+`dst_name`    | `str` | The file name for the output. If not specified, the `src` pattern will be used. Can contain parent directories, and may be used to rename directories if `src` matches a directory.
+`dst_dir`     | `str` | The directory for the output, relative to `config.resultdir`. Files will be placed under this directory using their original names or the `dst_name` if specified.
+`checkpoint`  | `str` | The label of the checkpoint that this file belongs to. If not specified, the file will be considered part of the main output. Defaults to `'main'`.
+`òptional`    | `bool`| If `True`, the output will not be considered required. No warning will be issued if the output is missing. Will be excluded when generating the checkpoint hash.
+
+> **Note:** If a file for an `optional` output is present it will be inclued when generating the checkpoint hash. This is to ensure that all files that CAN be generated given a paricular inputs and configuration are present in the output.
+
+</details>
+
+<details>
+
+---
+
+<summary><strong>Checkpoints</strong></summary>
+
+Checkpoints are used to keep track of the output of runners. They can be used to skip steps if the output already exists. Each output will belong to a checkpoint. When a checkpoint is stored, a hash will be calculated using the `config` object, the sample IDs, the sample files and the output files. Arbitrary `*args` and `**kwargs` may be passed to the `store` and `check` to include additional information in the hash. A `cellophane.Checkpoints` object is passed to the runners and can be used to access the individual checkpoints as attributes.
+
+Checkpoints are stored as `cellophane.Checkpoint` objects, which have the following attributes:
+
+Method                    | Returns | Description
+--------------------------|---------|-------------
+`store(\*args, \*kwargs)` | `None`  | A function used to store the checkpoint. Takes arbitrary arguments that will be included in the hash.
+`check(\*args, \*kwargs)` | `bool`  | A function used to check if the checkpoint exists. Takes arbitrary arguments that will be included in the hash.
+
+> **Note:** At most 128kb of data will be included in the hash, evenly spaced as 128 byte chunks at 1000 positions troughout the file.
+
+```python
+from cellophane import runner
+
+some_important_value = 42
+
+@output(src="main.txt", dst_name="output.txt", checkpoint="main")
+@output(src="task.txt", dst_name="task.txt", checkpoint="task")
+@runner()
+def my_runner(
+    samples: Samples,
+    config: Config,
+    logger: logging.LoggerAdapter,
+    workdir: pathlib.Path,
+    executor: Executor,
+    checkpoints: Checkpoints,
+    **_,
+) -> None:
+    if checkpoints.task.check(some_important_value):
+        logger.info("Task output already exists, skipping")
+    else:
+        # Do something important that creates task.txt
+        ...
+        checkpoints.task.store(some_important_value)
+
+    if checkpoints.main.check():
+        logger.info("Main output already exists, skipping")
+    else:
+        # Do something important that creates main.txt
+        ...
+        checkpoints.main.store()
+```
 
 </details>
 

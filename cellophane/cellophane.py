@@ -86,6 +86,12 @@ def cellophane(
         @with_options(schema)
         def inner(config: Config, **_: Any) -> None:
             """Run cellophane"""
+            start_time = time.time()
+            timestamp = time.strftime(
+                "%Y%m%d_%H%M%S",
+                time.localtime(start_time),
+            )
+
             console_handler.setLevel(config.log_level)
             logger.debug(f"Found {len(hooks)} hooks")
             logger.debug(f"Found {len(runners)} runners")
@@ -110,13 +116,14 @@ def cellophane(
                     log_queue=log_queue,
                     root=root,
                     executor_cls=executor_cls,
+                    timestamp=timestamp,
                 )
 
             except Exception as exception:
                 logger.critical(f"Unhandled exception: {exception}", exc_info=True)
                 raise SystemExit(1) from exception
 
-            time_elapsed = format_timespan(time.time() - config.start_time)
+            time_elapsed = format_timespan(time.time() - start_time)
             logger.info(f"Execution complete in {time_elapsed}")
 
     except Exception as exc:
@@ -135,12 +142,14 @@ def _main(
     config: Config,
     root: Path,
     executor_cls: type[Executor],
+    timestamp: str,
 ) -> None:
     """Run cellophane"""
     common_kwargs = {
         "config": config,
         "root": root,
         "executor_cls": executor_cls,
+        "timestamp": timestamp,
     }
 
     # Load samples from file, or create empty samples object

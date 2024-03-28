@@ -33,12 +33,6 @@ def with_options(schema: Schema) -> Callable:
     """
 
     def wrapper(callback: Callable) -> Callable:
-        start_time = time.time()
-        timestamp = time.strftime(
-            "%Y%m%d_%H%M%S",
-            time.localtime(start_time),
-        )
-
         @click.command(
             add_help_option=False,
             context_settings={
@@ -74,15 +68,11 @@ def with_options(schema: Schema) -> Callable:
             # Merge config file and the commandline arguments into a single config
             config = Config(
                 schema=schema,
-                tag=_dummy_params.pop("tag", None) or timestamp,
+                tag=_dummy_params.pop("tag", None),
                 include_defaults=False,
                 _data=YAML(typ="safe").load(config_file) if config_file else {},
                 **_dummy_params,
             )
-
-            # Set timestamp and start time
-            config["timestamp"] = timestamp
-            config["start_time"] = start_time
 
             # Set the workdir, resultdir, and logdir (if possible)
             if "workdir" in config:

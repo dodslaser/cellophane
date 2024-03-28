@@ -1,6 +1,5 @@
 """Runners for executing functions as jobs."""
 
-from copy import deepcopy
 from functools import reduce
 from logging import LoggerAdapter, getLogger
 from multiprocessing import Queue
@@ -13,6 +12,8 @@ from mpire import WorkerPool
 from psutil import Process, TimeoutExpired
 
 from cellophane.src import cfg, data, executors, logs
+
+from .checkpoint import Checkpoints
 
 
 class Runner:
@@ -54,12 +55,13 @@ class Runner:
         root: Path,
         samples_pickle: str,
         executor_cls: type[executors.Executor],
+        timestamp: str,
     ) -> bytes:
         samples: data.Samples = loads(samples_pickle)
         logs.setup_queue_logging(log_queue)
         logger = LoggerAdapter(getLogger(), {"label": self.label})
-
         signal(SIGTERM, _cleanup(logger))
+
         workdir = config.workdir / config.tag / self.label
         if self.split_by:
             workdir /= samples[0][self.split_by] or "unknown"
@@ -72,9 +74,9 @@ class Runner:
         ) as pool:
             try:
                 match self.main(
-                    samples=deepcopy(samples),
+                    samples=samples,
                     config=config,
-                    timestamp=config.timestamp,
+                    timestamp=timestamp,
                     logger=logger,
                     root=root,
                     workdir=workdir,
@@ -83,6 +85,11 @@ class Runner:
                         pool=pool,
                         log_queue=log_queue,
                     ),
+                    checkpoints=Checkpoints(
+                        samples=samples,
+                        workdir=workdir,
+                        config=config,
+                    )
                 ):
                     case None:
                         logger.debug("Runner did not return any samples")
@@ -102,19 +109,7 @@ class Runner:
                     sample.fail(str(exc))
 
             finally:
-                if samples.complete:
-                    for output_ in samples.output.copy():
-                        if isinstance(output_, data.OutputGlob):
-                            samples.output.remove(output_)
-                            try:
-                                samples.output |= output_.resolve(
-                                    samples=samples.complete,
-                                    workdir=workdir,
-                                    config=config,
-                                    logger=logger,
-                                )
-                            except Exception as exc:  # pylint: disable=broad-except
-                                logger.warning(f"Failed to resolve output glob {output_}: {exc}")
+                _resolve_outputs(samples, workdir, config, logger)
                 for sample in samples.complete:
                     logger.debug(f"Sample {sample.id} processed successfully")
                 if n_failed := len(samples.failed):
@@ -124,6 +119,30 @@ class Runner:
 
             pool.stop_and_join()
             return dumps(samples)
+
+def _resolve_outputs(
+    samples: data.Samples,
+    workdir: Path,
+    config: cfg.Config,
+    logger: LoggerAdapter,
+) -> None:
+    if samples.complete:
+        for output_ in samples.output.copy():
+            if isinstance(output_, data.OutputGlob):
+                samples.output.remove(output_)
+                try:
+                    o, w = output_.resolve(
+                        samples=samples.complete,
+                        workdir=workdir,
+                        config=config,
+                    )
+                    for warning in w:
+                        logger.warning(warning)
+                    samples.output |= o
+                except Exception as exc:  # pylint: disable=broad-except
+                    logger.warning(f"Failed to resolve output {output_}: {exc}")
+                    logger.debug(exc, exc_info=True)
+
 
 def _cleanup(logger: LoggerAdapter) -> Callable:
     def inner(*args: Any) -> None:
@@ -142,6 +161,7 @@ def _cleanup(logger: LoggerAdapter) -> Callable:
         raise SystemExit(1)
 
     return inner
+
 
 def start_runners(
     *,

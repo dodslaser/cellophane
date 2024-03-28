@@ -5,7 +5,7 @@ from .src import cfg, data, executors, logs, modules, util
 from .src.cfg import Config, Schema
 from .src.data import Output, OutputGlob, Sample, Samples
 from .src.executors import Executor
-from .src.modules import output, post_hook, pre_hook, runner
+from .src.modules import Checkpoint, Checkpoints, output, post_hook, pre_hook, runner
 
 __all__ = [
     "CELLOPHANE_ROOT",
@@ -32,4 +32,7 @@ __all__ = [
     # cfg
     "Config",
     "Schema",
+    # checkpoints
+    "Checkpoint",
+    "Checkpoints",
 ]

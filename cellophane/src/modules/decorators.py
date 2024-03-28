@@ -36,6 +36,7 @@ def output(
             directory of the matched file will be used. If the matched file is
         dst_name: The name to copy the files to. If not specified, the name
             of the matched file will be used.
+        checkpoint: The checkpoint to use for the output. Defaults to "main".
     """
 
     def wrapper(func: Callable) -> Callable:
@@ -64,6 +65,7 @@ def output(
 
     return wrapper
 
+
 def runner(
     label: str | None = None,
     split_by: str | None = None,
@@ -87,6 +89,7 @@ def runner(
         )
 
     return wrapper
+
 
 def pre_hook(
     label: str | None = None,
