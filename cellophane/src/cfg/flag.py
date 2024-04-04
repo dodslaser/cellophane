@@ -7,8 +7,10 @@ import rich_click as click
 from attrs import define, field
 
 from .click_ import (
+    FORMATS,
     ITEMS_TYPES,
     SCHEMA_TYPES,
+    FormattedString,
     InvertibleParamType,
     ParsedSize,
     StringMapping,
@@ -24,17 +26,11 @@ class Flag:
 
     Attributes:
         key (list[str] | None): The key associated with the flag.
-        type (
-            Literal[
-                "string",
-                "number",
-                "integer",
-                "boolean",
-                "mapping",
-                "array",
-                "path",
-            ] | None
-        ): The type of the flag.
+        type SCHEMA_TYPES: The JSONSchema type of the flag.
+        items ITEMS_TYPES: The JSONSchema items type of the flag.
+        format_ FORMATS: The JSONSchema format of the flag.
+        minimum (int | None): The minimum value of the flag.
+        maximum (int | None): The maximum value of the flag.
         description (str | None): The description of the flag.
         default (Any): The default value of the flag.
         enum (list[Any] | None): The list of allowed values for the flag.
@@ -50,7 +46,13 @@ class Flag:
     """
 
     type: SCHEMA_TYPES | None = field(default=None)
-    items: ITEMS_TYPES | None = field(default=None)
+    items_type: ITEMS_TYPES | None = field(default=None)
+    items_format: FORMATS | None = field(default=None)
+    items_minimum: int | None = field(default=None)
+    items_maximum: int | None = field(default=None)
+    format_: FORMATS | None = field(default=None)
+    minimum: int | None = field(default=None)
+    maximum: int | None = field(default=None)
     _key: list[str] | None = field(default=None)
     description: str | None = field(default=None)
     default: Any = field(default=None)
@@ -119,14 +121,31 @@ class Flag:
     @property
     def click_type(
         self,
-    ) -> Type | click.Path | click.Choice | StringMapping | TypedArray | ParsedSize:
+    ) -> (
+        Type
+        | click.Path
+        | click.Choice
+        | click.IntRange
+        | click.FloatRange
+        | StringMapping
+        | TypedArray
+        | ParsedSize
+        | FormattedString
+    ):
         """
         Translate jsonschema type to Python type.
 
         Returns:
             type: The Python type corresponding to the property type.
         """
-        return click_type(self.type, self.enum, self.items)
+        return click_type(
+            self.type,
+            self.enum,
+            self.items_type,
+            self.format_,
+            self.minimum,
+            self.maximum,
+        )
 
     @property
     def flag(self) -> str:

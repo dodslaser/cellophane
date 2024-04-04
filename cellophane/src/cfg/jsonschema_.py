@@ -111,7 +111,13 @@ def properties_(
                 "enum": subschema.get("enum"),
                 "description": subschema.get("description"),
                 "secret": subschema.get("secret", False),
-                "items": subschema.get("items", {}).get("type"),
+                "items_type": subschema.get("items", {}).get("type"),
+                "items_format": subschema.get("items", {}).get("format"),
+                "items_minimum": subschema.get("items", {}).get("minimum"),
+                "items_maximum": subschema.get("items", {}).get("maximum"),
+                "format_": subschema.get("format"),
+                "minimum": subschema.get("minimum"),
+                "maximum": subschema.get("maximum"),
             }
             if prop in flags:
                 for k, v in _flag_kwargs.items():

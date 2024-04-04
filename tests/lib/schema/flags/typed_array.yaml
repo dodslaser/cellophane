@@ -14,4 +14,4 @@ flags:
   - key: [a]
     type: array
     value: [a, b, c]
-    items: path
+    items_type: path

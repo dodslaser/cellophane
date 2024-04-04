@@ -5,10 +5,12 @@ import re
 from ast import literal_eval
 from contextlib import suppress
 from pathlib import Path
-from typing import Any, Literal, Mapping, MutableMapping, Type, get_args
+from typing import Any, Literal, Mapping, MutableMapping, Type, get_args, overload
 
 import rich_click as click
 from humanfriendly import format_size, parse_size
+from jsonschema._format import draft7_format_checker
+from jsonschema.exceptions import FormatError
 
 from cellophane.src import data, util
 
@@ -30,6 +32,27 @@ SCHEMA_TYPES = Literal[
     "array",
     "path",
     "size",
+]
+
+FORMATS = Literal[
+    "color",
+    "date",
+    "date-time",
+    "duration",
+    "email",
+    "hostname",
+    "idn-hostname",
+    "ipv4",
+    "ipv6",
+    "iri",
+    "iri-reference",
+    "json-pointer",
+    "regex",
+    "relative-json-pointer",
+    "time",
+    "uri",
+    "uri-reference",
+    "uri-template",
 ]
 
 
@@ -212,13 +235,25 @@ class TypedArray(click.ParamType):
     """
 
     name = "array"
-    items: ITEMS_TYPES | None = None
+    items_type: ITEMS_TYPES | None = None
+    items_format: FORMATS | None = None
+    items_minimum: int | float | None = None
+    items_maximum: int | float | None = None
 
-    def __init__(self, items: ITEMS_TYPES | None = None) -> None:
-        if items not in [*get_args(ITEMS_TYPES), None]:
-            raise ValueError(f"Invalid type: {items}")
+    def __init__(
+        self,
+        items_type: ITEMS_TYPES | None = None,
+        items_format: FORMATS | None = None,
+        items_minimum: int | float | None = None,
+        items_maximum: int | float | None = None,
+    ) -> None:
+        if items_type not in [*get_args(ITEMS_TYPES), None]:
+            raise ValueError(f"Invalid type: {items_type}")
 
-        self.items = items or "string"
+        self.items_type = items_type or "string"
+        self.items_format = items_format
+        self.items_minimum = items_minimum
+        self.items_maximum = items_maximum
 
     def convert(  # type: ignore[override]
         self,
@@ -246,11 +281,16 @@ class TypedArray(click.ParamType):
             [1, 2, 3]
         """
         try:
-            _type = click_type(self.items)
+            _type = click_type(
+                self.items_type,
+                format_=self.items_format,
+                minimum=self.items_minimum,
+                maximum=self.items_maximum,
+            )
             if isinstance(_type, click.ParamType):
-                return [_type.convert(v, param, ctx) for v in value]
+                return [_type.convert(v, param, ctx) for v in value or ()]
             else:
-                return [_type(v) for v in value]
+                return [_type(v) for v in value or ()]
         except Exception as exc:  # pylint: disable=broad-except
             self.fail(str(exc), param, ctx)
 
@@ -271,7 +311,7 @@ class ParsedSize(InvertibleParamType):
         ValueError: Raised when the value is not a valid integer.
     """
 
-    name: str = "size"
+    name = "size"
 
     def convert(
         self,
@@ -318,11 +358,75 @@ class ParsedSize(InvertibleParamType):
         """
         return format_size(value)
 
+
+class FormattedString(click.ParamType):
+    """Click parameter type for formatted strings."""
+
+    name = "formatted_string"
+    format_: FORMATS | None = None
+
+    def __init__(self, format_: FORMATS | None = None) -> None:
+        if format_ not in [*get_args(FORMATS), None]:
+            raise ValueError(f"Invalid format: {format_}")
+        self.format_ = format_
+
+    @overload
+    def convert(
+        self,
+        value: str,
+        param: click.Parameter | None,
+        ctx: click.Context | None,
+    ) -> str:  # pragma: no cover
+        ...
+    @overload
+    def convert(
+        self,
+        value: None,
+        param: click.Parameter | None,
+        ctx: click.Context | None,
+    ) -> None:  # pragma: no cover
+        ...
+
+    def convert(
+        self,
+        value: str | None,
+        param: click.Parameter | None,
+        ctx: click.Context | None,
+    ) -> str | None:
+        if value is None:
+            return value
+        _value = str(value)
+        if self.format_ is not None:
+            try:
+                draft7_format_checker.check(_value, self.format_)
+            except FormatError as exc:
+                self.fail(exc.message, param, ctx)
+            except Exception as exc:  # pylint: disable=broad-except
+                self.fail(f"Unable to convert '{value}' to string: {exc}", param, ctx)
+        return _value
+
+
 def click_type(  # type: ignore[return]
     _type: SCHEMA_TYPES | None = None,
     enum: list | None = None,
-    items: ITEMS_TYPES | None = None,
-) -> Type | click.Path | click.Choice | StringMapping | TypedArray | ParsedSize:
+    items_type: ITEMS_TYPES | None = None,
+    items_format: FORMATS | None = None,
+    items_minimum: int | float | None = None,
+    items_maximum: int | float | None = None,
+    format_: FORMATS | None = None,
+    minimum: int | float | None = None,
+    maximum: int | float | None = None,
+) -> (
+    Type
+    | click.Path
+    | click.Choice
+    | click.IntRange
+    | click.FloatRange
+    | StringMapping
+    | TypedArray
+    | ParsedSize
+    | FormattedString
+):
     """
     Translate jsonschema type to Python type.
 
@@ -331,22 +435,29 @@ def click_type(  # type: ignore[return]
     """
     match _type:
         case _ if enum:
-            return click.Choice(enum)
+            return click.Choice(enum, case_sensitive=False)
         case "string":
-            return str
+            return FormattedString(format_)
         case "number":
-            return float
+            return click.FloatRange(minimum, maximum)
         case "integer":
-            return int
+            _minimum = int(minimum) if minimum is not None else None
+            _maximum = int(maximum) if maximum is not None else None
+            return click.IntRange(_minimum, _maximum)
         case "boolean":
             return bool
         case "mapping":
             return StringMapping()
         case "array":
-            return TypedArray(items)
+            return TypedArray(
+                items_type,
+                items_format,
+                items_minimum,
+                items_maximum,
+            )
         case "path":
             return click.Path(path_type=Path)
         case "size":
             return ParsedSize()
         case _:
-            return str
+            return FormattedString()

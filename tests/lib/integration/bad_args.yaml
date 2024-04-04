@@ -7,5 +7,5 @@ args:
   --a: "INVALID"
   --workdir: out
 output:
-  - "Invalid value for '--a': 'INVALID' is not a valid float."
+  - "Invalid value for '--a': 'INVALID' is not a valid float range."
 exception: SystemExit(2)

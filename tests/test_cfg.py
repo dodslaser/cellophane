@@ -13,6 +13,12 @@ from pytest import fail, mark, param, raises
 from ruamel.yaml import YAML
 
 from cellophane.src import cfg, data
+from cellophane.src.cfg.click_ import (
+    FormattedString,
+    ParsedSize,
+    StringMapping,
+    TypedArray,
+)
 
 _YAML = YAML(typ="unsafe")
 LIB = Path("__file__").parent / "tests" / "lib"
@@ -224,7 +230,7 @@ class Test_Flag:
                     key=["a", "b"],
                     type="string",
                 ),
-                click.option("--a_b", type=str, required=True),
+                click.option("--a_b", type=FormattedString(), required=True),
                 id="required",
             ),
             param(
@@ -235,7 +241,7 @@ class Test_Flag:
                 ),
                 click.option(
                     "--a_b",
-                    type=str,
+                    type=FormattedString(),
                     default="default",
                 ),
                 id="default",
@@ -248,7 +254,7 @@ class Test_Flag:
                 ),
                 click.option(
                     "--a_b",
-                    type=str,
+                    type=FormattedString(),
                     show_default=False,
                 ),
                 id="secret",
@@ -273,9 +279,9 @@ class Test_Flag:
                 ),
                 click.option(
                     "--a_b",
-                    type=click.Choice(["A", "B", "C"]),
+                    type=click.Choice(["A", "B", "C"], case_sensitive=False),
                 ),
-                id="boolean",
+                id="enum",
             ),
             *(
                 param(
@@ -290,13 +296,14 @@ class Test_Flag:
                     id=_type,
                 )
                 for _type, pytype, in [
-                    ("string", str),
-                    ("integer", int),
-                    ("number", float),
-                    ("array", cfg.click_.TypedArray("string")),
-                    ("mapping", cfg.click_.StringMapping()),
+                    ("string", FormattedString()),
+                    ("integer", click.IntRange()),
+                    ("number", click.FloatRange()),
+                    ("array", TypedArray("string")),
+                    ("mapping", StringMapping()),
                     ("path", click.Path()),
-                    (None, str),
+                    ("size", ParsedSize()),
+                    (None, FormattedString()),
                 ]
             ),
         ],
