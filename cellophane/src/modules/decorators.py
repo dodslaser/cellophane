@@ -12,6 +12,8 @@ def output(
     /,
     dst_dir: Path | None = None,
     dst_name: str | None = None,
+    checkpoint: str = "main",
+    optional: bool = False,
 ) -> Callable:
     """
     Decorator to mark output files of a runner.
@@ -46,7 +48,13 @@ def output(
             samples: data.Samples,
             **kwargs: Any,
         ) -> data.Samples | None:
-            glob_ = data.OutputGlob(src=src, dst_dir=dst_dir, dst_name=dst_name)
+            glob_ = data.OutputGlob(
+                src=src,
+                dst_dir=dst_dir,
+                dst_name=dst_name,
+                checkpoint=checkpoint,
+                optional=optional,
+            )
             samples.output.add(glob_)
             return func(*args, samples=samples, **kwargs)
 

@@ -28,6 +28,13 @@ class Output:
         on_setattr=convert,
     )
 
+    optional: bool = field(
+        default=False,
+        kw_only=True,
+        converter=bool,
+        on_setattr=convert,
+    )
+
     def __hash__(self) -> int:
         return hash((self.src, self.dst))
 
@@ -52,6 +59,20 @@ class OutputGlob:  # type: ignore[no-untyped-def]
         default=None,
         kw_only=True,
         converter=lambda v: v if v is None else str(v),
+        on_setattr=convert,
+    )
+
+    checkpoint: str = field(
+        default="main",
+        kw_only=True,
+        converter=str,
+        on_setattr=convert,
+    )
+
+    optional: bool = field(
+        default=False,
+        kw_only=True,
+        converter=bool,
         on_setattr=convert,
     )
 
@@ -98,7 +119,7 @@ class OutputGlob:  # type: ignore[no-untyped-def]
                 case p:
                     pattern = str(workdir / p)
 
-            if not (matches := [Path(m) for m in glob(pattern)]):
+            if not (matches := [Path(m) for m in glob(pattern)]) and not self.optional:
                 warnings.add(f"No files matched pattern '{pattern}'")
 
             for m in matches:
@@ -124,7 +145,13 @@ class OutputGlob:  # type: ignore[no-untyped-def]
 
                 dst = Path(dst_dir) / dst_name
 
-                outputs.add(Output(src=m, dst=dst))
+                outputs.add(
+                    Output(
+                        src=m,
+                        dst=dst,
+                        optional=self.optional,
+                    )
+                )
 
         for warning in warnings:
             logger.warning(warning)
