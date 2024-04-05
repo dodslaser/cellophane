@@ -30,7 +30,7 @@ def target_wrapper(
     """Target function for the executor."""
     sys.stdout = sys.stderr = open(os.devnull, "w", encoding="utf-8")
     log_queue, config, target_, terminate_hook = shared
-    logs.setup_queue_logging(log_queue)
+    logs.redirect_logging_to_queue(log_queue)
     logger = logging.LoggerAdapter(logging.getLogger(), {"label": name})
 
     _workdir = workdir or config.workdir / uuid.hex

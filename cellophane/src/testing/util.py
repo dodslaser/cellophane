@@ -72,17 +72,9 @@ def execute_from_structure(
     # considered to be a flag without a value.
     _args = [p for f in (args or {}).items() for p in f if p is not None]
 
-    def _setup_logging(*args: Any, **kwargs: Any) -> NullHandler:
-        del args, kwargs  # unused
-        getLogger().handlers = getLogger().handlers[1:]
-        return NullHandler()
-
     try:
-        mocker.patch(
-            "cellophane.cellophane.setup_logging",
-            new=_setup_logging,
-        )
-        mocker.patch("cellophane.cellophane.add_file_handler")
+        mocker.patch("cellophane.cellophane.setup_console_handler")
+        mocker.patch("cellophane.cellophane.setup_file_handler")
         _main = cellophane.cellophane("DUMMY", root=root)
         for target, mock in (mocks or {}).items():
             _side_effect = (

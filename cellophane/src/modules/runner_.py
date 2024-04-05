@@ -58,7 +58,7 @@ class Runner:
         timestamp: str,
     ) -> bytes:
         samples: data.Samples = loads(samples_pickle)
-        logs.setup_queue_logging(log_queue)
+        logs.redirect_logging_to_queue(log_queue)
         logger = LoggerAdapter(getLogger(), {"label": self.label})
         signal(SIGTERM, _cleanup(logger))
 

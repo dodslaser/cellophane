@@ -21,7 +21,7 @@ def spe(tmp_path: Path) -> Generator[executors.SubprocesExecutor, None, None]:
         executor={"cpus": 1, "memory": 1},
     )
 
-    log_queue = logs.start_queue_listener()
+    log_queue = logs.start_logging_queue_listener()
 
     with WorkerPool(
         daemon=False,

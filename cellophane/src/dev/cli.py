@@ -72,7 +72,7 @@ def main(
     A library for writing modular wrappers
     """
     ctx.ensure_object(dict)
-    logs.setup_logging().setLevel(log_level)
+    logs.setup_console_handler().setLevel(log_level)
 
     ctx.obj["logger"] = logging.LoggerAdapter(
         logging.getLogger(), {"label": "cellophane"}

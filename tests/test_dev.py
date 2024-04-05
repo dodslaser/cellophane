@@ -323,7 +323,7 @@ class Test_module_cli:
     ) -> None:
         """Test module CLI."""
         repo, path = cellophane_repo
-        mocker.patch("cellophane.logs.setup_logging")
+        mocker.patch("cellophane.logs.setup_console_handler")
         for target, kwargs in mocks.items():
             mocker.patch(f"cellophane.src.dev.cli.{target}", **kwargs)
         chdir(path)
@@ -341,7 +341,7 @@ class Test_module_cli:
         caplog: LogCaptureFixture,
     ) -> None:
         """Test module CLI with invalid cellophane repository."""
-        mocker.patch("cellophane.logs.setup_logging")
+        mocker.patch("cellophane.logs.setup_console_handler")
         chdir(tmp_path)
         with caplog.at_level(logging.DEBUG):
             result = self.runner.invoke(dev.main, "module add")
@@ -356,7 +356,7 @@ class Test_module_cli:
     ) -> None:
         """Test module CLI with dirty cellophane repository."""
         repo, path = cellophane_repo
-        mocker.patch("cellophane.logs.setup_logging")
+        mocker.patch("cellophane.logs.setup_console_handler")
         chdir(path)
         (path / "DIRTY").touch()
         repo.index.add("DIRTY")

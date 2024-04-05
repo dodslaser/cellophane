@@ -12,12 +12,12 @@ class Test_logs:
     @staticmethod
     def test_logs(tmp_path: Path) -> None:
         """Test logs."""
-        console_handler = logs.setup_logging()
+        console_handler = logs.setup_console_handler()
         console_handler.setLevel(logging.CRITICAL)
         logger = logging.LoggerAdapter(logging.getLogger(), {"label": "DUMMY"})
 
         _path = tmp_path / "test.log"
-        logs.add_file_handler(_path, logger.logger)
+        logs.setup_file_handler(_path, logger.logger)
 
         logger.info("TEST")
         assert _path.exists()

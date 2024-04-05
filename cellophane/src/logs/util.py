@@ -24,7 +24,7 @@ class _ExtFilter(logging.Filter):
         return any(path.is_relative_to(r) for r in roots)
 
 
-def setup_queue_logging(
+def redirect_logging_to_queue(
     queue: Queue,
     logger: logging.Logger = logging.getLogger(),
 ) -> QueueHandler:
@@ -44,7 +44,7 @@ def setup_queue_logging(
     return queue_handler
 
 
-def start_queue_listener() -> Queue:
+def start_logging_queue_listener() -> Queue:
     """
     Starts a queue listener that listens to the specified queue and passes
     log records to the specified handlers.
@@ -56,7 +56,6 @@ def start_queue_listener() -> Queue:
     Returns:
         QueueListener: The queue listener.
     """
-
     queue: Queue = Queue()
     listener = QueueListener(
         queue,
@@ -68,7 +67,7 @@ def start_queue_listener() -> Queue:
     return queue
 
 
-def setup_logging(
+def setup_console_handler(
     logger: logging.Logger = logging.getLogger(),
     internal_roots: tuple[Path, ...] | None = None,
 ) -> RichHandler:
@@ -95,7 +94,7 @@ def setup_logging(
     return console_handler
 
 
-def add_file_handler(path: Path, logger: logging.Logger = logging.getLogger()) -> None:
+def setup_file_handler(path: Path, logger: logging.Logger = logging.getLogger()) -> None:
     """
     Creates a file handler for the specified logger and adds it to the logger's
     handlers. The file handler writes log messages to the specified file path.

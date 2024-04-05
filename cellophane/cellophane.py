@@ -16,7 +16,12 @@ from cellophane.src import executors
 from cellophane.src.cfg import Config, Schema, with_options
 from cellophane.src.data import OutputGlob, Sample, Samples
 from cellophane.src.executors import Executor
-from cellophane.src.logs import add_file_handler, setup_logging, start_queue_listener
+from cellophane.src.logs import (
+    redirect_logging_to_queue,
+    setup_console_handler,
+    setup_file_handler,
+    start_logging_queue_listener,
+)
 from cellophane.src.modules import Hook, Runner, load, run_hooks, start_runners
 
 if (spec := find_spec("cellophane")) is None:
@@ -55,7 +60,7 @@ def cellophane(
     click.rich_click.DEFAULT_STRING = "{}"
     click.rich_click.STYLE_OPTION_DEFAULT = "green"
 
-    console_handler = setup_logging(internal_roots=(CELLOPHANE_ROOT, root))
+    console_handler = setup_console_handler(internal_roots=(CELLOPHANE_ROOT, root))
     logger = LoggerAdapter(getLogger(), {"label": label})
 
     try:
@@ -93,6 +98,12 @@ def cellophane(
             )
 
             console_handler.setLevel(config.log_level)
+            setup_file_handler(
+                config.logdir / f"{label}.{config.tag}.log",
+                logger.logger,
+            )
+            log_queue = start_logging_queue_listener()
+
             logger.debug(f"Found {len(hooks)} hooks")
             logger.debug(f"Found {len(runners)} runners")
             logger.debug(f"Found {len(sample_mixins)} sample mixins")
@@ -104,8 +115,7 @@ def cellophane(
             logger.debug(f"Using {executor_cls.name} executor")
 
             config.analysis = label  # type: ignore[attr-defined]
-            add_file_handler(config.logdir / f"{label}.{config.tag}.log", logger.logger)
-            log_queue = start_queue_listener()
+
             try:
                 _main(
                     hooks=hooks,
