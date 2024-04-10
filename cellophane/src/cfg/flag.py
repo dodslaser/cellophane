@@ -188,6 +188,7 @@ class Flag:
                 else f"--{self.flag}"
             ),
             type=self.click_type,
+            multiple=self.items_type == "array",
             default=(
                 True
                 if self.type == "boolean" and self.default is None

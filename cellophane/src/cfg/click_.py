@@ -257,7 +257,7 @@ class TypedArray(click.ParamType):
 
     def convert(  # type: ignore[override]
         self,
-        value: list,
+        value: Any,
         param: click.Parameter | None,
         ctx: click.Context | None,
     ) -> list:
@@ -281,16 +281,17 @@ class TypedArray(click.ParamType):
             [1, 2, 3]
         """
         try:
-            _type = click_type(
+            value_ = [*value] if isinstance(value, (list, tuple)) else [value]
+            type_ = click_type(
                 self.items_type,
                 format_=self.items_format,
                 minimum=self.items_minimum,
                 maximum=self.items_maximum,
             )
-            if isinstance(_type, click.ParamType):
-                return [_type.convert(v, param, ctx) for v in value or ()]
+            if isinstance(type_, click.ParamType):
+                return [type_.convert(v, param, ctx) for v in value_ or ()]
             else:
-                return [_type(v) for v in value or ()]
+                return [type_(v) for v in value_ or ()]
         except Exception as exc:  # pylint: disable=broad-except
             self.fail(str(exc), param, ctx)
 
