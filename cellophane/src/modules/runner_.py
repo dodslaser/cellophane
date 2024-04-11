@@ -108,16 +108,16 @@ class Runner:
                 for sample in samples:
                     sample.fail(str(exc))
 
-            finally:
-                _resolve_outputs(samples, workdir, config, logger)
-                for sample in samples.complete:
-                    logger.debug(f"Sample {sample.id} processed successfully")
-                if n_failed := len(samples.failed):
-                    logger.error(f"{n_failed} samples failed")
-                for sample in samples.failed:
-                    logger.debug(f"Sample {sample.id} failed - {sample.failed}")
-
             pool.stop_and_join()
+
+            _resolve_outputs(samples, workdir, config, logger)
+            for sample in samples.complete:
+                logger.debug(f"Sample {sample.id} processed successfully")
+            if n_failed := len(samples.failed):
+                logger.error(f"{n_failed} samples failed")
+            for sample in samples.failed:
+                logger.debug(f"Sample {sample.id} failed - {sample.failed}")
+
             return dumps(samples)
 
 def _resolve_outputs(
@@ -216,6 +216,7 @@ def start_runners(
         except KeyboardInterrupt:
             logger.critical("Received SIGINT, telling runners to shut down...")
             pool.terminate()
+
             return samples
 
         except Exception as exception:  # pylint: disable=broad-except
@@ -223,11 +224,11 @@ def start_runners(
             pool.terminate()
             return samples
 
-        try:
-            return reduce(lambda a, b: a & b, (loads(r.get()) for r in results))
-        except Exception as exception:  # pylint: disable=broad-except
-            logger.critical(
-                f"Unhandled exception when collecting results: {exception}",
-                exc_info=True,
-            )
-            return samples
+    try:
+        return reduce(lambda a, b: a & b, (loads(r.get()) for r in results))
+    except Exception as exception:  # pylint: disable=broad-except
+        logger.critical(
+            f"Unhandled exception when collecting results: {exception}",
+            exc_info=True,
+        )
+        return samples
