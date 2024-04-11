@@ -5,7 +5,7 @@ from functools import wraps
 from pathlib import Path
 from typing import Any, Callable, Iterable, Sequence
 
-from git import Repo
+from git import GitCommandError, Remote, Repo
 from questionary import Choice, checkbox, select
 from rich.console import Console
 
@@ -317,3 +317,25 @@ def initialize_project(
     repo.index.commit("feat(cellophane): Initial commit from cellophane 🎉")
 
     return ProjectRepo(path, modules_repo_url, modules_repo_branch)
+
+
+def add_or_update_modules_remote(repo: ProjectRepo) -> Remote:
+    """Add or update the modules remote for a project repository.
+
+    Args:
+        repo (ProjectRepo): The project repository.
+
+    Returns:
+        Remote: The remote object for the modules repository.
+    """
+    try:
+        remote = repo.create_remote("modules", repo.external.url)
+    except GitCommandError as exc:
+        # Remote already exists
+        if exc.status == 3:
+            remote = repo.remotes["modules"]
+            remote.set_url(repo.external.url)
+
+    remote.fetch()
+
+    return remote

@@ -18,6 +18,7 @@ from .exceptions import (
 )
 from .repo import ProjectRepo
 from .util import (
+    add_or_update_modules_remote,
     add_requirements,
     initialize_project,
     remove_requirements,
@@ -134,6 +135,8 @@ def module(
             "logger": _logger,
         }
 
+        add_or_update_modules_remote(_repo)
+
         match command:
             case "add":
                 add(**common_kwargs, valid_modules=_repo.absent_modules)
@@ -169,16 +172,7 @@ def add(
     """Add module(s)"""
 
     for module_, ref, version in modules:
-
         try:
-            remote = repo.create_remote("modules", repo.external.url)
-        except GitCommandError as exc:
-            # Remote already exists
-            if exc.status == 3:
-                remote = repo.remotes["modules"]
-                remote.set_url(repo.external.url)
-        try:
-            remote.fetch()
             ref_ = ref if ref in [r.name for r in repo.tags] else f"modules/{ref}"
             repo.git.read_tree(
                 f"--prefix=modules/{module_}/",
