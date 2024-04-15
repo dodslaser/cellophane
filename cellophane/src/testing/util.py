@@ -41,19 +41,19 @@ def create_structure(
         (root / dst).symlink_to(_src)
 
 
-def fail_from_click_result(result: Result | None, msg: str) -> None:
+def fail_from_click_result(result: Result | None, reason: str) -> None:
     """Fail a test with a message and a click result."""
     if result:
         fail(
             pytrace=False,
-            msg=(
-                f"{msg}\n"
+            reason=(
+                f"{reason}\n"
                 f"Exit code: {result.exit_code}\n"
                 f"Output:\n{result.output}"
             ),
         )
     else:
-        fail(pytrace=False, msg=msg)
+        fail(pytrace=False, reason=reason)
 
 
 def execute_from_structure(
@@ -97,7 +97,7 @@ def execute_from_structure(
     if repr(_exception) != (exception or repr(None)):
         fail_from_click_result(
             result=_result,
-            msg=(
+            reason=(
                 "Unexpected exception\n"
                 f"Expected: {exception}\n"
                 f"Received: {repr(_exception)}\n"
@@ -109,14 +109,14 @@ def execute_from_structure(
         if log_line not in "\n".join(caplog.messages):
             fail_from_click_result(
                 result=_result,
-                msg=("Log message not found\n" f"Missing line:\n{log_line}"),
+                reason=("Log message not found\n" f"Missing line:\n{log_line}"),
             )
 
     for output_line in output or []:
         if _result and output_line not in _result.output:
             fail_from_click_result(
                 result=_result,
-                msg=("Command output not found\n" f"Missing output:\n{output_line}"),
+                reason=("Command output not found\n" f"Missing output:\n{output_line}"),
             )
 
     return _result
