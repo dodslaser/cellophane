@@ -17,6 +17,6 @@ args:
   --workdir: out
 mocks:
   cellophane.src.modules.runner_.WorkerPool.apply_async:
-    exception: !!python/name:KeyboardInterrupt
+    side_effect: !!python/name:KeyboardInterrupt
 logs:
   - Received SIGINT, telling runners to shut down...

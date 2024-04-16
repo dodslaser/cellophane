@@ -79,17 +79,7 @@ def execute_from_structure(
         mocker.patch("cellophane.cellophane.setup_file_handler")
         _main = cellophane.cellophane("DUMMY", root=root)
         for target, mock in (mocks or {}).items():
-            _side_effect = (
-                exc()
-                if isinstance(exc := (mock or {}).get("exception"), type)
-                and issubclass(exc, BaseException)
-                else Exception(exc) if exc else None
-            )
-            mocker.patch(
-                target=target,
-                side_effect=_side_effect,
-                **(mock or {}).get("kwargs", {}),
-            )
+            mocker.patch(target=target, **(mock or {}))
         _result = runner.invoke(_main, _args)
         _exception = _result.exception
     except (SystemExit, Exception) as e:  # pylint: disable=broad-except

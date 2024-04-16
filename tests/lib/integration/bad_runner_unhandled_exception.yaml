@@ -17,6 +17,6 @@ args:
   --workdir: out
 mocks:
   cellophane.src.modules.runner_.WorkerPool.apply_async:
-    exception: DUMMY
+    side_effect: !!python/object/apply:Exception {args: [DUMMY]}
 logs:
   - "Unhandled exception in runner: DUMMY"
