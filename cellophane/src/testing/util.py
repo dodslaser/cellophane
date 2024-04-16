@@ -2,6 +2,7 @@
 
 """Testing utilities for Cellophane."""
 
+import logging
 import traceback
 from pathlib import Path
 from typing import Any, Callable
@@ -73,7 +74,10 @@ def execute_from_structure(
     # Extract --flag value pairs from args. If a value is None, the flag is
     # considered to be a flag without a value.
     _args = [p for f in (args or {}).items() for p in f if p is not None]
-
+    _handlers = logging.getLogger().handlers.copy()
+    logging.getLogger().handlers = [
+        h for h in _handlers if h.__class__ != logging.StreamHandler
+    ]
     try:
         mocker.patch("cellophane.cellophane.setup_console_handler")
         mocker.patch("cellophane.cellophane.setup_file_handler")

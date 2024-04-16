@@ -18,7 +18,7 @@ def run_definition(
 ) -> Iterator[Callable]:
     """Run a cellophane wrapper from a definition YAML file."""
     _runner = CliRunner()
-    _handlers = logging.getLogger().handlers
+    _handlers = logging.getLogger().handlers.copy()
     _extenal_root = Path(request.fspath).parent  # type: ignore[attr-defined]
     _pytest_pwd = Path.cwd()
 
