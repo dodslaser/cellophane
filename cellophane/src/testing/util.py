@@ -3,11 +3,12 @@
 """Testing utilities for Cellophane."""
 
 import traceback
-from logging import NullHandler, getLogger
 from pathlib import Path
 from typing import Any, Callable
+from uuid import uuid4
 
 from click.testing import CliRunner, Result
+from coverage import Coverage
 from pytest import LogCaptureFixture, fail, mark, param
 from pytest_mock import MockerFixture
 from ruamel.yaml import YAML
@@ -66,6 +67,7 @@ def execute_from_structure(
     exception: Exception | None,
     logs: list[str] | None,
     output: list[str] | None,
+    pwd: Path,
 ) -> Result | None:
     """Execute a cellophane wrapper from a directory structure."""
     # Extract --flag value pairs from args. If a value is None, the flag is
@@ -93,6 +95,9 @@ def execute_from_structure(
     except (SystemExit, Exception) as e:  # pylint: disable=broad-except
         _exception = e
         _result = None
+
+    cov = Coverage(data_file=pwd / f".coverage.{uuid4()}")
+    cov.combine(data_paths=[str(d) for d in root.glob(".coverage.*")])
 
     if repr(_exception) != (exception or repr(None)):
         fail_from_click_result(

@@ -20,6 +20,7 @@ def run_definition(
     _runner = CliRunner()
     _handlers = logging.getLogger().handlers
     _extenal_root = Path(request.fspath).parent  # type: ignore[attr-defined]
+    _pytest_pwd = Path.cwd()
 
     def inner(definition: dict) -> None:
         with (
@@ -42,6 +43,7 @@ def run_definition(
                 exception=definition.get("exception"),
                 logs=definition.get("logs"),
                 output=definition.get("output"),
+                pwd=_pytest_pwd,
             )
 
     yield inner
