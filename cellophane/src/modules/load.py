@@ -6,7 +6,7 @@ from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 
 from cellophane.src.data import Sample, Samples, samples
-from cellophane.src.executors import Executor, SubprocesExecutor
+from cellophane.src.executors import Executor, SubprocessExecutor
 from cellophane.src.util import is_instance_or_subclass
 
 from .hook import Hook, resolve_dependencies
@@ -43,7 +43,7 @@ def load(
     runners: list[Runner] = []
     sample_mixins: list[type[Sample]] = []
     samples_mixins: list[type[Samples]] = []
-    executors_: list[type[Executor]] = [SubprocesExecutor]
+    executors_: list[type[Executor]] = [SubprocessExecutor]
 
     for file in [*path.glob("*.py"), *path.glob("*/__init__.py")]:
         base = file.stem if file.stem != "__init__" else file.parent.name

@@ -1,12 +1,12 @@
 """Executors module for cellophane."""
 
 from .executor import Executor
-from .subprocess_executor import SubprocesExecutor
+from .subprocess_executor import SubprocessExecutor
 
 EXECUTOR: type[Executor] = Executor
 
 __all__ = [
     "EXECUTOR",
     "Executor",
-    "SubprocesExecutor",
+    "SubprocessExecutor",
 ]

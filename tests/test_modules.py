@@ -19,7 +19,7 @@ from pytest import LogCaptureFixture, mark, param, raises
 from pytest_mock import MockerFixture
 
 from cellophane.src import data, modules
-from cellophane.src.executors import SubprocesExecutor
+from cellophane.src.executors import SubprocessExecutor
 from cellophane.src.modules.hook import resolve_dependencies
 from cellophane.src.modules.runner_ import _cleanup
 
@@ -192,7 +192,7 @@ class Test_Runner:
                 config=MagicMock(log_level=None),
                 root=tmp_path / "root",
                 samples_pickle=dumps(self.samples),
-                executor_cls=SubprocesExecutor,
+                executor_cls=SubprocessExecutor,
                 timestamp="DUMMY",
             )
             _listener.stop()
@@ -353,7 +353,7 @@ class Test_Hook:
                 samples=input_value,
                 config=MagicMock(workdir=tmp_path, log_level=None),
                 root=Path(),
-                executor_cls=SubprocesExecutor,
+                executor_cls=SubprocessExecutor,
                 log_queue=Queue(),
                 timestamp="DUMMY",
             )

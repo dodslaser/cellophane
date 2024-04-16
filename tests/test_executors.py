@@ -13,8 +13,8 @@ from cellophane import data, executors, logs
 
 
 @fixture(scope="function")
-def spe(tmp_path: Path) -> Generator[executors.SubprocesExecutor, None, None]:
-    """Return a SubprocesExecutor."""
+def spe(tmp_path: Path) -> Generator[executors.SubprocessExecutor, None, None]:
+    """Return a SubprocessExecutor."""
     config = data.Container(
         workdir=tmp_path,
         logdir=tmp_path,
@@ -27,7 +27,7 @@ def spe(tmp_path: Path) -> Generator[executors.SubprocesExecutor, None, None]:
         daemon=False,
         use_dill=True,
     ) as pool:
-        yield executors.SubprocesExecutor(
+        yield executors.SubprocessExecutor(
             config=config,  # type: ignore[arg-type]
             pool=pool,
             log_queue=log_queue,
@@ -39,7 +39,7 @@ class Test_SubprocessExecutor:
 
     @staticmethod
     def test_callback(
-        spe: executors.SubprocesExecutor,  # pylint: disable=redefined-outer-name
+        spe: executors.SubprocessExecutor,  # pylint: disable=redefined-outer-name
     ) -> None:
         """Test callback."""
         _callback = MagicMock()
@@ -66,7 +66,7 @@ class Test_SubprocessExecutor:
 
     def test_executor_terminate_all(
         self,
-        spe: executors.SubprocesExecutor,  # pylint: disable=redefined-outer-name
+        spe: executors.SubprocessExecutor,  # pylint: disable=redefined-outer-name
     ) -> None:
         """Test that all processes are terminated when the executor is terminated."""
         results = [
@@ -84,7 +84,7 @@ class Test_SubprocessExecutor:
     def test_command_exception(
         mocker: MockerFixture,
         caplog: LogCaptureFixture,
-        spe: executors.SubprocesExecutor,  # pylint: disable=redefined-outer-name
+        spe: executors.SubprocessExecutor,  # pylint: disable=redefined-outer-name
     ) -> None:
         """Test command exception."""
 
@@ -107,7 +107,7 @@ class Test_SubprocessExecutor:
 
     @staticmethod
     def test_wait_for_uuid(
-        spe: executors.SubprocesExecutor,  # pylint: disable=redefined-outer-name
+        spe: executors.SubprocessExecutor,  # pylint: disable=redefined-outer-name
     ) -> None:
         """Test wait_for_uuid."""
         result1, uuid1 = spe.submit("sleep .1", name="sleep")

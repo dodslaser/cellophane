@@ -15,7 +15,7 @@ from .executor import Executor
 
 
 @define(slots=False)
-class SubprocesExecutor(Executor, name="subprocess"):
+class SubprocessExecutor(Executor, name="subprocess"):
     """Executor using multiprocessing."""
 
     procs: dict[UUID, sp.Popen] = field(factory=dict, init=False)
