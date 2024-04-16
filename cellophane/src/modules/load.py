@@ -1,9 +1,13 @@
+"""Module loader for cellophane modules."""
+
 import logging
 import sys
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 
-from cellophane.src import data, executors, util
+from cellophane.src.data import Sample, Samples, samples
+from cellophane.src.executors import Executor, SubprocesExecutor
+from cellophane.src.util import is_instance_or_subclass
 
 from .hook import Hook, resolve_dependencies
 from .runner_ import Runner
@@ -14,9 +18,9 @@ def load(
 ) -> tuple[
     list[Hook],
     list[Runner],
-    list[type[data.Sample]],
-    list[type[data.Samples]],
-    list[type[executors.Executor]],
+    list[type[Sample]],
+    list[type[Samples]],
+    list[type[Executor]],
 ]:
     """
     Loads module(s) from the specified path and returns the hooks, runners,
@@ -37,9 +41,9 @@ def load(
 
     hooks: list[Hook] = []
     runners: list[Runner] = []
-    sample_mixins: list[type[data.Sample]] = []
-    samples_mixins: list[type[data.Samples]] = []
-    executors_: list[type[executors.Executor]] = [executors.SubprocesExecutor]
+    sample_mixins: list[type[Sample]] = []
+    samples_mixins: list[type[Samples]] = []
+    executors_: list[type[Executor]] = [SubprocesExecutor]
 
     for file in [*path.glob("*.py"), *path.glob("*/__init__.py")]:
         base = file.stem if file.stem != "__init__" else file.parent.name
@@ -60,15 +64,15 @@ def load(
             logging.root.removeHandler(handler)
 
         for obj in [getattr(module, a) for a in dir(module)]:
-            if util.is_instance_or_subclass(obj, Hook):
+            if is_instance_or_subclass(obj, Hook):
                 hooks.append(obj)
-            elif util.is_instance_or_subclass(obj, data.Sample):
+            elif is_instance_or_subclass(obj, Sample):
                 sample_mixins.append(obj)
-            elif util.is_instance_or_subclass(obj, data.Samples):
+            elif is_instance_or_subclass(obj, Samples):
                 samples_mixins.append(obj)
-            elif util.is_instance_or_subclass(obj, Runner):
+            elif is_instance_or_subclass(obj, Runner):
                 runners.append(obj)
-            elif util.is_instance_or_subclass(obj, executors.Executor):
+            elif is_instance_or_subclass(obj, Executor):
                 executors_.append(obj)
     try:
         hooks = resolve_dependencies(hooks)
