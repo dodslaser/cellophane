@@ -42,20 +42,24 @@ def _apply_mixins(
 def _apply_mixins(
     cls: type, base: type, mixins: Sequence[type], name: str | None = None
 ) -> type:
-    _name = cls.__name__
-    for m in mixins:
-        if getattr(m, "__slots__", None):
+    name_ = cls.__name__
+
+    mixins_ = []
+    for mixin in mixins:
+        if getattr(mixin, "__slots__", None):
             raise TypeError(
-                f"{m.__name__}: Mixins must not have __slots__ "
+                f"{mixin.__name__}: Mixins must not have __slots__ "
                 "(use @define(slots=False) and don't set __slots__ in the class body)"
             )
-        _name += f"_{m.__name__}"
-        m.__bases__ = (base,)
-        m.__module__ = "__main__"
-        if not has(m):
-            m = define(m, slots=False)
+        name_ += f"_{mixin.__name__}"
+        mixin_copy = type(mixin.__name__, (base,), dict(mixin.__dict__))
+        mixin_copy.__module__ = "__main__"
+        if not has(mixin_copy):
+            mixin_copy = define(mixin_copy, slots=False)
 
-    _cls = make_class(name or _name, (), (cls, *mixins), slots=False)
+        mixins_.append(mixin_copy)
+
+    _cls = make_class(name or name_, (), (cls, *mixins_), slots=False)
     _cls.__module__ = "__main__"
 
     return _cls
