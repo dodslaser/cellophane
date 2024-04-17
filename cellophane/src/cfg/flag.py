@@ -91,10 +91,7 @@ class Flag:
         else:
             _converter = self.click_type
 
-        try:
-            return _converter(value)
-        except TypeError:
-            return value
+        return _converter(value)
 
     @property
     def key(self) -> list[str]:
