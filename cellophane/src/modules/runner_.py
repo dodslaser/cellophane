@@ -9,6 +9,7 @@ from typing import Any, Callable, Sequence
 
 from cloudpickle import dumps, loads
 from mpire import WorkerPool
+from mpire.exception import InterruptWorker
 from psutil import Process, TimeoutExpired
 
 from cellophane.src import cfg, data, executors, logs
@@ -60,7 +61,6 @@ class Runner:
         samples: data.Samples = loads(samples_pickle)
         logs.redirect_logging_to_queue(log_queue)
         logger = LoggerAdapter(getLogger(), {"label": self.label})
-        signal(SIGTERM, _cleanup(logger))
 
         workdir = config.workdir / config.tag / self.label
         if self.split_by:
@@ -72,6 +72,12 @@ class Runner:
             daemon=False,
             use_dill=True,
         ) as pool:
+            executor_ = executor_cls(
+                config=config,
+                pool=pool,
+                log_queue=log_queue,
+            )
+            signal(SIGTERM, _cleanup(logger, executor_))
             try:
                 match self.main(
                     samples=samples,
@@ -80,11 +86,7 @@ class Runner:
                     logger=logger,
                     root=root,
                     workdir=workdir,
-                    executor=executor_cls(
-                        config=config,
-                        pool=pool,
-                        log_queue=log_queue,
-                    ),
+                    executor=executor_,
                     checkpoints=Checkpoints(
                         samples=samples,
                         workdir=workdir,
@@ -104,11 +106,15 @@ class Runner:
                     sample.processed = True
 
             except Exception as exc:  # pylint: disable=broad-except
+                logger.critical(f"Runner failed: {exc}")
                 samples.output = set()
                 for sample in samples:
                     sample.fail(str(exc))
+                logger.debug("Terminating executor")
+                executor_.terminate()
 
-            pool.stop_and_join()
+            else:
+                pool.stop_and_join()
 
             _resolve_outputs(samples, workdir, config, logger)
             for sample in samples.complete:
@@ -144,9 +150,11 @@ def _resolve_outputs(
                     logger.debug(exc, exc_info=True)
 
 
-def _cleanup(logger: LoggerAdapter) -> Callable:
+def _cleanup(logger: LoggerAdapter, executor: executors.Executor) -> Callable:
     def inner(*args: Any) -> None:
         del args  # Unused
+        logger.debug("Terminating executor")
+        executor.terminate()
         for proc in Process().children(recursive=True):
             try:
                 logger.debug(f"Waiting for {proc.name()} ({proc.pid})")
