@@ -1,6 +1,5 @@
 """Logging utilities"""
 
-import atexit
 import logging
 from functools import cache
 from logging.handlers import QueueHandler, QueueListener
@@ -44,7 +43,7 @@ def redirect_logging_to_queue(
     return queue_handler
 
 
-def start_logging_queue_listener() -> Queue:
+def start_logging_queue_listener() -> tuple[Queue, QueueListener]:
     """
     Starts a queue listener that listens to the specified queue and passes
     log records to the specified handlers.
@@ -63,8 +62,8 @@ def start_logging_queue_listener() -> Queue:
         respect_handler_level=True,
     )
     listener.start()
-    atexit.register(listener.stop)
-    return queue
+
+    return queue, listener
 
 
 def setup_console_handler(

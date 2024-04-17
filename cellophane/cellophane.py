@@ -102,7 +102,7 @@ def cellophane(
                 config.logdir / f"{label}.{config.tag}.log",
                 logger.logger,
             )
-            log_queue = start_logging_queue_listener()
+            log_queue, log_listener = start_logging_queue_listener()
 
             logger.debug(f"Found {len(hooks)} hooks")
             logger.debug(f"Found {len(runners)} runners")
@@ -131,10 +131,12 @@ def cellophane(
 
             except Exception as exception:
                 logger.critical(f"Unhandled exception: {exception}", exc_info=True)
+                log_listener.stop()
                 raise SystemExit(1) from exception
 
             time_elapsed = format_timespan(time.time() - start_time)
             logger.info(f"Execution complete in {time_elapsed}")
+            log_listener.stop()
 
     except Exception as exc:
         logger.critical(exc)
