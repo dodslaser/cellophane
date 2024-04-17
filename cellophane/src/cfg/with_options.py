@@ -61,7 +61,8 @@ def with_options(schema: Schema) -> Callable:
             _dummy_params = {
                 param: value
                 for param, value in _dummy_ctx.params.items()
-                if (src := _dummy_ctx.get_parameter_source(param))
+                if value is not None
+                and (src := _dummy_ctx.get_parameter_source(param))
                 and src.name != "DEFAULT"
             }
 
