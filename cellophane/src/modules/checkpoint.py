@@ -178,4 +178,4 @@ class Checkpoints:
         return self._checkpoints[key]
 
     def __getitem__(self, key: str) -> Checkpoint:
-        return self.__getattribute__(key)
+        return self.__getattr__(key)
