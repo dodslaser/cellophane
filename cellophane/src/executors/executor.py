@@ -86,7 +86,7 @@ class Executor:
     def submit(
         self,
         *args: str | Path,
-        name: str = __name__,
+        name: str | None = None,
         wait: bool = False,
         uuid: UUID | None = None,
         workdir: Path | None = None,
@@ -128,7 +128,10 @@ class Executor:
             A tuple containing the AsyncResult object and the UUID of the job.
         """
         _uuid = uuid or uuid4()
-        logger = logging.LoggerAdapter(logging.getLogger(), {"label": name})
+        logger = logging.LoggerAdapter(
+            logging.getLogger(),
+            {"label": name or self.__class__.name},
+        )
         self.locks[_uuid] = mp.Lock()
         self.locks[_uuid].acquire()
 
