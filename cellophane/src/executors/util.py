@@ -36,11 +36,6 @@ def target_wrapper(
     _workdir = workdir or config.workdir / uuid.hex
     _workdir.mkdir(parents=True, exist_ok=True)
 
-    def _terminate_hook(*args: Any, **kwargs: Any) -> None:
-        del args, kwargs  # Unused
-        code = terminate_hook(uuid, logger)
-        raise SystemExit(code or 143)
-
     try:
         target_(
             *(word for arg in args for word in shlex.split(str(arg))),
@@ -53,15 +48,18 @@ def target_wrapper(
             cpus=cpus or config.executor.cpus,
             memory=memory or config.executor.memory,
         )
-    except InterruptWorker:
-        logger.warning(f"Terminating job with uuid {uuid}")
-        _terminate_hook()
+    except InterruptWorker as exc:
+        logger.debug(f"Terminating job with uuid {uuid}")
+        code = terminate_hook(uuid, logger)
+        raise SystemExit(code or 143) from exc
     except SystemExit as exc:
         if exc.code != 0:
             logger.warning(f"Command failed with exit code: {exc.code}")
+            terminate_hook(uuid, logger)
             raise exc
     except Exception as exc:  # pylint: disable=broad-except
         logger.warning(f"Command failed with exception: {exc!r}")
+        terminate_hook(uuid, logger)
         raise SystemExit(1) from exc
 
 

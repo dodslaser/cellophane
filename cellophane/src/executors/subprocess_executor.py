@@ -45,15 +45,13 @@ class SubprocessExecutor(Executor, name="subprocess"):
                 env=env | ({**os.environ} if os_env else {}),
                 stdout=stdout,
                 stderr=stderr,
+                start_new_session=True,
             )
             self.procs[uuid] = proc
-            logger.debug(f"Started child process (pid={proc.pid})")
-
-            self.procs[uuid].wait()
-            logger.debug(
-                f"Child process (pid={proc.pid}) exited with code {proc.returncode}"
-            )
-            exit(self.procs[uuid].returncode)
+            logger.debug(f"Started process (pid={proc.pid})")
+            returncode = proc.wait()
+            logger.debug(f"Process (pid={proc.pid}) exited with code {returncode}")
+            exit(returncode)
 
     def terminate_hook(self, uuid: UUID, logger: LoggerAdapter) -> int | None:
         if uuid in self.procs:

@@ -4,7 +4,6 @@ from functools import reduce
 from logging import LoggerAdapter, getLogger
 from multiprocessing import Queue
 from pathlib import Path
-from signal import SIGTERM, signal
 from typing import Any, Callable, Sequence
 
 from cloudpickle import dumps, loads
@@ -77,7 +76,7 @@ class Runner:
                 pool=pool,
                 log_queue=log_queue,
             )
-            signal(SIGTERM, _cleanup(logger, executor_))
+
             try:
                 match self.main(
                     samples=samples,
@@ -91,7 +90,7 @@ class Runner:
                         samples=samples,
                         workdir=workdir,
                         config=config,
-                    )
+                    ),
                 ):
                     case None:
                         logger.debug("Runner did not return any samples")
@@ -105,13 +104,13 @@ class Runner:
                 for sample in samples:
                     sample.processed = True
 
+            except InterruptWorker:
+                logger.warning("Runner interrupted")
+                _cleanup(logger, executor_, samples, reason="Interrupted")
+
             except Exception as exc:  # pylint: disable=broad-except
-                logger.critical(f"Runner failed: {exc!r}", exc_info=exc)
-                samples.output = set()
-                for sample in samples:
-                    sample.fail(str(exc))
-                logger.debug("Terminating executor")
-                executor_.terminate()
+                logger.critical(f"Unhandeled exception: {exc!r}", exc_info=exc)
+                _cleanup(logger, executor_, samples, reason=repr(exc))
 
             else:
                 pool.stop_and_join()
@@ -125,6 +124,7 @@ class Runner:
                 logger.debug(f"Sample {sample.id} failed - {sample.failed}")
 
             return dumps(samples)
+
 
 def _resolve_outputs(
     samples: data.Samples,
@@ -149,25 +149,28 @@ def _resolve_outputs(
             logger.debug(exc, exc_info=True)
 
 
-def _cleanup(logger: LoggerAdapter, executor: executors.Executor) -> Callable:
-    def inner(*args: Any) -> None:
-        del args  # Unused
-        logger.debug("Terminating executor")
-        executor.terminate()
-        for proc in Process().children(recursive=True):
-            try:
-                logger.debug(f"Waiting for {proc.name()} ({proc.pid})")
-                proc.terminate()
-                proc.wait(10)
-            except TimeoutExpired:
-                logger.warning(
-                    f"Killing unresponsive process {proc.name()} ({proc.pid})"
-                )
-                proc.kill()
-                proc.wait()
-        raise SystemExit(1)
-
-    return inner
+def _cleanup(
+    logger: LoggerAdapter,
+    executor: executors.Executor,
+    samples: data.Samples,
+    reason: str,
+) -> None:
+    reason_ = repr(reason) if isinstance(reason, BaseException) else reason
+    logger.debug("Clearing outputs and failing samples")
+    samples.output = set()
+    for sample in samples:
+        sample.fail(reason_)
+    logger.debug("Terminating executor")
+    executor.terminate()
+    for proc in Process().children(recursive=True):
+        try:
+            logger.debug(f"Waiting for {proc.name()} ({proc.pid})")
+            proc.terminate()
+            proc.wait(10)
+        except TimeoutExpired:
+            logger.warning(f"Killing unresponsive process {proc.name()} ({proc.pid})")
+            proc.kill()
+            proc.wait()
 
 
 def start_runners(

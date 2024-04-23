@@ -67,9 +67,11 @@ class Test__cleanup:
 
         assert all(p.poll() is None for p in procs)
 
-        with raises(SystemExit), caplog.at_level("DEBUG"):
+        with caplog.at_level("DEBUG"):
             logger = logging.LoggerAdapter(logging.getLogger(), {"label": "DUMMY"})
-            _cleanup(logger)()
+            executor = MagicMock(spec=SubprocessExecutor)
+            samples: data.Samples = data.Samples([data.Sample(id="a")])
+            _cleanup(logger, executor, samples, reason="DUMMY")
 
         assert all(p.poll() is not None for p in procs)
         for p in pids:
