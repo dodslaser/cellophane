@@ -4,4 +4,4 @@ args:
   --workdir: out
 exception: SystemExit(1)
 logs:
-  - "Failed to load schema: while parsing a tag"
+  - "Failed to load schema: ScannerError"

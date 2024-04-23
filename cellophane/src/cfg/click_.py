@@ -403,7 +403,7 @@ class FormattedString(click.ParamType):
             except FormatError as exc:
                 self.fail(exc.message, param, ctx)
             except Exception as exc:  # pylint: disable=broad-except
-                self.fail(f"Unable to convert '{value}' to string: {exc}", param, ctx)
+                self.fail(f"Unable to convert '{value}' to string: {exc!r}", param, ctx)
         return _value
 
 

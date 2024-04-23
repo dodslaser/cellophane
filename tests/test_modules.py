@@ -5,7 +5,6 @@
 import logging
 import subprocess as sp
 from copy import copy
-from graphlib import CycleError
 from logging.handlers import QueueListener
 from multiprocessing import Queue
 from pathlib import Path
@@ -14,6 +13,7 @@ from unittest.mock import MagicMock
 
 from attrs import define
 from cloudpickle import dumps, loads
+from graphlib import CycleError
 from psutil import Process, TimeoutExpired
 from pytest import LogCaptureFixture, mark, param, raises
 from pytest_mock import MockerFixture
@@ -139,13 +139,13 @@ class Test_Runner:
             param(
                 MagicMock(side_effect=RuntimeError),
                 {},
-                ["Sample was not processed"] * 3,
+                ["Unhandeled exception in runner 'runner_mock' RuntimeError()"] * 3,
                 [
                     [
                         "3 samples failed",
-                        "Sample a failed - Sample was not processed",
-                        "Sample b failed - Sample was not processed",
-                        "Sample c failed - Sample was not processed",
+                        "Sample a failed - Unhandeled exception in runner 'runner_mock' RuntimeError()",
+                        "Sample b failed - Unhandeled exception in runner 'runner_mock' RuntimeError()",
+                        "Sample c failed - Unhandeled exception in runner 'runner_mock' RuntimeError()",
                     ]
                 ],
                 id="exception",

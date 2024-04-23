@@ -97,14 +97,14 @@ class Test_SubprocessExecutor:
 
         with (
             caplog.at_level("DEBUG"),
-            raises(SystemExit) as exception,
+            raises(SystemExit) as exc,
         ):
             result = spe.submit("exit", name="exception")[0]
 
             spe.wait()
             result.get()
 
-        assert repr(exception.value) == "SystemExit(1)"
+        assert repr(exc.value) == "SystemExit(1)"
         assert "Command failed with exception: Exception('DUMMY')" in caplog.messages
 
     @staticmethod

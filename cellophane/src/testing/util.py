@@ -86,8 +86,8 @@ def execute_from_structure(
             mocker.patch(target=target, **(mock or {}))
         _result = runner.invoke(_main, _args)
         _exception = _result.exception
-    except (SystemExit, Exception) as e:  # pylint: disable=broad-except
-        _exception = e
+    except (SystemExit, Exception) as exc:  # pylint: disable=broad-except
+        _exception = exc
         _result = None
 
     cov = Coverage(data_file=pwd / f".coverage.{uuid4()}")

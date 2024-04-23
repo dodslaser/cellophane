@@ -72,7 +72,7 @@ def cellophane(
             ],
         )
     except ScannerError as exc:
-        logger.critical(f"Failed to load schema: {exc}")
+        logger.critical(f"Failed to load schema: {exc!r}")
         raise SystemExit(1) from exc
 
     try:
@@ -129,10 +129,10 @@ def cellophane(
                     timestamp=timestamp,
                 )
 
-            except Exception as exception:
-                logger.critical(f"Unhandled exception: {exception}", exc_info=True)
+            except Exception as exc:
+                logger.critical(f"Unhandled exception: {exc!r}", exc_info=True)
                 log_listener.stop()
-                raise SystemExit(1) from exception
+                raise SystemExit(1) from exc
 
             time_elapsed = format_timespan(time.time() - start_time)
             logger.info(f"Execution complete in {time_elapsed}")

@@ -5,5 +5,5 @@ structure:
 args:
   --workdir: out
 logs:
-  - "Unable to import module 'a': name 'INVALID' is not defined"
+  - "Unable to import module 'a': NameError(\"name 'INVALID' is not defined\")"
 exception: SystemExit(1)

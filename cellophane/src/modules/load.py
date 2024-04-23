@@ -56,7 +56,7 @@ def load(
             sys.modules[name] = module
             spec.loader.exec_module(module)  # type: ignore[union-attr]
         except Exception as exc:
-            raise ImportError(f"Unable to import module '{base}': {exc}") from exc
+            raise ImportError(f"Unable to import module '{base}': {exc!r}") from exc
 
         # Reset logging handlers to avoid duplicate messages
         for handler in {*logging.root.handlers} ^ {*original_handlers}:
@@ -77,6 +77,6 @@ def load(
     try:
         hooks = resolve_dependencies(hooks)
     except Exception as exc:  # pylint: disable=broad-except
-        raise ImportError(f"Unable to resolve hook dependencies: {exc}") from exc
+        raise ImportError(f"Unable to resolve hook dependencies: {exc!r}") from exc
 
     return hooks, runners, sample_mixins, samples_mixins, executors_

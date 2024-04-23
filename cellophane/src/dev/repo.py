@@ -82,8 +82,8 @@ class ModulesRepo(Repo):
                 to_path=_path,
                 checkout=False,
             )  # type: ignore[return-value]
-        except Exception as e:
-            raise InvalidModulesRepoError(url) from e
+        except Exception as exc:
+            raise InvalidModulesRepoError(url) from exc
 
     @cached_property
     def modules(self) -> dict[str, Any]:
@@ -99,10 +99,10 @@ class ModulesRepo(Repo):
         """
         try:
             json_ = self.git.show(f"origin/{self.active_branch.name}:modules.json")
-        except GitCommandError as e:
+        except GitCommandError as exc:
             raise InvalidModulesRepoError(
                 self.url, msg="Could not parse modules.json"
-            ) from e
+            ) from exc
         return json.loads(json_)
 
     @property
@@ -153,8 +153,8 @@ class ProjectRepo(Repo):
     ) -> None:
         try:
             super().__init__(str(path), **kwargs)
-        except InvalidGitRepositoryError as e:
-            raise InvalidProjectRepoError(path) from e
+        except InvalidGitRepositoryError as exc:
+            raise InvalidProjectRepoError(path) from exc
 
         self.external = ModulesRepo.from_url(
             url=modules_repo_url,

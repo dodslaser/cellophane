@@ -252,7 +252,7 @@ def rm(
             update_example_config(path)
             remove_requirements(path, module_)
         except Exception as exc:  # pylint: disable=broad-except
-            logger.error(f"Unable to remove '{module_}': {repr(exc)}", exc_info=True)
+            logger.error(f"Unable to remove '{module_}': {exc!r}", exc_info=True)
             repo.head.reset("HEAD", index=True, working_tree=True)
         else:
             repo.index.add("config.example.yaml")
@@ -292,9 +292,9 @@ def init(ctx: click.Context, name: str, force: bool) -> None:
             modules_repo_url=ctx.obj["modules_repo_url"],
             modules_repo_branch=ctx.obj["modules_repo_branch"],
         )
-    except FileExistsError as e:
+    except FileExistsError as exc:
         logger.critical("Project path is not empty (--force to ignore)")
-        raise SystemExit(1) from e
-    except Exception as e:
-        logger.critical(f"Unhandeled exception: {e}", exc_info=True)
-        raise SystemExit(1) from e
+        raise SystemExit(1) from exc
+    except Exception as exc:
+        logger.critical(f"Unhandeled exception: {exc!r}", exc_info=True)
+        raise SystemExit(1) from exc

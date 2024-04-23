@@ -31,4 +31,4 @@ args:
   --samples_file: samples.yaml
   --workdir: out
 logs:
-  - "Unhandled exception when collecting results: DUMMY"
+  - "Unhandled exception when collecting results: Exception('DUMMY')"

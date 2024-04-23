@@ -106,7 +106,7 @@ class Runner:
                     sample.processed = True
 
             except Exception as exc:  # pylint: disable=broad-except
-                logger.critical(f"Runner failed: {exc}")
+                logger.critical(f"Runner failed: {exc!r}", exc_info=exc)
                 samples.output = set()
                 for sample in samples:
                     sample.fail(str(exc))
@@ -132,22 +132,21 @@ def _resolve_outputs(
     config: cfg.Config,
     logger: LoggerAdapter,
 ) -> None:
-    if samples.complete:
-        for output_ in samples.output.copy():
-            if isinstance(output_, data.OutputGlob):
-                samples.output.remove(output_)
-                try:
-                    o, w = output_.resolve(
-                        samples=samples.complete,
-                        workdir=workdir,
-                        config=config,
-                    )
-                    for warning in w:
-                        logger.warning(warning)
-                    samples.output |= o
-                except Exception as exc:  # pylint: disable=broad-except
-                    logger.warning(f"Failed to resolve output {output_}: {exc}")
-                    logger.debug(exc, exc_info=True)
+    for output_ in samples.output.copy():
+        if not isinstance(output_, data.OutputGlob):
+            continue
+        samples.output.remove(output_)
+        if not samples.complete:
+            continue
+        try:
+            samples.output |= output_.resolve(
+                samples=samples.complete,
+                workdir=workdir,
+                config=config,
+            )
+        except Exception as exc:  # pylint: disable=broad-except
+            logger.warning(f"Failed to resolve output {output_}: {exc!r}")
+            logger.debug(exc, exc_info=True)
 
 
 def _cleanup(logger: LoggerAdapter, executor: executors.Executor) -> Callable:
@@ -227,16 +226,16 @@ def start_runners(
 
             return samples
 
-        except Exception as exception:  # pylint: disable=broad-except
-            logger.critical(f"Unhandled exception in runner: {exception}")
+        except Exception as exc:  # pylint: disable=broad-except
+            logger.critical(f"Unhandled exception in runner: {exc!r}")
             pool.terminate()
             return samples
 
     try:
         return reduce(lambda a, b: a & b, (loads(r.get()) for r in results))
-    except Exception as exception:  # pylint: disable=broad-except
+    except Exception as exc:  # pylint: disable=broad-except
         logger.critical(
-            f"Unhandled exception when collecting results: {exception}",
+            f"Unhandled exception when collecting results: {exc!r}",
             exc_info=True,
         )
         return samples
