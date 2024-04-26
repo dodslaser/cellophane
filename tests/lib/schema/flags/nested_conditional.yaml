@@ -34,16 +34,15 @@ config:
       f: true
 
 flags:
-  - key: [a, b]
+  - key: !!python/tuple [a, b]
     type: boolean
     value: true
-  - key: [a, c]
+  - key: !!python/tuple [a, c]
     required: true
-  - key: [a, d, f]
+  - key: !!python/tuple [a, d, f]
     type: boolean
     value: true
-  - key: [a, d, x]
+  - key: !!python/tuple [a, d, x]
     required: true
-  - key: [a, d, y]
+  - key: !!python/tuple [a, d, y]
     required: false
-  

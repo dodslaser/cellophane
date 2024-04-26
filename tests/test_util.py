@@ -17,7 +17,7 @@ class Test_map_nested_keys:
         [
             param(
                 {"a": {"b": {"c": 1, "d": 2}, "e": 3}, "f": 4},
-                [["a", "b", "c"], ["a", "b", "d"], ["a", "e"], ["f"]],
+                (("a", "b", "c"), ("a", "b", "d"), ("a", "e"), ("f",)),
                 id="nested dict",
             ),
             # FIXME: Add more test cases

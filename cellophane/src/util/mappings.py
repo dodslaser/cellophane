@@ -3,7 +3,10 @@
 from typing import Any, Hashable
 
 
-def map_nested_keys(node: Any, path: list[str] | None = None) -> list[list[str]]:
+def map_nested_keys(
+    node: dict[str, Any] | Any,
+    path: tuple[str, ...] | None = None,
+) -> tuple[tuple[str, ...], ...]:
     """
     Maps the keys of a nested mapping.
 
@@ -11,7 +14,7 @@ def map_nested_keys(node: Any, path: list[str] | None = None) -> list[list[str]]
         data (Any): Mapping for which to map the nested keys.
 
     Returns:
-        List[List[str]]: A list of lists of the paths to mapping keys.
+        tuple[tuple[str, ...]]: A tuple of tuples of the paths to mapping keys.
 
     Example:
         ```python
@@ -25,23 +28,23 @@ def map_nested_keys(node: Any, path: list[str] | None = None) -> list[list[str]]
             }
         }
 
-        map_nested_keys(data)   # [['key1', 'key2'], ['key1', 'key3'], ['key4', 'key5']]
+        map_nested_keys(data)   # (("key1", "key2"), ("key1", "key3"), ("key4", "key5"))
         ```
     """
     if path is None:  # For the root node
-        path = []
+        path = ()
 
     if not isinstance(node, dict) or len(node) == 0:
-        return [path] if path else []
+        return (path,) if path else ()
 
-    paths = []
+    paths: list[tuple[str, ...]] = []
     for key in node:
         # Add the current key to the path
-        new_path = list(path) + [key]
+        new_path = (*path, key)
         # Recurse on child nodes and extend paths
         paths.extend(map_nested_keys(node[key], new_path))
 
-    return paths
+    return tuple(paths)
 
 
 def merge_mappings(m_1: Any, m_2: Any) -> Any:

@@ -5,6 +5,6 @@ schema:
       default: SCHEMA
 
 flags:
-  - key: ["a"]
+  - key: !!python/tuple ["a"]
     type: string
     default: SCHEMA

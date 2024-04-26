@@ -227,7 +227,7 @@ class Test_Flag:
             param(
                 cfg.Flag(
                     required=True,
-                    key=["a", "b"],
+                    key=("a", "b"),
                     type="string",
                 ),
                 click.option("--a_b", type=FormattedString(), required=True),
@@ -235,7 +235,7 @@ class Test_Flag:
             ),
             param(
                 cfg.Flag(
-                    key=["a", "b"],
+                    key=("a", "b"),
                     type="string",
                     default="default",
                 ),
@@ -248,7 +248,7 @@ class Test_Flag:
             ),
             param(
                 cfg.Flag(
-                    key=["a", "b"],
+                    key=("a", "b"),
                     type="string",
                     secret=True,
                 ),
@@ -261,7 +261,7 @@ class Test_Flag:
             ),
             param(
                 cfg.Flag(
-                    key=["a", "b"],
+                    key=("a", "b"),
                     type="boolean",
                 ),
                 click.option(
@@ -273,7 +273,7 @@ class Test_Flag:
             ),
             param(
                 cfg.Flag(
-                    key=["a", "b"],
+                    key=("a", "b"),
                     type="string",
                     enum=["A", "B", "C"],
                 ),
@@ -497,20 +497,20 @@ class Test_Config:
             param(
                 {"a": "CONFIG"},
                 cfg.Flag(
-                    key=["a"], type="string", default="SCHEMA", value="CONFIG"
+                    key=("a",), type="string", default="SCHEMA", value="CONFIG"
                 ),
                 id="from_config",
             ),
             param(
                 {},
                 cfg.Flag(
-                    key=["a"], type="string", default="SCHEMA", value="SCHEMA"
+                    key=("a",), type="string", default="SCHEMA", value="SCHEMA"
                 ),
                 id="from_schema",
             ),
             param(
                 {"include_defaults": False},
-                cfg.Flag(key=["a"], type="string", default="SCHEMA", value=None),
+                cfg.Flag(key=("a",), type="string", default="SCHEMA", value=None),
                 id="no_include_defaults",
             ),
         ],

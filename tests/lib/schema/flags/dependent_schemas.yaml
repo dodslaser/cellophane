@@ -18,23 +18,23 @@ config:
   a: true
 
 flags:
-  - key: ["a"]
+  - key: !!python/tuple ["a"]
     type: boolean
     value: true
-  - key: ["c"]
+  - key: !!python/tuple ["c"]
     type: boolean
-  - key: ["b"]
+  - key: !!python/tuple ["b"]
 
 flags_base:
-  - key: ["a"]
+  - key: !!python/tuple ["a"]
     type: boolean
-  - key: ["c"]
+  - key: !!python/tuple ["c"]
     type: boolean
-  - key: ["b"]
-  - key: ["d"]
+  - key: !!python/tuple ["b"]
+  - key: !!python/tuple ["d"]
 
 flags_noconfig:
-  - key: ["a"]
+  - key: !!python/tuple ["a"]
     type: boolean
-  - key: ["c"]
+  - key: !!python/tuple ["c"]
     type: boolean

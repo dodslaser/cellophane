@@ -6,5 +6,5 @@ schema:
       type: null
 
 flags:
-  - key: ["a"]
-  - key: ["b"]
+  - key: !!python/tuple ["a"]
+  - key: !!python/tuple ["b"]

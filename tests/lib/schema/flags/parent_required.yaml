@@ -19,11 +19,11 @@ schema:
   required: [a]
 
 flags:
-  - key: ["a", "x"]
+  - key: !!python/tuple ["a", "x"]
     required: true
-  - key: ["a", "y"]
+  - key: !!python/tuple ["a", "y"]
     required: false
-  - key: ["b", "x"]
+  - key: !!python/tuple ["b", "x"]
     required: false
-  - key: ["b", "y"]
+  - key: !!python/tuple ["b", "y"]
     required: false

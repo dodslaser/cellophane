@@ -24,28 +24,28 @@ config:
   a: true
 
 flags:
-  - key: [a]
+  - key: !!python/tuple [a]
     type: boolean
     value: true
     required: false
-  - key: [b, x]
+  - key: !!python/tuple [b, x]
     required: true
-  - key: [b, y]
+  - key: !!python/tuple [b, y]
     required: false
 
 flags_base:
-  - key: [a]
+  - key: !!python/tuple [a]
     type: boolean
-  - key: [b, x]
+  - key: !!python/tuple [b, x]
     required: false
-  - key: [b, y]
+  - key: !!python/tuple [b, y]
     required: false
 
 flags_noconfig:
-  - key: [a]
+  - key: !!python/tuple [a]
     type: boolean
     required: true
-  - key: [b, x]
+  - key: !!python/tuple [b, x]
     required: false
-  - key: [b, y]
+  - key: !!python/tuple [b, y]
     required: false

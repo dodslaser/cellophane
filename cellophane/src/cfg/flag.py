@@ -53,7 +53,7 @@ class Flag:
     format_: FORMATS | None = field(default=None)
     minimum: int | None = field(default=None)
     maximum: int | None = field(default=None)
-    _key: list[str] | None = field(default=None)
+    _key: tuple[str, ...] | None = field(default=None)
     description: str | None = field(default=None)
     default: Any = field(default=None)
     value: Any = field(default=None)
@@ -94,7 +94,7 @@ class Flag:
         return _converter(value)
 
     @property
-    def key(self) -> list[str]:
+    def key(self) -> tuple[str, ...]:
         """
         Retrieves the key.
 
@@ -109,11 +109,13 @@ class Flag:
         return self._key
 
     @key.setter
-    def key(self, value: list[str]) -> None:
-        if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+    def key(self, value: list[str] | tuple[str]) -> None:
+        if not isinstance(value, (list, tuple)) or not all(
+            isinstance(v, str) for v in value
+        ):
             raise ValueError(f"Invalid key: {value}")
 
-        self._key = value
+        self._key = tuple(value)
 
     @property
     def click_type(

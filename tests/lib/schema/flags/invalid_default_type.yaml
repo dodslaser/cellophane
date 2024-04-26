@@ -5,6 +5,6 @@ schema:
       default: "INVALID"
 
 flags:
-  - key: [a]
+  - key: !!python/tuple [a]
     type: integer
     default: "INVALID"
