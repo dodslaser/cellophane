@@ -88,7 +88,7 @@ def cellophane(label: str, root: Path) -> click.Command:
                 "%Y%m%d_%H%M%S",
                 time.localtime(start_time),
             )
-            config.tag = config.get("tag", timestamp)
+            config.tag = config.tag or timestamp
 
             console_handler.setLevel(config.log.level)
             file_handler = setup_file_handler(
