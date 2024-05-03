@@ -79,7 +79,7 @@ class Executor:
         Raises:
             NotImplementedError: If the target execution is not implemented.
         """
-
+        # Exluded from coverage as this is a stub method.
         del name, uuid, workdir, env, os_env, logger, cpus, memory  # Unused
         raise NotImplementedError
 

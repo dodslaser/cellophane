@@ -24,13 +24,8 @@ from cellophane.src.logs import (
 )
 from cellophane.src.modules import Hook, Runner, load, run_hooks, start_runners
 
-if (spec := find_spec("cellophane")) is None:  # pragma: no cover
-    raise ImportError("Cellophane package not found")
-
-if spec.origin is None:  # pragma: no cover
-    raise ImportError("Cellophane package origin not found")
-
-CELLOPHANE_ROOT = Path(spec.origin).parent
+spec = find_spec("cellophane")
+CELLOPHANE_ROOT = Path(spec.origin).parent  # type: ignore[union-attr, arg-type]
 CELLOPHANE_VERSION = version("cellophane")
 
 
@@ -113,11 +108,10 @@ def cellophane(label: str, root: Path) -> click.Command:
             logger.debug(f"Found {len(sample_mixins)} sample mixins")
             logger.debug(f"Found {len(samples_mixins)} samples mixins")
             logger.debug(f"Found {len(executors_)} executors")
-
-            # Excluded from branch coverage as StopIteration is never raised
             executor_cls = next(
                 e for e in executors_ if e.name == config.executor.name
             )  # pragma: no cover
+            # StopIteration is never raised as config.executor.name has already been validated
             executors.EXECUTOR = executor_cls
             logger.debug(f"Using {executor_cls.name} executor")
 

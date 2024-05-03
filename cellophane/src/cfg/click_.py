@@ -66,6 +66,7 @@ class InvertibleParamType(click.ParamType):
         """
         Inverts the value back to a string representation.
         """
+        # Excluded from coverage as this is a stub method that should be overridden
         raise NotImplementedError
 
 
@@ -290,7 +291,10 @@ class TypedArray(click.ParamType):
             )
             if isinstance(type_, click.ParamType):
                 return [type_.convert(v, param, ctx) for v in value_ or ()]
-            else:
+            else:  # pragma: no cover
+                # Excluded from coverage as this code is unreachable with the current
+                # implementation as click_type always returns a click.ParamType,
+                # however, it is kept here for future-proofing.
                 return [type_(v) for v in value_ or ()]
         except Exception as exc:  # pylint: disable=broad-except
             self.fail(str(exc), param, ctx)

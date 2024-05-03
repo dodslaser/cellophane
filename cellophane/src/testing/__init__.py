@@ -1,5 +1,3 @@
-# pragma: no cover
-
 """Testing utilities for Cellophane."""
 
 from .fixture import run_definition

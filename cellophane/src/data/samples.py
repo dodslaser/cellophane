@@ -28,6 +28,7 @@ def _apply_mixins(
     mixins: Sequence[type["Samples"]],
 ) -> type["Samples"]:
     pass  # pragma: no cover
+    # Excluded from coverage because this overload is only used internally
 
 
 @overload
@@ -37,6 +38,7 @@ def _apply_mixins(
     mixins: Sequence[type["Sample"]],
 ) -> type["Sample"]:
     pass  # pragma: no cover
+    # Excluded from coverage because this overload is only used internally
 
 
 def _apply_mixins(
