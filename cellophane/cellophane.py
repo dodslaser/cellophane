@@ -17,17 +17,16 @@ from cellophane.src.cfg import Config, Schema, with_options
 from cellophane.src.data import OutputGlob, Sample, Samples
 from cellophane.src.executors import Executor
 from cellophane.src.logs import (
-    redirect_logging_to_queue,
     setup_console_handler,
     setup_file_handler,
     start_logging_queue_listener,
 )
 from cellophane.src.modules import Hook, Runner, load, run_hooks, start_runners
 
-if (spec := find_spec("cellophane")) is None:
+if (spec := find_spec("cellophane")) is None:  # pragma: no cover
     raise ImportError("Cellophane package not found")
 
-if spec.origin is None:
+if spec.origin is None:  # pragma: no cover
     raise ImportError("Cellophane package origin not found")
 
 CELLOPHANE_ROOT = Path(spec.origin).parent
@@ -96,6 +95,7 @@ def cellophane(
                 "%Y%m%d_%H%M%S",
                 time.localtime(start_time),
             )
+            config.tag = config.get("tag", timestamp)
 
             console_handler.setLevel(config.log_level)
             setup_file_handler(
@@ -110,7 +110,10 @@ def cellophane(
             logger.debug(f"Found {len(samples_mixins)} samples mixins")
             logger.debug(f"Found {len(executors_)} executors")
 
-            executor_cls = next(e for e in executors_ if e.name == config.executor.name)
+            # Excluded from branch coverage as StopIteration is never raised
+            executor_cls = next(
+                e for e in executors_ if e.name == config.executor.name
+            )  # pragma: no cover
             executors.EXECUTOR = executor_cls
             logger.debug(f"Using {executor_cls.name} executor")
 
