@@ -5,13 +5,15 @@ from functools import cache
 from logging.handlers import QueueHandler, QueueListener
 from multiprocessing import Queue
 from pathlib import Path
+from typing import TypeVar
 
 from attrs import define
 from rich.logging import RichHandler
 
 
 @define
-class _ExtFilter(logging.Filter):
+class ExternalFilter(logging.Filter):
+    """Filter for log records coming from external libraries."""
     internal_roots: tuple[Path, ...]
 
     def filter(self, record: logging.LogRecord) -> bool:
@@ -68,7 +70,7 @@ def start_logging_queue_listener() -> tuple[Queue, QueueListener]:
 
 def setup_console_handler(
     logger: logging.Logger = logging.getLogger(),
-    internal_roots: tuple[Path, ...] | None = None,
+    filters: tuple[logging.Filter, ...] | None = None,
 ) -> RichHandler:
     """
     Sets up logging for the cellophane module.
@@ -86,14 +88,18 @@ def setup_console_handler(
             defaults={"label": "unknown"},
         )
     )
-    if internal_roots:
-        console_handler.addFilter(_ExtFilter(internal_roots))
+    for filter_ in filters or ():
+        console_handler.addFilter(filter_)
     logger.setLevel(logging.DEBUG)
     logger.handlers = [console_handler]
     return console_handler
 
 
-def setup_file_handler(path: Path, logger: logging.Logger = logging.getLogger()) -> None:
+def setup_file_handler(
+    path: Path,
+    logger: logging.Logger = logging.getLogger(),
+    filters: tuple[logging.Filter, ...] = (),
+) -> logging.FileHandler:
     """
     Creates a file handler for the specified logger and adds it to the logger's
     handlers. The file handler writes log messages to the specified file path.
@@ -112,5 +118,8 @@ def setup_file_handler(path: Path, logger: logging.Logger = logging.getLogger())
             defaults={"label": "external"},
         )
     )
-    file_handler.setLevel(0)
+    for filter_ in filters:
+        file_handler.addFilter(filter_)
+    file_handler.setLevel(logging.DEBUG)
     logger.addHandler(file_handler)
+    return file_handler

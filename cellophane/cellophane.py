@@ -17,6 +17,7 @@ from cellophane.src.cfg import Config, Schema, with_options
 from cellophane.src.data import OutputGlob, Sample, Samples
 from cellophane.src.executors import Executor
 from cellophane.src.logs import (
+    ExternalFilter,
     setup_console_handler,
     setup_file_handler,
     start_logging_queue_listener,
@@ -33,10 +34,7 @@ CELLOPHANE_ROOT = Path(spec.origin).parent
 CELLOPHANE_VERSION = version("cellophane")
 
 
-def cellophane(
-    label: str,
-    root: Path,
-) -> click.Command:
+def cellophane(label: str, root: Path) -> click.Command:
     """
     Creates a click command for running the Cellophane application.
 
@@ -58,8 +56,8 @@ def cellophane(
     click.rich_click.REQUIRED_LONG_STRING = "(REQUIRED)"
     click.rich_click.DEFAULT_STRING = "{}"
     click.rich_click.STYLE_OPTION_DEFAULT = "green"
-
-    console_handler = setup_console_handler(internal_roots=(CELLOPHANE_ROOT, root))
+    external_filter = ExternalFilter((CELLOPHANE_ROOT, root))
+    console_handler = setup_console_handler(filters=(external_filter,))
     logger = LoggerAdapter(getLogger(), {"label": label})
 
     try:
@@ -97,11 +95,17 @@ def cellophane(
             )
             config.tag = config.get("tag", timestamp)
 
-            console_handler.setLevel(config.log_level)
-            setup_file_handler(
+            console_handler.setLevel(config.log.level)
+            file_handler = setup_file_handler(
                 config.logdir / f"{label}.{config.tag}.log",
                 logger.logger,
+                filters=(external_filter,),
             )
+
+            if config.log.external:
+                file_handler.removeFilter(external_filter)
+                console_handler.removeFilter(external_filter)
+
             log_queue, log_listener = start_logging_queue_listener()
 
             logger.debug(f"Found {len(hooks)} hooks")
