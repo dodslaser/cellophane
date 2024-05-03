@@ -64,8 +64,14 @@ module = "referencing.jsonschema"
 ignore_errors = true
 
 [tool.coverage.run]
-omit = ["cellophane/src/testing/*"]
-concurrency = ["multiprocessing", "thread"]
+omit = [
+    "cellophane/src/testing/*",
+    "cellophane/__main__.py"
+]
+concurrency = [
+    "multiprocessing",
+    "thread"
+]
 branch = true
 
 [tool.coverage.report]
