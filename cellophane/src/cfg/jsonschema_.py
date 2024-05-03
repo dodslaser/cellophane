@@ -6,7 +6,8 @@ from pathlib import Path
 from typing import Callable, Generator, Mapping
 
 from frozendict import frozendict
-from jsonschema.validators import Draft7Validator, extend
+from jsonschema.protocols import Validator
+from jsonschema.validators import Draft7Validator, create, extend
 
 from cellophane.src import data, util
 
@@ -20,16 +21,16 @@ _cellophane_type_checker = Draft7Validator.TYPE_CHECKER.redefine_many(
     }
 )
 
-BaseValidator = extend(
+BaseValidator: type[Validator] = extend(
     Draft7Validator,
     type_checker=_cellophane_type_checker,
 )
 
-NullValidator = extend(
-    BaseValidator,
-    validators={v: None for v in Draft7Validator.VALIDATORS},
+NullValidator = create(
+    meta_schema=BaseValidator.META_SCHEMA,
+    type_checker=_cellophane_type_checker,
+    format_checker=Draft7Validator.FORMAT_CHECKER,
 )
-
 
 def _uptate_validators(
     validators: dict[str, Callable],
