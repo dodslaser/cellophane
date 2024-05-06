@@ -287,23 +287,25 @@ class Test_Flag:
                 param(
                     cfg.Flag(
                         key=("a", "b"),  # type: ignore[arg-type]
-                        type=_type,  # type: ignore[arg-type]
+                        type=type_,  # type: ignore[arg-type]
+                        **kwargs,
                     ),
                     click.option(
                         "--a_b",
                         type=pytype,
                     ),
-                    id=_type,
+                    id=type_,
                 )
-                for _type, pytype, in [
-                    ("string", FormattedString()),
-                    ("integer", click.IntRange()),
-                    ("number", click.FloatRange()),
-                    ("array", TypedArray("string")),
-                    ("mapping", StringMapping()),
-                    ("path", click.Path()),
-                    ("size", ParsedSize()),
-                    (None, FormattedString()),
+                for type_, pytype, kwargs, in [
+                    ("string", FormattedString(), {}),
+                    # ("integer", int, {}),
+                    ("integer", click.IntRange(min=0), {"min": 0}),
+                    ("number", click.FloatRange(), {}),
+                    ("array", TypedArray("string"), {}),
+                    ("mapping", StringMapping(), {}),
+                    ("path", click.Path(), {}),
+                    ("size", ParsedSize(), {}),
+                    (None, FormattedString(), {}),
                 ]
             ),
         ],

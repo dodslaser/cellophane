@@ -1,10 +1,10 @@
 """Flag class for command-line options."""
 
 from functools import partial
-from typing import Any, Callable, Type, get_args
+from typing import Any, Callable, SupportsFloat, SupportsInt, Type, get_args
 
 import rich_click as click
-from attrs import define, field
+from attrs import define, field, setters
 
 from .click_ import (
     FORMATS,
@@ -17,6 +17,13 @@ from .click_ import (
     TypedArray,
     click_type,
 )
+
+
+def _convert_int(value: SupportsInt | None) -> int | None:
+    return int(value) if value is not None else None
+
+def _convert_float(value: SupportsFloat | None) -> float | None:
+    return float(value) if value is not None else None
 
 
 @define(slots=False)
@@ -48,11 +55,27 @@ class Flag:
     type: SCHEMA_TYPES | None = field(default=None)
     items_type: ITEMS_TYPES | None = field(default=None)
     items_format: FORMATS | None = field(default=None)
-    items_minimum: int | None = field(default=None)
-    items_maximum: int | None = field(default=None)
-    format_: FORMATS | None = field(default=None)
-    minimum: int | None = field(default=None)
-    maximum: int | None = field(default=None)
+    items_min: int | None = field(
+        default=None,
+        converter=_convert_int,
+        on_setattr=setters.convert,
+    )
+    items_max: int | None = field(
+        default=None,
+        converter=_convert_int,
+        on_setattr=setters.convert,
+    )
+    format: FORMATS | None = field(default=None)
+    min: int | None = field(
+        default=None,
+        converter=_convert_int,
+        on_setattr=setters.convert,
+    )
+    max: int | None = field(
+        default=None,
+        converter=_convert_int,
+        on_setattr=setters.convert,
+    )
     _key: tuple[str, ...] | None = field(default=None)
     description: str | None = field(default=None)
     default: Any = field(default=None)
@@ -138,12 +161,15 @@ class Flag:
             type: The Python type corresponding to the property type.
         """
         return click_type(
-            self.type,
-            self.enum,
-            self.items_type,
-            self.format_,
-            self.minimum,
-            self.maximum,
+            type_=self.type,
+            format_=self.format,
+            min_=self.min,
+            max_=self.max,
+            enum=self.enum,
+            items_type=self.items_type,
+            items_format=self.items_format,
+            items_min=self.items_min,
+            items_max=self.items_max,
         )
 
     @property

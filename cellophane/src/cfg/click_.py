@@ -245,16 +245,16 @@ class TypedArray(click.ParamType):
         self,
         items_type: ITEMS_TYPES | None = None,
         items_format: FORMATS | None = None,
-        items_minimum: int | float | None = None,
-        items_maximum: int | float | None = None,
+        items_min: int | float | None = None,
+        items_max: int | float | None = None,
     ) -> None:
         if items_type not in [*get_args(ITEMS_TYPES), None]:
             raise ValueError(f"Invalid type: {items_type}")
 
         self.items_type = items_type or "string"
         self.items_format = items_format
-        self.items_minimum = items_minimum
-        self.items_maximum = items_maximum
+        self.items_min = items_min
+        self.items_max = items_max
 
     def convert(  # type: ignore[override]
         self,
@@ -286,15 +286,12 @@ class TypedArray(click.ParamType):
             type_ = click_type(
                 self.items_type,
                 format_=self.items_format,
-                minimum=self.items_minimum,
-                maximum=self.items_maximum,
+                min_=self.items_minimum,
+                max_=self.items_maximum,
             )
             if isinstance(type_, click.ParamType):
                 return [type_.convert(v, param, ctx) for v in value_ or ()]
-            else:  # pragma: no cover
-                # Excluded from coverage as this code is unreachable with the current
-                # implementation as click_type always returns a click.ParamType,
-                # however, it is kept here for future-proofing.
+            else:
                 return [type_(v) for v in value_ or ()]
         except Exception as exc:  # pylint: disable=broad-except
             self.fail(str(exc), param, ctx)
@@ -412,15 +409,15 @@ class FormattedString(click.ParamType):
 
 
 def click_type(  # type: ignore[return]
-    _type: SCHEMA_TYPES | None = None,
+    type_: SCHEMA_TYPES | None = None,
     enum: list | None = None,
     items_type: ITEMS_TYPES | None = None,
     items_format: FORMATS | None = None,
-    items_minimum: int | float | None = None,
-    items_maximum: int | float | None = None,
+    items_min: int | float | None = None,
+    items_max: int | float | None = None,
     format_: FORMATS | None = None,
-    minimum: int | float | None = None,
-    maximum: int | float | None = None,
+    min_: int | float | None = None,
+    max_: int | float | None = None,
 ) -> (
     Type
     | click.Path
@@ -438,17 +435,19 @@ def click_type(  # type: ignore[return]
     Returns:
         type: The Python type corresponding to the property type.
     """
-    match _type:
+    match type_:
         case _ if enum:
             return click.Choice(enum, case_sensitive=False)
         case "string":
             return FormattedString(format_)
+        case "number" if min_ is not None or max_ is not None:
+            return click.FloatRange(min_, max_)
         case "number":
-            return click.FloatRange(minimum, maximum)
+            return float
+        case "integer" if min_ is not None or max_ is not None:
+            return click.IntRange(min_, max_)
         case "integer":
-            _minimum = int(minimum) if minimum is not None else None
-            _maximum = int(maximum) if maximum is not None else None
-            return click.IntRange(_minimum, _maximum)
+            return int
         case "boolean":
             return bool
         case "mapping":
@@ -457,8 +456,8 @@ def click_type(  # type: ignore[return]
             return TypedArray(
                 items_type,
                 items_format,
-                items_minimum,
-                items_maximum,
+                items_min,
+                items_max,
             )
         case "path":
             return click.Path(path_type=Path)
