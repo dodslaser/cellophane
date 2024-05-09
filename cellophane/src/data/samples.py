@@ -1,6 +1,7 @@
 """Sample and Samples class definitions."""
 
 from collections import UserList
+from contextlib import suppress
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, ClassVar, Iterable, Literal, Sequence, TypeVar, overload
@@ -20,6 +21,7 @@ from .util import convert_path_list
 
 class _BASE:
     """Dummy base class for adding mixins to the Sample and Samples classes."""
+
 
 @overload
 def _apply_mixins(
@@ -257,14 +259,22 @@ class Samples(UserList[S]):
     @merge.register("data")
     @staticmethod
     def _merge_data(this: list[Sample], that: list[Sample]) -> list[Sample]:
-        return [
-            (
-                (a & next(b for b in that if b.uuid == a.uuid))
-                if a.uuid in [s.uuid for s in that]
-                else a
+        data: list[Sample] = []
+        for uuid in {s.uuid for s in (*this, *that)}:
+            this_, that_ = None, None
+            with suppress(StopIteration):
+                this_ = next(s for s in this if s.uuid == uuid)
+            with suppress(StopIteration):
+                that_ = next(s for s in that if s.uuid == uuid)
+            data.append(
+                this_ & that_
+                if this_ and that_
+                else this_ or that_  # type: ignore[arg-type]
             )
-            for a in this
-        ]
+            # arg-type can be ignored because uuid is guaranteed
+            # to be in at least one of the lists
+
+        return data
 
     @merge.register("output")
     @staticmethod
@@ -477,21 +487,21 @@ class Samples(UserList[S]):
         if self.__class__ != other.__class__:
             raise MergeSamplesTypeError
 
-        _samples = deepcopy(self)
+        samples = deepcopy(self)
         for sample in other:
-            _samples[sample.uuid] = sample
+            samples[sample.uuid] = sample
 
-        return _samples
+        return samples
 
     def __and__(self, other: "Samples") -> "Samples":
         if self.__class__ != other.__class__:
             raise MergeSamplesTypeError
 
-        _samples = deepcopy(self)
-        for _field in fields_dict(self.__class__):
+        samples = deepcopy(self)
+        for field_ in fields_dict(self.__class__):
             setattr(
-                _samples,
-                _field,
-                self.merge(_field, getattr(self, _field), getattr(other, _field)),
+                samples,
+                field_,
+                self.merge(field_, getattr(self, field_), getattr(other, field_)),
             )
-        return _samples
+        return samples
