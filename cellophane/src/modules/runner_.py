@@ -4,7 +4,8 @@ from functools import reduce
 from logging import LoggerAdapter, getLogger
 from multiprocessing import Queue
 from pathlib import Path
-from typing import Any, Callable, Sequence
+from typing import Callable, Sequence
+from functools import partial
 
 from cloudpickle import dumps, loads
 from mpire import WorkerPool
@@ -76,6 +77,12 @@ class Runner:
                 pool=pool,
                 log_queue=log_queue,
             )
+            cleanup = partial(
+                _cleanup,
+                logger=logger,
+                executor=executor_,
+                samples=samples,
+            )
 
             try:
                 match self.main(
@@ -106,11 +113,23 @@ class Runner:
 
             except InterruptWorker:
                 logger.warning("Runner interrupted")
-                _cleanup(logger, executor_, samples, reason="Interrupted")
+                cleanup(reason=f"Runner '{self.name}' interrupted")
 
-            except Exception as exc:  # pylint: disable=broad-except
-                logger.critical(f"Unhandeled exception: {exc!r}", exc_info=exc)
-                _cleanup(logger, executor_, samples, reason=repr(exc))
+            except SystemExit as exc:
+                logger.warning(
+                    "Runner exited with non-zero status"
+                    + (f"({exc.code})" if exc.code is not None else "")
+                )
+                cleanup(
+                    reason=(
+                        f"Runner '{self.name}' exitded with non-zero status"
+                        + (f"({exc.code})" if exc.code is not None else "")
+                    )
+                )
+
+            except BaseException as exc:  # pylint: disable=broad-except
+                logger.warning(f"Unhandeled exception: {exc!r}", exc_info=exc)
+                cleanup(reason=f"Unhandeled exception in runner '{self.name}' {exc!r}")
 
             else:
                 pool.stop_and_join()
@@ -232,10 +251,9 @@ def start_runners(
         except KeyboardInterrupt:
             logger.critical("Received SIGINT, telling runners to shut down...")
             pool.terminate()
-
             return samples
 
-        except Exception as exc:  # pylint: disable=broad-except
+        except BaseException as exc:  # pylint: disable=broad-except
             logger.critical(f"Unhandled exception in runner: {exc!r}")
             pool.terminate()
             return samples
