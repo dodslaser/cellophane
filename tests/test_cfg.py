@@ -298,9 +298,10 @@ class Test_Flag:
                 )
                 for type_, pytype, kwargs, in [
                     ("string", FormattedString(), {}),
-                    # ("integer", int, {}),
+                    ("integer", int, {}),
                     ("integer", click.IntRange(min=0), {"min": 0}),
-                    ("number", click.FloatRange(), {}),
+                    ("number", float, {}),
+                    ("number", click.FloatRange(min=0), {"min": 0}),
                     ("array", TypedArray("string"), {}),
                     ("mapping", StringMapping(), {}),
                     ("path", click.Path(), {}),
