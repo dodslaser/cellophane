@@ -158,13 +158,6 @@ def _main(
     timestamp: str,
 ) -> None:
     """Run cellophane"""
-    common_kwargs = {
-        "config": config,
-        "root": root,
-        "executor_cls": executor_cls,
-        "timestamp": timestamp,
-    }
-
     # Load samples from file, or create empty samples object
     if "samples_file" in config:
         logger.debug(f"Loading samples from {config.samples_file}")
@@ -179,7 +172,10 @@ def _main(
         when="pre",
         samples=samples,
         log_queue=log_queue,
-        **common_kwargs,
+        config=config,
+        root=root,
+        executor_cls=executor_cls,
+        timestamp=timestamp,
     )
 
     # Validate sample files
@@ -196,14 +192,20 @@ def _main(
         samples=samples.with_files,
         logger=logger,
         log_queue=log_queue,
-        **common_kwargs,
+        config=config,
+        root=root,
+        executor_cls=executor_cls,
+        timestamp=timestamp,
     )
     samples = run_hooks(
         hooks,
         when="post",
         samples=samples,
+        config=config,
         log_queue=log_queue,
-        **common_kwargs,
+        root=root,
+        executor_cls=executor_cls,
+        timestamp=timestamp,
     )
 
     # If not post-hook has copied the outputs, warn the user

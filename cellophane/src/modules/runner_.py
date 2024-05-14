@@ -179,7 +179,10 @@ def start_runners(
     samples: data.Samples,
     logger: LoggerAdapter,
     log_queue: Queue,
-    **kwargs: Any,
+    config: cfg.Config,
+    root: Path,
+    executor_cls: type[executors.Executor],
+    timestamp: str,
 ) -> data.Samples:
     """
     Start cellphane runners in parallel and collect the results.
@@ -216,8 +219,11 @@ def start_runners(
                 result = pool.apply_async(
                     runner_,
                     kwargs={
-                        **kwargs,
+                        "config": config,
+                        "root": root,
                         "samples_pickle": dumps(samples_),
+                        "executor_cls": executor_cls,
+                        "timestamp": timestamp,
                     },
                 )
                 results.append(result)

@@ -138,7 +138,11 @@ def run_hooks(
     *,
     when: Literal["pre", "post"],
     samples: data.Samples,
-    **kwargs: Any,
+    config: cfg.Config,
+    root: Path,
+    executor_cls: type[executors.Executor],
+    log_queue: Queue,
+    timestamp: str,
 ) -> data.Samples:
     """
     Run hooks at the specified time and update the samples object.
@@ -156,10 +160,37 @@ def run_hooks(
 
     for hook in [h for h in hooks if h.when == when]:
         if hook.when == "pre" or hook.condition == "always":
-            samples = hook(samples=samples, **kwargs)
+            samples = hook(
+                samples=samples,
+                config=config,
+                root=root,
+                executor_cls=executor_cls,
+                log_queue=log_queue,
+                timestamp=timestamp,
+            )
         elif hook.condition == "complete" and (s := samples.complete):
-            samples = hook(s, **kwargs) | samples.failed
+            samples = (
+                hook(
+                    samples=s,
+                    config=config,
+                    root=root,
+                    executor_cls=executor_cls,
+                    log_queue=log_queue,
+                    timestamp=timestamp,
+                )
+                | samples.failed
+            )
         elif hook.condition == "failed" and (s := samples.failed):
-            samples = hook(s, **kwargs) | samples.complete
+            samples = (
+                hook(
+                    samples=s,
+                    config=config,
+                    root=root,
+                    executor_cls=executor_cls,
+                    log_queue=log_queue,
+                    timestamp=timestamp,
+                )
+                | samples.complete
+            )
 
     return samples
