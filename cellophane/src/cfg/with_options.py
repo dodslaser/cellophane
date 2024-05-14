@@ -49,6 +49,15 @@ def with_options(schema: Schema) -> Callable:
         def inner(ctx: click.Context, config_file: Path | None) -> None:
             nonlocal callback
 
+            try:
+                config_data = (
+                    YAML(typ="safe").load(config_file)
+                    if config_file is not None
+                    else {}
+                )
+            except Exception as exc:
+                raise click.FileError(str(config_file), str(exc))
+
             # Create a dummy command to collect any flags that are passed
             _dummy_cmd = click.command()(lambda: None)
             for flag in get_flags(schema):
@@ -71,7 +80,7 @@ def with_options(schema: Schema) -> Callable:
                 schema=schema,
                 tag=_dummy_params.pop("tag", None),
                 include_defaults=False,
-                _data=YAML(typ="safe").load(config_file) if config_file else {},
+                _data=config_data,
                 **_dummy_params,
             )
 
