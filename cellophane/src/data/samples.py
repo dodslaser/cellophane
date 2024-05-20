@@ -71,7 +71,6 @@ def _apply_mixins(
 
 S = TypeVar("S", bound="Sample")
 
-
 @define(slots=False)
 class Sample(_BASE):  # type: ignore[no-untyped-def]
     """

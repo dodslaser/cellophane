@@ -346,9 +346,7 @@ class Test_Hook:
     ) -> None:
         """Test Hook call."""
         _decorator = getattr(modules, f"{when}_hook")
-        _hook = _decorator(**kwargs)(
-            lambda **_: return_value,
-        )
+        _hook = _decorator(**kwargs)(lambda **_: return_value)
 
         with caplog.at_level("DEBUG"):
             _ret = _hook(

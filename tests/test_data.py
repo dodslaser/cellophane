@@ -1,8 +1,6 @@
 """Tests for the data module."""
 
 # pylint: disable=pointless-statement
-
-import logging
 from copy import deepcopy
 from pathlib import Path
 from typing import ClassVar, Generator
@@ -619,8 +617,6 @@ class Test_OutputGlob:
         expected_outputs: set[data.Output],
     ) -> None:
         """Test resolve."""
-        logger = logging.LoggerAdapter(logging.getLogger("test"), {})
-
         glob = data.OutputGlob(
             src=kwargs.pop("src").format(**meta),
             dst_dir=(
