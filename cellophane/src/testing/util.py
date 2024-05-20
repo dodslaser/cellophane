@@ -74,13 +74,15 @@ def execute_from_structure(
     # Extract --flag value pairs from args. If a value is None, the flag is
     # considered to be a flag without a value.
     _args = [p for f in (args or {}).items() for p in f if p is not None]
-    _handlers = logging.getLogger().handlers.copy()
-    logging.getLogger().handlers = [
-        h for h in _handlers if h.__class__ != logging.StreamHandler
+    _handlers = [
+        handler
+        for handler in logging.getLogger().handlers.copy()
+        if handler.__class__ != logging.StreamHandler
     ]
+    logging.getLogger().handlers = _handlers
+
     try:
         mocker.patch("cellophane.cellophane.setup_console_handler")
-        mocker.patch("cellophane.cellophane.setup_file_handler")
         _main = cellophane.cellophane("DUMMY", root=root)
         for target, mock in (mocks or {}).items():
             mocker.patch(target=target, **(mock or {}))
@@ -105,17 +107,21 @@ def execute_from_structure(
         )
 
     for log_line in logs or []:
-        if log_line not in "\n".join(caplog.messages):
+        if log_line not in (captured := "\n".join(caplog.messages)):
             fail_from_click_result(
                 result=_result,
-                reason=("Log message not found\n" f"Missing line:\n{log_line}"),
+                reason=(
+                    f"Log message not found\n"
+                    f"Missing line:\n{log_line}\n\n"
+                    f"Captured:\n{captured}\n"
+                ),
             )
 
     for output_line in output or []:
         if _result and output_line not in _result.output:
             fail_from_click_result(
                 result=_result,
-                reason=("Command output not found\n" f"Missing output:\n{output_line}"),
+                reason="Command output not found\nMissing output:\n{output_line}",
             )
 
     return _result

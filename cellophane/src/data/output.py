@@ -3,6 +3,7 @@
 from glob import glob
 from pathlib import Path
 from typing import Iterable
+from warnings import warn
 
 from attrs import define, field
 from attrs.setters import convert
@@ -89,7 +90,7 @@ class OutputGlob:  # type: ignore[no-untyped-def]
         samples: Iterable,
         workdir: Path,
         config: Container,
-    ) -> tuple[set[Output], set[str]]:
+    ) -> set[Output]:
         """
         Resolve the glob pattern to a list of files to be copied.
 
@@ -105,7 +106,7 @@ class OutputGlob:  # type: ignore[no-untyped-def]
 
         """
         outputs = set()
-        warnings = set()
+        
 
         for sample in samples:
             meta = {
@@ -124,7 +125,7 @@ class OutputGlob:  # type: ignore[no-untyped-def]
                     pattern = str(workdir / p)
 
             if not (matches := [Path(m) for m in glob(pattern)]) and not self.optional:
-                warnings.add(f"No files matched pattern '{pattern}'")
+                warn(f"No files matched pattern '{pattern}'")
 
             for m in matches:
                 match self.dst_dir:
@@ -139,7 +140,7 @@ class OutputGlob:  # type: ignore[no-untyped-def]
                     case None:
                         dst_name = m.name
                     case _ if len(matches) > 1:
-                        warnings.add(
+                        warn(
                             f"Destination name {self.dst_name} will be ignored "
                             f"as '{self.src}' matches multiple files"
                         )
@@ -158,4 +159,4 @@ class OutputGlob:  # type: ignore[no-untyped-def]
                     )
                 )
 
-        return outputs, warnings
+        return outputs

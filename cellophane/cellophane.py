@@ -18,6 +18,7 @@ from cellophane.src.data import OutputGlob, Sample, Samples
 from cellophane.src.executors import Executor
 from cellophane.src.logs import (
     ExternalFilter,
+    handle_warnings,
     setup_console_handler,
     setup_file_handler,
     start_logging_queue_listener,
@@ -89,7 +90,7 @@ def cellophane(label: str, root: Path) -> click.Command:
                 time.localtime(start_time),
             )
             config.tag = config.tag or timestamp
-
+            handle_warnings()
             console_handler.setLevel(config.log.level)
             file_handler = setup_file_handler(
                 config.logdir / f"{label}.{config.tag}.log",

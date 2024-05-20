@@ -51,7 +51,7 @@ class Checkpoint:
             if isinstance(output, Output):
                 output_paths = {output.src}
             elif isinstance(output, OutputGlob):
-                outputs, _ = output.resolve(
+                outputs = output.resolve(
                     samples=self.samples,
                     config=self.config,
                     workdir=self.workdir,

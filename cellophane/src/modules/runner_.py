@@ -13,6 +13,7 @@ from mpire.exception import InterruptWorker
 from psutil import Process, TimeoutExpired
 
 from cellophane.src import cfg, data, executors, logs
+from cellophane.src.logs import handle_warnings, redirect_logging_to_queue
 
 from .checkpoint import Checkpoints
 
@@ -59,7 +60,8 @@ class Runner:
         timestamp: str,
     ) -> bytes:
         samples: data.Samples = loads(samples_pickle)
-        logs.redirect_logging_to_queue(log_queue)
+        handle_warnings()
+        redirect_logging_to_queue(log_queue)
         logger = LoggerAdapter(getLogger(), {"label": self.label})
 
         workdir = config.workdir / config.tag / self.label

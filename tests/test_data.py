@@ -633,9 +633,9 @@ class Test_OutputGlob:
             ),
             **kwargs,
         )
-        outputs, warnings = glob.resolve(
+        outputs = glob.resolve(
             samples=[None],  # type: ignore[arg-type]
             workdir=Path("workdir"),
             config=config,
         )
-        assert outputs == expected_outputs, warnings
+        assert outputs == expected_outputs
