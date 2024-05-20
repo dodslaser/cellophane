@@ -5,7 +5,7 @@ from typing import Any, Callable
 
 class Merger:
     """Reconciles two values based on their attribute name."""
-    _imps: dict[str, Callable]
+    _impls: dict[str, Callable]
 
     def __init__(self) -> None:
         self._impls: dict[str, Callable] = {}
