@@ -189,7 +189,7 @@ class Test_Runner:
             _log_queue: Queue = Queue()
             _listener = QueueListener(_log_queue, *logging.getLogger().handlers)
             _listener.start()
-            _ret = _runner(
+            _samples, _ = _runner(
                 _log_queue,
                 config=MagicMock(log_level=None),
                 root=tmp_path / "root",
@@ -201,7 +201,7 @@ class Test_Runner:
 
             for line in log_lines:
                 assert "\n".join(line) in "\n".join(caplog.messages)
-        assert [s.failed for s in loads(_ret)] == expected_fail
+        assert [s.failed for s in loads(_samples)] == expected_fail
 
 
 class Test_Hook:
@@ -358,6 +358,7 @@ class Test_Hook:
                 executor_cls=SubprocessExecutor,
                 log_queue=Queue(),
                 timestamp="DUMMY",
+                cleaner=MagicMock(),
             )
 
         for log_line in logs:

@@ -3,6 +3,7 @@
 from .cellophane import CELLOPHANE_ROOT, CELLOPHANE_VERSION, cellophane
 from .src import cfg, data, executors, logs, modules, util
 from .src.cfg import Config, Schema
+from .src.cleanup import Cleaner
 from .src.data import Output, OutputGlob, Sample, Samples
 from .src.executors import Executor
 from .src.modules import Checkpoint, Checkpoints, output, post_hook, pre_hook, runner
@@ -35,4 +36,6 @@ __all__ = [
     # checkpoints
     "Checkpoint",
     "Checkpoints",
+    # cleanup
+    "Cleaner",
 ]

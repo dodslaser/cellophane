@@ -8,6 +8,7 @@ from typing import Any, Callable, Literal, Sequence
 from mpire import WorkerPool
 
 from cellophane.src import cfg, data, executors
+from cellophane.src.cleanup import Cleaner
 
 
 class Hook:
@@ -69,6 +70,7 @@ class Hook:
         executor_cls: type[executors.Executor],
         log_queue: Queue,
         timestamp: str,
+        cleaner: Cleaner,
     ) -> data.Samples:
         logger = LoggerAdapter(getLogger(), {"label": self.label})
         logger.debug(f"Running {self.label} hook")
@@ -89,6 +91,7 @@ class Hook:
                     pool=pool,
                     log_queue=log_queue,
                 ),
+                cleaner=cleaner,
             ):
                 case returned if isinstance(returned, data.Samples):
                     _ret = returned
@@ -143,6 +146,7 @@ def run_hooks(
     executor_cls: type[executors.Executor],
     log_queue: Queue,
     timestamp: str,
+    cleaner: Cleaner,
 ) -> data.Samples:
     """
     Run hooks at the specified time and update the samples object.
@@ -167,6 +171,7 @@ def run_hooks(
                 executor_cls=executor_cls,
                 log_queue=log_queue,
                 timestamp=timestamp,
+                cleaner=cleaner,
             )
         elif hook.condition == "complete" and (s := samples.complete):
             samples = (
@@ -177,6 +182,7 @@ def run_hooks(
                     executor_cls=executor_cls,
                     log_queue=log_queue,
                     timestamp=timestamp,
+                    cleaner=cleaner,
                 )
                 | samples.failed
             )
@@ -189,6 +195,7 @@ def run_hooks(
                     executor_cls=executor_cls,
                     log_queue=log_queue,
                     timestamp=timestamp,
+                    cleaner=cleaner,
                 )
                 | samples.complete
             )

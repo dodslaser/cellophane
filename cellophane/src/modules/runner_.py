@@ -13,6 +13,7 @@ from mpire.exception import InterruptWorker
 from psutil import Process, TimeoutExpired
 
 from cellophane.src import cfg, data, executors, logs
+from cellophane.src.cleanup import Cleaner, DeferredCleaner
 from cellophane.src.logs import handle_warnings, redirect_logging_to_queue
 
 from .checkpoint import Checkpoints
@@ -58,7 +59,7 @@ class Runner:
         samples_pickle: str,
         executor_cls: type[executors.Executor],
         timestamp: str,
-    ) -> bytes:
+    ) -> tuple[bytes, DeferredCleaner]:
         samples: data.Samples = loads(samples_pickle)
         handle_warnings()
         redirect_logging_to_queue(log_queue)
@@ -69,6 +70,7 @@ class Runner:
             workdir /= samples[0][self.split_by] or "unknown"
 
         workdir.mkdir(parents=True, exist_ok=True)
+        cleaner = DeferredCleaner(root=workdir)
 
         with WorkerPool(
             daemon=False,
@@ -95,6 +97,7 @@ class Runner:
                     root=root,
                     workdir=workdir,
                     executor=executor_,
+                    cleaner=cleaner,
                     checkpoints=Checkpoints(
                         samples=samples,
                         workdir=workdir,
@@ -141,10 +144,12 @@ class Runner:
                 logger.debug(f"Sample {sample.id} processed successfully")
             if n_failed := len(samples.failed):
                 logger.error(f"{n_failed} samples failed")
+                cleaner.unregister(workdir)
+
             for sample in samples.failed:
                 logger.debug(f"Sample {sample.id} failed - {sample.failed}")
 
-            return dumps(samples)
+            return dumps(samples), cleaner
 
 
 def _resolve_outputs(
@@ -204,6 +209,7 @@ def start_runners(
     root: Path,
     executor_cls: type[executors.Executor],
     timestamp: str,
+    cleaner: Cleaner,
 ) -> data.Samples:
     """
     Start cellphane runners in parallel and collect the results.
@@ -261,10 +267,15 @@ def start_runners(
             return samples
 
     try:
-        return reduce(lambda a, b: a & b, (loads(r.get()) for r in results))
+        cleaners: Sequence[DeferredCleaner]
+        samples_, cleaners = zip(*(r.get() for r in results))
+        samples_ = reduce(lambda a, b: a & b, (loads(s) for s in samples_))
+        for cleaner_ in cleaners:
+            cleaner &= cleaner_
     except Exception as exc:  # pylint: disable=broad-except
         logger.critical(
             f"Unhandled exception when collecting results: {exc!r}",
             exc_info=True,
         )
         return samples
+    return samples_

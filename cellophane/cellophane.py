@@ -14,6 +14,7 @@ from ruamel.yaml.scanner import ScannerError
 
 from cellophane.src import executors
 from cellophane.src.cfg import Config, Schema, with_options
+from cellophane.src.cleanup import Cleaner
 from cellophane.src.data import OutputGlob, Sample, Samples
 from cellophane.src.executors import Executor
 from cellophane.src.logs import (
@@ -167,6 +168,9 @@ def _main(
         logger.debug("No samples file specified, creating empty samples object")
         samples = samples_class()
 
+    cleaner  = Cleaner(root=config.workdir / config.tag)
+    cleaner.register(config.workdir / config.tag)
+
     # Run pre-hooks
     samples = run_hooks(
         hooks,
@@ -177,6 +181,7 @@ def _main(
         root=root,
         executor_cls=executor_cls,
         timestamp=timestamp,
+        cleaner=cleaner,
     )
 
     # Validate sample files
@@ -197,6 +202,7 @@ def _main(
         root=root,
         executor_cls=executor_cls,
         timestamp=timestamp,
+        cleaner=cleaner,
     )
     samples = run_hooks(
         hooks,
@@ -207,8 +213,11 @@ def _main(
         root=root,
         executor_cls=executor_cls,
         timestamp=timestamp,
+        cleaner=cleaner,
     )
-
+    if samples.failed:
+        cleaner.unregister(config.workdir / config.tag)
+    cleaner.clean(logger=logger)
     # If not post-hook has copied the outputs, warn the user
     if missing_outputs := [
         o for o in samples.output if isinstance(o, OutputGlob) or not o.dst.exists()
