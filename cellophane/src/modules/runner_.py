@@ -1,19 +1,20 @@
 """Runners for executing functions as jobs."""
 
-from functools import reduce
+from functools import partial, reduce
 from logging import LoggerAdapter, getLogger
 from multiprocessing import Queue
 from pathlib import Path
 from typing import Callable, Sequence
-from functools import partial
 
 from cloudpickle import dumps, loads
 from mpire import WorkerPool
 from mpire.exception import InterruptWorker
 from psutil import Process, TimeoutExpired
 
-from cellophane.src import cfg, data, executors, logs
+from cellophane.src.cfg import Config
 from cellophane.src.cleanup import Cleaner, DeferredCleaner
+from cellophane.src.data import OutputGlob, Samples
+from cellophane.src.executors import Executor
 from cellophane.src.logs import handle_warnings, redirect_logging_to_queue
 
 from .checkpoint import Checkpoints
@@ -33,7 +34,7 @@ class Runner:
     label: str
     split_by: str | None
     func: Callable
-    main: Callable[..., data.Samples | None]
+    main: Callable[..., Samples | None]
 
     def __init__(
         self,
@@ -54,13 +55,13 @@ class Runner:
         self,
         log_queue: Queue,
         /,
-        config: cfg.Config,
+        config: Config,
         root: Path,
         samples_pickle: str,
-        executor_cls: type[executors.Executor],
+        executor_cls: type[Executor],
         timestamp: str,
     ) -> tuple[bytes, DeferredCleaner]:
-        samples: data.Samples = loads(samples_pickle)
+        samples: Samples = loads(samples_pickle)
         handle_warnings()
         redirect_logging_to_queue(log_queue)
         logger = LoggerAdapter(getLogger(), {"label": self.label})
@@ -107,7 +108,7 @@ class Runner:
                     case None:
                         logger.debug("Runner did not return any samples")
 
-                    case returned if isinstance(returned, data.Samples):
+                    case returned if isinstance(returned, Samples):
                         samples = returned
 
                     case returned:
@@ -153,13 +154,13 @@ class Runner:
 
 
 def _resolve_outputs(
-    samples: data.Samples,
+    samples: Samples,
     workdir: Path,
-    config: cfg.Config,
+    config: Config,
     logger: LoggerAdapter,
 ) -> None:
     for output_ in samples.output.copy():
-        if not isinstance(output_, data.OutputGlob):
+        if not isinstance(output_, OutputGlob):
             continue
         samples.output.remove(output_)
         if not samples.complete:
@@ -177,8 +178,8 @@ def _resolve_outputs(
 
 def _cleanup(
     logger: LoggerAdapter,
-    executor: executors.Executor,
-    samples: data.Samples,
+    executor: Executor,
+    samples: Samples,
     reason: str,
 ) -> None:
     reason_ = repr(reason) if isinstance(reason, BaseException) else reason
@@ -202,15 +203,15 @@ def _cleanup(
 def start_runners(
     *,
     runners: Sequence[Runner],
-    samples: data.Samples,
+    samples: Samples,
     logger: LoggerAdapter,
     log_queue: Queue,
-    config: cfg.Config,
+    config: Config,
     root: Path,
-    executor_cls: type[executors.Executor],
+    executor_cls: type[Executor],
     timestamp: str,
     cleaner: Cleaner,
-) -> data.Samples:
+) -> Samples:
     """
     Start cellphane runners in parallel and collect the results.
 

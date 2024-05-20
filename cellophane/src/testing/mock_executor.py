@@ -10,7 +10,7 @@ from cellophane.src.executors.executor import Executor
 
 @define(slots=False)
 class MockExecutor(Executor, name="mock"):
-    def __attrs_post_init__(self, *args, **kwargs) -> None:
+    def __attrs_post_init__(self, *args: Any, **kwargs: Any) -> None:
         object.__setattr__(
             self,
             "submit",
@@ -22,7 +22,7 @@ class MockExecutor(Executor, name="mock"):
 
     @staticmethod
     def submit_(
-        *args,
+        *args: Any,
         callback: Callable | None = None,
         error_callback: Callable | None = None,
         **kwargs: Any,

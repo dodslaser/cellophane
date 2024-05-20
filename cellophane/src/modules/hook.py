@@ -1,14 +1,17 @@
 from copy import deepcopy
-from graphlib import TopologicalSorter
+from functools import partial
 from logging import LoggerAdapter, getLogger
 from multiprocessing import Queue
 from pathlib import Path
-from typing import Any, Callable, Literal, Sequence
+from typing import Callable, Literal, Sequence
 
+from graphlib import TopologicalSorter
 from mpire import WorkerPool
 
-from cellophane.src import cfg, data, executors
+from cellophane.src.cfg import Config
 from cellophane.src.cleanup import Cleaner
+from cellophane.src.data import Samples
+from cellophane.src.executors import Executor
 
 
 class Hook:
@@ -64,14 +67,14 @@ class Hook:
 
     def __call__(
         self,
-        samples: data.Samples,
-        config: cfg.Config,
+        samples: Samples,
+        config: Config,
         root: Path,
-        executor_cls: type[executors.Executor],
+        executor_cls: type[Executor],
         log_queue: Queue,
         timestamp: str,
         cleaner: Cleaner,
-    ) -> data.Samples:
+    ) -> Samples:
         logger = LoggerAdapter(getLogger(), {"label": self.label})
         logger.debug(f"Running {self.label} hook")
 
@@ -93,7 +96,7 @@ class Hook:
                 ),
                 cleaner=cleaner,
             ):
-                case returned if isinstance(returned, data.Samples):
+                case returned if isinstance(returned, Samples):
                     _ret = returned
                 case None:
                     logger.debug("Hook did not return any samples")
@@ -140,14 +143,14 @@ def run_hooks(
     hooks: Sequence[Hook],
     *,
     when: Literal["pre", "post"],
-    samples: data.Samples,
-    config: cfg.Config,
+    samples: Samples,
+    config: Config,
     root: Path,
-    executor_cls: type[executors.Executor],
+    executor_cls: type[Executor],
     log_queue: Queue,
     timestamp: str,
     cleaner: Cleaner,
-) -> data.Samples:
+) -> Samples:
     """
     Run hooks at the specified time and update the samples object.
 
@@ -160,7 +163,7 @@ def run_hooks(
     Returns:
         data.Samples: The updated samples object.
     """
-    samples = deepcopy(samples)
+    samples_ = deepcopy(samples)
 
     for hook in [h for h in hooks if h.when == when]:
         if hook.when == "pre" or hook.condition == "always":
