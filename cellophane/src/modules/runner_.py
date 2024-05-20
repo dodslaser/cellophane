@@ -60,17 +60,14 @@ class Runner:
         samples_pickle: str,
         executor_cls: type[Executor],
         timestamp: str,
+        workdir: Path,
     ) -> tuple[bytes, DeferredCleaner]:
-        samples: Samples = loads(samples_pickle)
         handle_warnings()
         redirect_logging_to_queue(log_queue)
-        logger = LoggerAdapter(getLogger(), {"label": self.label})
-
-        workdir = config.workdir / config.tag / self.label
-        if self.split_by:
-            workdir /= samples[0][self.split_by] or "unknown"
 
         workdir.mkdir(parents=True, exist_ok=True)
+        samples: Samples = loads(samples_pickle)
+        logger = LoggerAdapter(getLogger(), {"label": self.label})
         cleaner = DeferredCleaner(root=workdir)
 
         with WorkerPool(
@@ -237,13 +234,17 @@ def start_runners(
     ) as pool:
         try:
             results = []
-            for runner_, samples_ in (
-                (r, s)
+            samples_: Samples
+            for runner_, group, samples_ in (
+                (r, g, s)
                 for r in runners
-                for _, s in (
+                for g, s in (
                     samples.split(by=r.split_by) if r.split_by else [(None, samples)]
                 )
             ):
+                workdir = config.workdir / config.tag / runner_.label
+                if runner_.split_by is not None:
+                    workdir /= group or "unknown"
                 result = pool.apply_async(
                     runner_,
                     kwargs={
@@ -252,6 +253,7 @@ def start_runners(
                         "samples_pickle": dumps(samples_),
                         "executor_cls": executor_cls,
                         "timestamp": timestamp,
+                        "workdir": workdir,
                     },
                 )
                 results.append(result)

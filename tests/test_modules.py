@@ -196,6 +196,7 @@ class Test_Runner:
                 samples_pickle=dumps(self.samples),
                 executor_cls=SubprocessExecutor,
                 timestamp="DUMMY",
+                workdir=tmp_path,
             )
             _listener.stop()
 
