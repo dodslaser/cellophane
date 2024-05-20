@@ -166,41 +166,20 @@ def run_hooks(
     samples_ = deepcopy(samples)
 
     for hook in [h for h in hooks if h.when == when]:
+        hook_ = partial(
+            hook,
+            config=config,
+            root=root,
+            executor_cls=executor_cls,
+            log_queue=log_queue,
+            timestamp=timestamp,
+            cleaner=cleaner,
+        )
         if hook.when == "pre" or hook.condition == "always":
-            samples = hook(
-                samples=samples,
-                config=config,
-                root=root,
-                executor_cls=executor_cls,
-                log_queue=log_queue,
-                timestamp=timestamp,
-                cleaner=cleaner,
-            )
+            samples_ = hook_(samples=samples_)
         elif hook.condition == "complete" and (s := samples.complete):
-            samples = (
-                hook(
-                    samples=s,
-                    config=config,
-                    root=root,
-                    executor_cls=executor_cls,
-                    log_queue=log_queue,
-                    timestamp=timestamp,
-                    cleaner=cleaner,
-                )
-                | samples.failed
-            )
+            samples_ = hook_(samples=s) | samples_.failed
         elif hook.condition == "failed" and (s := samples.failed):
-            samples = (
-                hook(
-                    samples=s,
-                    config=config,
-                    root=root,
-                    executor_cls=executor_cls,
-                    log_queue=log_queue,
-                    timestamp=timestamp,
-                    cleaner=cleaner,
-                )
-                | samples.complete
-            )
+            samples_ = hook_(samples=s) | samples_.complete
 
-    return samples
+    return samples_
