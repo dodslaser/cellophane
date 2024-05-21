@@ -89,7 +89,11 @@ class Sample(_BASE):  # type: ignore[no-untyped-def]
             applied.
     """
 
-    id: str = field(kw_only=True)
+    id: str = field(
+        kw_only=True,
+        converter=str,
+        on_setattr=convert,
+    )
     files: list[Path] = field(
         factory=list,
         converter=convert_path_list,
