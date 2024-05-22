@@ -7,7 +7,7 @@ from functools import cache
 from logging.handlers import QueueHandler, QueueListener
 from multiprocessing import Queue
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from attrs import define
 from rich.logging import RichHandler
@@ -27,36 +27,41 @@ class ExternalFilter(logging.Filter):
     def _check_relative(path: Path, roots: tuple[Path, ...]) -> bool:
         return any(path.is_relative_to(r) for r in roots)
 
+def _showwarning(showwarning_orig: Callable) -> Callable:
+    def inner(
+        message: Warning | str,
+        category: type[Warning],
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
+        if category is not UserWarning:
+            showwarning_orig(message, category, *args, **kwargs)
+            return
 
-def _showwarning(
-    message: Warning | str,
-    category: type[Warning],
-    *args: Any,
-    **kwargs: Any,
-) -> None:
-    del args, kwargs  # unused
+        logger = logging.getLogger()
+        if isinstance(message, Warning):
+            message = message.args[0]
 
-    logger = logging.getLogger()
-    if isinstance(message, Warning):
-        message = message.args[0]
+        stack = inspect.stack()
 
-    stack = inspect.stack()
+        record = logger.makeRecord(
+            name=logger.name,
+            level=logging.WARNING,
+            fn=stack[2].filename,
+            lno=stack[2].lineno,
+            msg=message.args[0] if isinstance(message, Warning) else message,
+            func=stack[2].function,
+            args=(),
+            exc_info=None,
+        )
+        logger.handle(record)
 
-    record = logger.makeRecord(
-        name=logger.name,
-        level=logging.WARNING,
-        fn=stack[2].filename,
-        lno=stack[2].lineno,
-        msg=message.args[0] if isinstance(message, Warning) else message,
-        func=stack[2].function,
-        args=(),
-        exc_info=None,
-    )
-    logger.handle(record)
+    return inner
 
 
 def handle_warnings() -> None:
-    warnings.showwarning = _showwarning
+    _warnings_showwarning = warnings.showwarning
+    warnings.showwarning = _showwarning(_warnings_showwarning)
 
 
 def redirect_logging_to_queue(
