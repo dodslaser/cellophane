@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Callable, Literal, Sequence
 
 from graphlib import TopologicalSorter
-from mpire import WorkerPool
 
 from cellophane.src.cfg import Config
 from cellophane.src.cleanup import Cleaner
@@ -78,10 +77,10 @@ class Hook:
         logger = LoggerAdapter(getLogger(), {"label": self.label})
         logger.debug(f"Running {self.label} hook")
 
-        with WorkerPool(
-            use_dill=True,
-            daemon=False,
-        ) as pool:
+        with executor_cls(
+            config=config,
+            log_queue=log_queue,
+        ) as executor:
             match self.func(
                 samples=samples,
                 config=config,
@@ -89,11 +88,7 @@ class Hook:
                 logger=logger,
                 root=root,
                 workdir=config.workdir / config.tag,
-                executor=executor_cls(
-                    config=config,
-                    pool=pool,
-                    log_queue=log_queue,
-                ),
+                executor=executor,
                 cleaner=cleaner,
             ):
                 case returned if isinstance(returned, Samples):
@@ -104,8 +99,7 @@ class Hook:
                 case returned:
                     logger.warning(f"Unexpected return type {type(returned)}")
                     _ret = samples
-            pool.stop_and_join()
-            return _ret
+        return _ret
 
 def resolve_dependencies(
     hooks: list[Hook],

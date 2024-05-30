@@ -8,7 +8,7 @@ from mpire.async_result import AsyncResult
 from cellophane.src.executors.executor import Executor
 
 
-@define(slots=False)
+@define(slots=False, init=False)
 class MockExecutor(Executor, name="mock"):
     def __attrs_post_init__(self, *args: Any, **kwargs: Any) -> None:
         object.__setattr__(

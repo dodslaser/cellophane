@@ -14,11 +14,11 @@ from attrs import define, field
 from .executor import Executor
 
 
-@define(slots=False)
+@define(slots=False, init=False)
 class SubprocessExecutor(Executor, name="subprocess"):
     """Executor using multiprocessing."""
 
-    procs: dict[UUID, sp.Popen] = field(factory=dict, init=False)
+    pids: dict[UUID, int] = field(factory=dict, init=False)
 
     def target(
         self,
@@ -47,15 +47,15 @@ class SubprocessExecutor(Executor, name="subprocess"):
                 stderr=stderr,
                 start_new_session=True,
             )
-            self.procs[uuid] = proc
+            self.pids[uuid] = proc.pid
             logger.debug(f"Started process (pid={proc.pid})")
             returncode = proc.wait()
             logger.debug(f"Process (pid={proc.pid}) exited with code {returncode}")
             exit(returncode)
 
     def terminate_hook(self, uuid: UUID, logger: LoggerAdapter) -> int | None:
-        if uuid in self.procs:
-            proc = psutil.Process(self.procs[uuid].pid)
+        if uuid in self.pids:
+            proc = psutil.Process(self.pids[uuid])
             children = proc.children(recursive=True)
             logger.warning(f"Terminating process (pid={proc.pid})")
             proc.terminate()

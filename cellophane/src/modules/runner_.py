@@ -70,22 +70,11 @@ class Runner:
         logger = LoggerAdapter(getLogger(), {"label": self.label})
         cleaner = DeferredCleaner(root=workdir)
 
-        with WorkerPool(
-            daemon=False,
-            use_dill=True,
-        ) as pool:
-            executor_ = executor_cls(
-                config=config,
-                pool=pool,
-                log_queue=log_queue,
-            )
-            cleanup = partial(
-                _cleanup,
-                logger=logger,
-                executor=executor_,
-                samples=samples,
-            )
-
+        cleanup = partial(_cleanup, logger, samples, reason=None)
+        with executor_cls(
+            config=config,
+            log_queue=log_queue,
+        ) as executor:
             try:
                 match self.main(
                     samples=samples,
@@ -94,7 +83,7 @@ class Runner:
                     logger=logger,
                     root=root,
                     workdir=workdir,
-                    executor=executor_,
+                    executor=executor,
                     cleaner=cleaner,
                     checkpoints=Checkpoints(
                         samples=samples,
@@ -134,20 +123,17 @@ class Runner:
                 logger.warning(f"Unhandeled exception: {exc!r}", exc_info=exc)
                 cleanup(reason=f"Unhandeled exception in runner '{self.name}' {exc!r}")
 
-            else:
-                pool.stop_and_join()
+        _resolve_outputs(samples, workdir, config, logger)
+        for sample in samples.complete:
+            logger.debug(f"Sample {sample.id} processed successfully")
+        if n_failed := len(samples.failed):
+            logger.error(f"{n_failed} samples failed")
+            cleaner.unregister(workdir)
 
-            _resolve_outputs(samples, workdir, config, logger)
-            for sample in samples.complete:
-                logger.debug(f"Sample {sample.id} processed successfully")
-            if n_failed := len(samples.failed):
-                logger.error(f"{n_failed} samples failed")
-                cleaner.unregister(workdir)
+        for sample in samples.failed:
+            logger.debug(f"Sample {sample.id} failed - {sample.failed}")
 
-            for sample in samples.failed:
-                logger.debug(f"Sample {sample.id} failed - {sample.failed}")
-
-            return dumps(samples), cleaner
+        return dumps(samples), cleaner
 
 
 def _resolve_outputs(
@@ -175,7 +161,6 @@ def _resolve_outputs(
 
 def _cleanup(
     logger: LoggerAdapter,
-    executor: Executor,
     samples: Samples,
     reason: str,
 ) -> None:
@@ -184,8 +169,6 @@ def _cleanup(
     samples.output = set()
     for sample in samples:
         sample.fail(reason_)
-    logger.debug("Terminating executor")
-    executor.terminate()
     for proc in Process().children(recursive=True):
         try:
             logger.debug(f"Waiting for {proc.name()} ({proc.pid})")
@@ -257,8 +240,7 @@ def start_runners(
                     },
                 )
                 results.append(result)
-
-            pool.stop_and_join(keep_alive=True)
+            pool.stop_and_join()
         except KeyboardInterrupt:
             logger.critical("Received SIGINT, telling runners to shut down...")
             pool.terminate()

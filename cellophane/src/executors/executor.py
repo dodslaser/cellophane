@@ -2,46 +2,143 @@
 
 import logging
 import multiprocessing as mp
+import os
+import shlex
+import sys
+from contextlib import suppress
 from functools import partial
 from multiprocessing.synchronize import Lock
 from pathlib import Path
-from typing import Any, Callable, ClassVar
+from typing import Any, Callable, ClassVar, TypeVar
 from uuid import UUID, uuid4
 
 from attrs import define, field
 from mpire import WorkerPool
 from mpire.async_result import AsyncResult
+from mpire.exception import InterruptWorker
 
-from cellophane.src import cfg
+from cellophane.src import cfg, logs
 
-from .util import callback_wrapper, target_wrapper
+_LOCKS: dict[UUID, dict[UUID, Lock]] = {}
+_POOLS: dict[UUID, WorkerPool] = {}
 
 
-@define(slots=False)
+class ExecutorTerminatedError(Exception):
+    """Exception raised when trying to access a terminated executor."""
+
+
+T = TypeVar("T", bound="Executor")
+@define(slots=False, init=False)
 class Executor:
     """Executor base class."""
 
     name: ClassVar[str]
     config: cfg.Config
-    pool: WorkerPool
-    log_queue: mp.Queue
-    jobs: dict[UUID, AsyncResult] = field(factory=dict, init=False)
-    locks: dict[UUID, Lock] = field(factory=dict, init=False)
+    uuid: UUID = field(init=False)
 
     def __init_subclass__(cls, *args: Any, name: str, **kwargs: Any) -> None:
         """Register the class in the registry."""
         super().__init_subclass__(*args, **kwargs)
         cls.name = name or cls.__name__.lower()
 
-    def __attrs_post_init__(self) -> None:
-        self.pool.set_shared_objects(
-            (
-                self.log_queue,
-                self.config,
-                self.target,
-                self.terminate_hook,
-            )
+    def __init__(self, *args: Any, log_queue: mp.Queue, **kwargs: Any) -> None:
+        """Initialize the executor."""
+        self.__attrs_init__(*args, **kwargs)
+        self.uuid = uuid4()
+        _POOLS[self.uuid] = WorkerPool(
+            start_method="fork",
+            daemon=False,
+            use_dill=True,
+            shared_objects=log_queue,
         )
+
+    def __enter__(self: T) -> T:
+        """Enter the context manager."""
+        return self
+
+    def __exit__(self, *args: Any) -> None:
+        """Exit the context manager."""
+        self.terminate()
+
+    @property
+    def pool(self) -> WorkerPool:
+        """Return the worker pool."""
+        try:
+            return _POOLS[self.uuid]
+        except KeyError as exc:
+            raise ExecutorTerminatedError() from exc
+
+    @property
+    def locks(self) -> dict[UUID, Lock]:
+        if self.uuid not in _LOCKS:
+            _LOCKS[self.uuid] = {}
+        return _LOCKS[self.uuid]
+
+
+    def _callback(
+        self,
+        result: Any,
+        fn: Callable | None,
+        msg: str,
+        logger: logging.LoggerAdapter,
+        lock: Lock,
+    ) -> None:
+        """Callback function for the executor."""
+        logger.debug(msg)
+        try:
+            (fn or (lambda _: ...))(result)
+        except Exception as exc:  # pylint: disable=broad-except
+            logger.error(f"Callback failed: {exc!r}")
+        lock.release()
+
+    def _target(
+        self,
+        log_queue: mp.Queue,
+        *args: str | Path,
+        name: str,
+        uuid: UUID,
+        workdir: Path | None,
+        env: dict[str, str],
+        os_env: bool,
+        cpus: int,
+        memory: int,
+        config: cfg.Config,
+    ) -> None:
+        """Target function for the executor."""
+        sys.stdout = sys.stderr = open(os.devnull, "w", encoding="utf-8")
+        logs.redirect_logging_to_queue(log_queue)
+        logs.handle_warnings()
+        logger = logging.LoggerAdapter(logging.getLogger(), {"label": name})
+
+        _workdir = workdir or config.workdir / uuid.hex
+        _workdir.mkdir(parents=True, exist_ok=True)
+
+        try:
+            self.target(
+                *(word for arg in args for word in shlex.split(str(arg))),
+                name=name,
+                uuid=uuid,
+                workdir=_workdir,
+                env={k: str(v) for k, v in env.items()} if env else {},
+                os_env=os_env,
+                cpus=cpus or config.executor.cpus,
+                memory=memory or config.executor.memory,
+                config=config,
+                logger=logger,
+            )
+        except InterruptWorker as exc:
+            logger.debug(f"Terminating job with uuid {uuid}")
+            code = self.terminate_hook(uuid, logger)
+            raise SystemExit(code or 143) from exc
+        except SystemExit as exc:
+            if exc.code != 0:
+                logger.warning(f"Command failed with exit code: {exc.code}")
+                self.terminate_hook(uuid, logger)
+                raise exc
+        except Exception as exc:  # pylint: disable=broad-except
+            logger.warning(f"Command failed with exception: {exc!r}")
+            self.terminate_hook(uuid, logger)
+            raise SystemExit(1) from exc
 
     def target(
         self,
@@ -51,9 +148,10 @@ class Executor:
         workdir: Path,
         env: dict,
         os_env: bool,
-        logger: logging.LoggerAdapter,
         cpus: int,
         memory: int,
+        config: cfg.Config,
+        logger: logging.LoggerAdapter,
     ) -> int | None:  # pragma: no cover
         """
         Will be called by the executor to execute a command.
@@ -80,7 +178,7 @@ class Executor:
             NotImplementedError: If the target execution is not implemented.
         """
         # Exluded from coverage as this is a stub method.
-        del name, uuid, workdir, env, os_env, logger, cpus, memory  # Unused
+        del name, uuid, workdir, env, os_env, cpus, memory, config, logger  # Unused
         raise NotImplementedError
 
     def submit(
@@ -136,11 +234,12 @@ class Executor:
         self.locks[_uuid].acquire()
 
         result = self.pool.apply_async(
-            func=target_wrapper,
+            func=self._target,
+            args=args,
             kwargs={
                 "uuid": _uuid,
                 "name": name,
-                "args": args,
+                "config": self.config,
                 "workdir": workdir,
                 "env": env,
                 "os_env": os_env,
@@ -148,25 +247,22 @@ class Executor:
                 "memory": memory,
             },
             callback=partial(
-                callback_wrapper,
+                self._callback,
                 fn=callback,
                 msg=f"Job completed: {_uuid}",
                 logger=logger,
                 lock=self.locks[_uuid],
             ),
             error_callback=partial(
-                callback_wrapper,
+                self._callback,
                 fn=error_callback,
                 msg=f"Job failed: {_uuid}",
                 logger=logger,
                 lock=self.locks[_uuid],
             ),
         )
-        self.jobs[_uuid] = result
-
         if wait:
-            result.wait()
-            self.locks[_uuid].acquire()
+            self.wait(_uuid)
 
         return result, _uuid
 
@@ -185,10 +281,11 @@ class Executor:
 
     def terminate(self) -> None:
         """Terminate all jobs."""
-        self.pool.terminate()
-        for lock in self.locks.values():
-            lock.acquire()
-            lock.release()
+        with suppress(ExecutorTerminatedError):
+            self.pool.terminate()
+            self.pool.stop_and_join()
+            del _POOLS[self.uuid]
+        self.wait()
 
     def wait(self, uuid: UUID | None = None) -> None:
         """Wait for a specific job or all jobs to complete.
@@ -199,12 +296,10 @@ class Executor:
         Returns:
             None
         """
-        if uuid in self.jobs:
-            self.jobs[uuid].wait()
+        if uuid is None:
+            for uuid_ in [*self.locks]:
+                self.wait(uuid_)
+        elif uuid in self.locks:
             self.locks[uuid].acquire()
             self.locks[uuid].release()
-        elif uuid is None:
-            self.pool.stop_and_join(keep_alive=True)
-            for uuid, lock in self.locks.items():
-                lock.acquire()
-                lock.release()
+            del self.locks[uuid]

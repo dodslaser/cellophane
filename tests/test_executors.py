@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Generator
 from unittest.mock import MagicMock
 
-from mpire import WorkerPool
 from pytest import LogCaptureFixture, fixture, raises
 from pytest_mock import MockerFixture
 
@@ -23,15 +22,8 @@ def spe(tmp_path: Path) -> Generator[executors.SubprocessExecutor, None, None]:
 
     log_queue, log_listener = logs.start_logging_queue_listener()
 
-    with WorkerPool(
-        daemon=False,
-        use_dill=True,
-    ) as pool:
-        yield executors.SubprocessExecutor(
-            config=config,  # type: ignore[arg-type]
-            pool=pool,
-            log_queue=log_queue,
-        )
+    with executors.SubprocessExecutor(config=config, log_queue=log_queue) as executor:
+        yield executor
 
     log_listener.stop()
 

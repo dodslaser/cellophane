@@ -3,20 +3,18 @@ structure:
     dummy.py: |
       from cellophane import pre_hook, runner, Executor, executors
 
-      class TestExecutor(Executor, name="DUMMY"):
-          def target(**_):
-              pass
-
       @pre_hook()
       def runner_a(logger, samples, executor, **_):
           logger.info(f"HOOK - {executor.name=}")
           logger.info(f"HOOK - {executors.EXECUTOR.name=}")
+          executor.submit("ping localhost -c 1", wait=True)
           return samples
-      
+
       @runner()
       def runner_b(logger, samples, executor, **_):
           logger.info(f"RUNNER - {executor.name=}")
           logger.info(f"RUNNER - {executors.EXECUTOR.name=}")
+          executor.submit("ping localhost -c 1", wait=True)
           return samples
 
   samples.yaml: |
@@ -28,13 +26,12 @@ structure:
 
 args:
   --samples_file: samples.yaml
-  --executor_name: DUMMY
   --workdir: out
 
 logs:
-- Using DUMMY executor
-- HOOK - executor.name='DUMMY'
-- HOOK - executors.EXECUTOR.name='DUMMY'
-- RUNNER - executor.name='DUMMY'
-- RUNNER - executors.EXECUTOR.name='DUMMY'
+- Using subprocess executor
+- HOOK - executor.name='subprocess'
+- HOOK - executors.EXECUTOR.name='subprocess'
+- RUNNER - executor.name='subprocess'
+- RUNNER - executors.EXECUTOR.name='subprocess'
 exception: null
