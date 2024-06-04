@@ -1,7 +1,7 @@
 """Flag class for command-line options."""
 
 from functools import partial
-from typing import Any, Callable, SupportsFloat, SupportsInt, Type, get_args
+from typing import Any, Callable, SupportsFloat, Type, get_args
 
 import rich_click as click
 from attrs import define, field, setters
@@ -18,9 +18,6 @@ from .click_ import (
     click_type,
 )
 
-
-def _convert_int(value: SupportsInt | None) -> int | None:
-    return int(value) if value is not None else None
 
 def _convert_float(value: SupportsFloat | None) -> float | None:
     return float(value) if value is not None else None
@@ -57,26 +54,25 @@ class Flag:
     items_format: FORMATS | None = field(default=None)
     items_min: int | None = field(
         default=None,
-        converter=_convert_int,
+        converter=_convert_float,
         on_setattr=setters.convert,
     )
     items_max: int | None = field(
         default=None,
-        converter=_convert_int,
+        converter=_convert_float,
         on_setattr=setters.convert,
     )
     format: FORMATS | None = field(default=None)
     min: int | None = field(
         default=None,
-        converter=_convert_int,
+        converter=_convert_float,
         on_setattr=setters.convert,
     )
     max: int | None = field(
         default=None,
-        converter=_convert_int,
+        converter=_convert_float,
         on_setattr=setters.convert,
     )
-    _key: tuple[str, ...] | None = field(default=None)
     description: str | None = field(default=None)
     default: Any = field(default=None)
     value: Any = field(default=None)
