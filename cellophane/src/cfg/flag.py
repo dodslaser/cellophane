@@ -49,6 +49,7 @@ class Flag:
         ```
     """
 
+    key: tuple[str, ...] =field(converter=tuple, on_setattr=setters.convert)
     type: SCHEMA_TYPES | None = field(default=None)
     items_type: ITEMS_TYPES | None = field(default=None)
     items_format: FORMATS | None = field(default=None)
@@ -111,30 +112,6 @@ class Flag:
             _converter = self.click_type
 
         return _converter(value)
-
-    @property
-    def key(self) -> tuple[str, ...]:
-        """
-        Retrieves the key.
-
-        Returns:
-            list[str]: The key.
-
-        Raises:
-            ValueError: Raised when the key is not set.
-        """
-        if not self._key:
-            raise ValueError("Key not set")
-        return self._key
-
-    @key.setter
-    def key(self, value: list[str] | tuple[str]) -> None:
-        if not isinstance(value, (list, tuple)) or not all(
-            isinstance(v, str) for v in value
-        ):
-            raise ValueError(f"Invalid key: {value}")
-
-        self._key = tuple(value)
 
     @property
     def click_type(

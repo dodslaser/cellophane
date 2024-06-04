@@ -34,15 +34,15 @@ NullValidator = create(
 
 def _uptate_validators(
     validators: dict[str, Callable],
-    flags: dict | None = None,
     compiled: dict | None = None,
+    _path: tuple[str, ...] | None = None,
 ) -> None:
     for _validator in validators.values():
         if isinstance(_validator, partial):
-            if "flags" in _validator.keywords:
-                _validator.keywords.update({"flags": flags})
             if "compiled" in _validator.keywords:
                 _validator.keywords.update({"compiled": compiled})
+            if "_path" in _validator.keywords:
+                _validator.keywords.update({"_path": _path})
 
 
 def properties_(
@@ -50,8 +50,9 @@ def properties_(
     properties: dict[str, dict],
     instance: dict,
     schema: dict,
-    flags: dict | None = None,
+    flags: dict[tuple[str, ...], Flag] | None = None,
     compiled: dict | None = None,
+    _path: tuple[str, ...] | None = None
 ) -> Generator:
     """Iterate over the properties of a JSON schema and yield validation results.
 
@@ -80,21 +81,18 @@ def properties_(
         ...     print(result)
     """
     for prop, subschema in properties.items():
-        _instance = instance or {}
-        _required = prop in schema.get("required", []) and instance is not None
+        instance_ = instance or {}
+        required = prop in schema.get("required", []) and instance is not None
 
         if "properties" in subschema and subschema.get("type") != "mapping":
-            if flags is not None:
-                flags[prop] = flags.get(prop, {})
-
             _uptate_validators(
                 validator.VALIDATORS,
-                flags=(flags or {}).get(prop),
                 compiled=(compiled or {}).get("properties", {}).get(prop),
+                _path=(*(_path or ()), prop),
             )
 
             yield from validator.descend(
-                _instance.get(prop, {} if _required else None),
+                instance_.get(prop, {} if required else None),
                 subschema,
                 path=prop,
                 schema_path=prop,
@@ -102,12 +100,14 @@ def properties_(
 
             _uptate_validators(
                 validator.VALIDATORS,
-                flags=flags,
                 compiled=compiled,
+                _path=_path,
             )
         elif flags is not None and "properties" not in subschema:
+            key = (*(_path or ()), prop)
             _flag_kwargs = {
-                "value": _instance.get(prop),
+                "key": (_path or ()) + (prop,),
+                "value": instance_.get(prop),
                 "type": subschema.get("type"),
                 "enum": subschema.get("enum"),
                 "description": subschema.get("description"),
@@ -120,17 +120,18 @@ def properties_(
                 "min": subschema.get("minimum"),
                 "max": subschema.get("maximum"),
             }
-            if prop in flags:
+            if key in flags:
                 for k, v in _flag_kwargs.items():
-                    setattr(flags[prop], k, v)
+                    setattr(flags[key], k, v)
             else:
-                flags[prop] = Flag(**_flag_kwargs)
+                flag = Flag(**_flag_kwargs)
+                flags[key] = flag
 
             if (default := subschema.get("default")) is not None:
                 try:
-                    flags[prop].default = flags[prop].convert(default)
+                    flags[key].default = flags[key].convert(default)
                 except Exception:  # pylint: disable=broad-except
-                    flags[prop].default = default
+                    flags[key].default = default
 
 
 def required_(
@@ -138,7 +139,8 @@ def required_(
     required: list[str],
     instance: dict,
     schema: dict,
-    flags: dict,
+    flags: dict[tuple[str, ...], Flag],
+    _path: tuple[str, ...] | None = None,
 ) -> None:
     """Mark required flags as required"""
     del validator  # Unused
@@ -151,22 +153,23 @@ def required_(
                 or "properties" in subschema
                 or prop in instance
             ):
-                flags[prop] = flags.get(prop, Flag())
-                flags[prop].required = True
-
+                key = (*(_path or ()), prop)
+                flags[key] = flags.get(key, Flag(key=key))
+                flags[key].required = True
 
 def dependent_required_(
     validator: Draft7Validator,
     dependencies: dict[str, list[str]],
     instance: dict,
     schema: dict,
-    flags: dict,
+    flags: dict[tuple[str, ...], Flag],
+    _path: tuple[str, ...] | None = None,
 ) -> None:
     """Mark dependent flags as required"""
     if instance is not None:
         for dep, req in dependencies.items():
             if dep in instance:
-                required_(validator, req, instance, schema, flags)
+                required_(validator, req, instance, schema, flags, _path)
 
 
 def dependent_schemas_(
@@ -180,12 +183,12 @@ def dependent_schemas_(
     del validator, schema  # Unused
 
     if instance is None:
-        _subschema = reduce(util.merge_mappings, dependencies.values())
-    elif _valid := [s for d, s in dependencies.items() if d in instance]:
-        _subschema = reduce(util.merge_mappings, _valid)
+        subschema = reduce(util.merge_mappings, dependencies.values())
+    elif valid := [s for d, s in dependencies.items() if d in instance]:
+        subschema = reduce(util.merge_mappings, valid)
     else:
-        _subschema = {}
-    compiled |= util.merge_mappings(compiled, _subschema)
+        subschema = {}
+    compiled |= util.merge_mappings(compiled, subschema)
     compiled.pop("dependentSchemas")
 
 
@@ -198,8 +201,8 @@ def all_of_(
 ) -> None:
     """Merge all subschemas into the compiled schema"""
     del validator, instance, schema  # Unused
-    _subschema = reduce(util.merge_mappings, all_of)
-    compiled |= util.merge_mappings(compiled, _subschema)
+    subschema = reduce(util.merge_mappings, all_of)
+    compiled |= util.merge_mappings(compiled, subschema)
     compiled.pop("allOf")
 
 
@@ -214,13 +217,13 @@ def any_of_(
     del validator, schema  # Unused
 
     if instance is None:
-        _subschema = reduce(util.merge_mappings, any_of)
+        subschema = reduce(util.merge_mappings, any_of)
     elif _valid := [s for s in any_of if BaseValidator(s).is_valid(instance)]:
-        _subschema = reduce(util.merge_mappings, _valid)
+        subschema = reduce(util.merge_mappings, _valid)
     else:
-        _subschema = {}
+        subschema = {}
 
-    compiled |= util.merge_mappings(compiled, _subschema)
+    compiled |= util.merge_mappings(compiled, subschema)
     compiled.pop("anyOf")
 
 
@@ -235,14 +238,14 @@ def one_of_(
     del validator, schema  # Unused
 
     if instance is None:
-        _subschema = reduce(util.merge_mappings, one_of)
+        subschema = reduce(util.merge_mappings, one_of)
     else:
         try:
-            _subschema = next(s for s in one_of if BaseValidator(s).is_valid(instance))
+            subschema = next(s for s in one_of if BaseValidator(s).is_valid(instance))
         except StopIteration:
-            _subschema = {}
+            subschema = {}
 
-    compiled |= util.merge_mappings(compiled, _subschema)
+    compiled |= util.merge_mappings(compiled, subschema)
     compiled.pop("oneOf")
 
 
@@ -257,13 +260,13 @@ def if_(
     del validator  # Unused
 
     if instance is None:
-        _subschema = util.merge_mappings(schema.get("then", {}), schema.get("else", {}))
+        subschema = util.merge_mappings(schema.get("then", {}), schema.get("else", {}))
     elif BaseValidator(if_schema).is_valid(instance):
-        _subschema = schema.get("then", {})
+        subschema = schema.get("then", {})
     else:
-        _subschema = schema.get("else", {})
+        subschema = schema.get("else", {})
 
-    compiled |= util.merge_mappings(compiled, _subschema)
+    compiled |= util.merge_mappings(compiled, subschema)
     compiled.pop("if")
 
 @singledispatch
@@ -275,12 +278,12 @@ def get_flags(schema: data.Container, _data: Mapping | None = None) -> list[Flag
 @get_flags.register
 @cache
 def _(schema: frozendict, _data: frozendict | None = None) -> list[Flag]:
-    _data_thawed = util.unfreeze(_data)
-    _schema_thawed = util.unfreeze(schema)
-    _flags_mapping: dict = {}
+    data_thawed = util.unfreeze(_data)
+    schema_thawed = util.unfreeze(schema)
+    flags: dict[tuple[str, ...], Flag] = {}
 
     while any(
-        keyword in (kw for node in util.map_nested_keys(_schema_thawed) for kw in node)
+        keyword in (kw for node in util.map_nested_keys(schema_thawed) for kw in node)
         for keyword in [
             "if",
             "anyOf",
@@ -289,36 +292,29 @@ def _(schema: frozendict, _data: frozendict | None = None) -> list[Flag]:
             "dependentSchemas",
         ]
     ):
-        _compiled = deepcopy(_schema_thawed)
-        _compile_conditional = extend(
+        compiled = deepcopy(schema_thawed)
+        compile_conditional = extend(
             NullValidator,
             validators={
-                "properties": partial(properties_, compiled=_compiled),
-                "if": partial(if_, compiled=_compiled),
-                "anyOf": partial(any_of_, compiled=_compiled),
-                "oneOf": partial(one_of_, compiled=_compiled),
-                "allOf": partial(all_of_, compiled=_compiled),
-                "dependentSchemas": partial(dependent_schemas_, compiled=_compiled),
+                "properties": partial(properties_, compiled=compiled),
+                "if": partial(if_, compiled=compiled),
+                "anyOf": partial(any_of_, compiled=compiled),
+                "oneOf": partial(one_of_, compiled=compiled),
+                "allOf": partial(all_of_, compiled=compiled),
+                "dependentSchemas": partial(dependent_schemas_, compiled=compiled),
             },
         )
 
-        _compile_conditional(_schema_thawed).validate(_data_thawed)
-        _schema_thawed = _compiled
+        compile_conditional(schema_thawed).validate(data_thawed)
+        schema_thawed = compiled
 
     extend(
         NullValidator,
         validators={
-            "required": partial(required_, flags=_flags_mapping),
-            "dependentRequired": partial(dependent_required_, flags=_flags_mapping),
-            "properties": partial(properties_, flags=_flags_mapping),
+            "required": partial(required_, flags=flags, _path=None),
+            "dependentRequired": partial(dependent_required_, flags=flags, _path=None),
+            "properties": partial(properties_, flags=flags, _path=None),
         },
-    )(_schema_thawed).validate(_data_thawed)
+    )(schema_thawed).validate(data_thawed)
 
-    _flags: list[Flag] = []
-    _container = data.Container(_flags_mapping)
-    for key in util.map_nested_keys(_flags_mapping):
-        _flag = _container[key]
-        _flag.key = key
-        _flags.append(_flag)
-
-    return _flags
+    return [*flags.values()]

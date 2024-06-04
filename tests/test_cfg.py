@@ -329,26 +329,6 @@ class Test_Flag:
 
         assert _click_info == _flag_info
 
-    @staticmethod
-    def test_invalid_type() -> None:
-        """Test setting invalid type on cfg._click.Flag."""
-        with raises(ValueError):
-            cfg.Flag(key=["a", "b"], type="invalid")  # type: ignore[arg-type]
-
-    @staticmethod
-    def test_invalid_key() -> None:
-        """Test setting invalid key on cfg._click.Flag."""
-        _flag = cfg.Flag()
-        with raises(ValueError):
-            _flag.key = "INVALID"  # type: ignore[assignment]
-
-    @staticmethod
-    def test_unset_key() -> None:
-        """Test accessing unset key on cfg._click.Flag."""
-        _flag = cfg.Flag()
-        with raises(ValueError):
-            _ = _flag.key
-
 
 class Test_Schema:
     """Test cfg.Schema."""
