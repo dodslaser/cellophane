@@ -10,7 +10,7 @@ from typing import Any
 
 import rich_click as click
 from humanfriendly import format_timespan
-from ruamel.yaml.scanner import ScannerError
+from ruamel.yaml.error import YAMLError
 
 from cellophane.src import executors
 from cellophane.src.cfg import Config, Schema, with_options
@@ -65,7 +65,7 @@ def cellophane(label: str, root: Path) -> click.Command:
                 *(root / "modules").glob("*/schema.yaml"),
             ],
         )
-    except ScannerError as exc:
+    except YAMLError as exc:
         logger.critical(f"Failed to load schema: {exc!r}")
         raise SystemExit(1) from exc
 
