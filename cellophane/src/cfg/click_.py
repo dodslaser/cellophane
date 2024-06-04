@@ -156,10 +156,6 @@ class StringMapping(InvertibleParamType):
             print(result)  # {'a': '1', 'b': '2'}
             ```
         """
-
-        if not value:
-            return data.PreservedDict()
-
         if isinstance(value, Mapping):
             return data.PreservedDict(value)
 

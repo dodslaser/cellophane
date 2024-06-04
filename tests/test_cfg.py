@@ -449,10 +449,6 @@ class Test__get_flags:
 class Test_Config:
     """Test cfg.Config."""
 
-    def test_empty(self) -> None:
-        """Test empty cfg.Config."""
-        assert raises(ValueError, cfg.Config, {})
-
     @staticmethod
     @mark.parametrize(
         "definition",

@@ -50,14 +50,10 @@ class Config(data.Container):
     def __init__(
         self,
         schema: Schema,
-        allow_empty: bool = False,
         _data: dict | None = None,
         include_defaults: bool = True,
         **kwargs: Any,
     ) -> None:
-        if not _data and not kwargs and not allow_empty:
-            raise ValueError("Empty configuration")
-
         self.__schema__ = schema
 
         for flag in get_flags(schema, _data):
