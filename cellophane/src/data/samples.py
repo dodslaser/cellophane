@@ -4,10 +4,9 @@ from collections import UserList
 from contextlib import suppress
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, ClassVar, Iterable, Literal, Sequence, TypeVar, overload
+from typing import Any, ClassVar, Iterable, Literal, Sequence, TypeVar, overload, Union
 from uuid import UUID, uuid4
-
-from attrs import define, field, fields_dict, has, make_class
+from attrs import define, field, fields_dict, make_class
 from attrs.setters import convert, frozen
 from ruamel.yaml import YAML
 
@@ -19,15 +18,11 @@ from .output import Output, OutputGlob
 from .util import convert_path_list
 
 
-class _BASE:
-    """Dummy base class for adding mixins to the Sample and Samples classes."""
-
-
 @overload
 def _apply_mixins(
     cls: type["Samples"],
-    base: type,
     mixins: Sequence[type["Samples"]],
+    **kwargs: Any,
 ) -> type["Samples"]:
     pass  # pragma: no cover
     # Excluded from coverage because this overload is only used internally
@@ -36,17 +31,21 @@ def _apply_mixins(
 @overload
 def _apply_mixins(
     cls: type["Sample"],
-    base: type,
     mixins: Sequence[type["Sample"]],
+    **kwargs: Any,
 ) -> type["Sample"]:
     pass  # pragma: no cover
     # Excluded from coverage because this overload is only used internally
 
 
 def _apply_mixins(
-    cls: type, base: type, mixins: Sequence[type], name: str | None = None
+    cls: type,
+    mixins: Sequence[type],
+    **kwargs: Any,
 ) -> type:
     name_ = cls.__name__
+    if not mixins:
+        return cls
 
     mixins_ = []
     for mixin in mixins:
@@ -56,23 +55,56 @@ def _apply_mixins(
                 "(use @define(slots=False) and don't set __slots__ in the class body)"
             )
         name_ += f"_{mixin.__name__}"
-        mixin_copy = type(mixin.__name__, (base,), dict(mixin.__dict__))
-        mixin_copy.__module__ = "__main__"
-        if not has(mixin_copy):
-            mixin_copy = define(mixin_copy, slots=False)
+        if "__attrs_attrs__" not in mixin.__dict__:
+            mixin = define(mixin, slots=False)
 
-        mixins_.append(mixin_copy)
+        mixins_.append(mixin)
 
-    _cls = make_class(name or name_, (), (cls, *mixins_), slots=False)
-    _cls.__module__ = "__main__"
+    cls_ = make_class(name_, (), (*mixins_,), slots=False)
+    cls_._mixins = (*mixins,)  # type: ignore[attr-defined]
+    for k, v in kwargs.items():
+        setattr(cls_, k, v)
+    return cls_
 
-    return _cls
+
+@overload
+def _reconstruct(
+    cls: type["Samples"],
+    mixins: Sequence[type["Samples"]],
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+    state: dict[str, Any],
+    cls_kwargs: dict[str, Any] | None = None,
+) -> "Samples": ...
 
 
-S = TypeVar("S", bound="Sample")
+@overload
+def _reconstruct(
+    cls: type["Sample"],
+    mixins: Sequence[type["Sample"]],
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+    state: dict[str, Any],
+    cls_kwargs: dict[str, Any] | None = None,
+) -> "Sample": ...
+
+
+def _reconstruct(
+    cls: type,
+    mixins: Sequence[type],
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+    state: dict[str, Any],
+    cls_kwargs: dict[str, Any] | None = None,
+) -> Union["Sample", "Samples"]:
+    cls_ = _apply_mixins(cls, mixins, **(cls_kwargs or {}))
+    instance = cls_(*args, **kwargs)
+    instance.__setstate__(state)
+    return instance
+
 
 @define(slots=False)
-class Sample(_BASE):  # type: ignore[no-untyped-def]
+class Sample:  # type: ignore[no-untyped-def]
     """
     Base sample class represents a sample with an ID, a list of files, a flag indicating
     if it's done, and a list of Output objects.
@@ -90,9 +122,9 @@ class Sample(_BASE):  # type: ignore[no-untyped-def]
     """
 
     id: str = field(
-        kw_only=True,
         converter=str,
         on_setattr=convert,
+        kw_only=True,
     )
     files: list[Path] = field(
         factory=list,
@@ -113,6 +145,7 @@ class Sample(_BASE):  # type: ignore[no-untyped-def]
     )
     _fail: str | None = field(default=None, repr=False)
     merge: ClassVar[Merger] = Merger()
+    _mixins: ClassVar[tuple[type["Sample"], ...]] = ()
 
     def __str__(self) -> str:
         return self.id
@@ -125,6 +158,38 @@ class Sample(_BASE):  # type: ignore[no-untyped-def]
             setattr(self, key, value)
         else:
             raise KeyError(f"Sample has no attribute '{key}'")
+
+    def __getstate__(self) -> dict[str, Any]:
+        return {k: getattr(self, k) for k in fields_dict(self.__class__)}
+
+    def __setstate__(self, state: dict[str, Any]) -> None:
+        for k, v in state.items():
+            object.__setattr__(self, k, v)
+
+    def __reduce__(self) -> str | tuple[Any, ...]:
+        state = self.__getstate__()
+        args = ()
+        kwargs = {"id": state.pop("id")}
+        return (_reconstruct, (Sample, self._mixins, args, kwargs, state))
+
+    def __and__(self, other: "Sample") -> "Sample":
+        if self.uuid != other.uuid:
+            raise MergeSamplesUUIDError
+
+        _sample = deepcopy(self)
+        for _field in (
+            f for f in fields_dict(self.__class__) if f not in ["id", "uuid"]
+        ):
+            setattr(
+                _sample,
+                _field,
+                self.merge(
+                    _field,
+                    self.__getattribute__(_field),
+                    other.__getattribute__(_field),
+                ),
+            )
+        return _sample
 
     @merge.register("files")
     @staticmethod
@@ -145,28 +210,6 @@ class Sample(_BASE):  # type: ignore[no-untyped-def]
     @staticmethod
     def _merge_done(this: bool | None, that: bool | None) -> bool | None:
         return this and that
-
-    def __and__(self, other: "Sample") -> "Sample":
-        if self.__class__ != other.__class__:
-            raise MergeSamplesTypeError
-
-        if self.uuid != other.uuid:
-            raise MergeSamplesUUIDError
-
-        _sample = deepcopy(self)
-        for _field in (
-            f for f in fields_dict(self.__class__) if f not in ["id", "uuid"]
-        ):
-            setattr(
-                _sample,
-                _field,
-                self.merge(
-                    _field,
-                    self.__getattribute__(_field),
-                    other.__getattribute__(_field),
-                ),
-            )
-        return _sample
 
     def fail(self, reason: str) -> None:
         """
@@ -198,7 +241,10 @@ class Sample(_BASE):  # type: ignore[no-untyped-def]
         Returns:
             type: The new class with the mixins applied.
         """
-        return _apply_mixins(cls, _BASE, mixins)
+        return _apply_mixins(cls, mixins)
+
+
+S = TypeVar("S", bound="Sample")
 
 
 @define(slots=False, order=False, init=False)
@@ -226,6 +272,7 @@ class Samples(UserList[S]):
     output: set[Output | OutputGlob] = field(
         factory=set, converter=set, on_setattr=convert
     )
+    _mixins: ClassVar[tuple[type["Samples"], ...]] = ()
 
     def __init__(self, data: list | None = None, /, **kwargs: Any) -> None:
         self.__attrs_init__(**kwargs)  # pylint: disable=no-member
@@ -259,6 +306,41 @@ class Samples(UserList[S]):
         else:
             return super().__contains__(item)
 
+    def __str__(self) -> str:
+        return "\n".join([str(s) for s in self])
+
+    def __getstate__(self) -> dict[str, Any]:
+        return {k: getattr(self, k) for k in fields_dict(self.__class__)}
+
+    def __setstate__(self, state: dict[str, Any]) -> None:
+        for k, v in state.items():
+            object.__setattr__(self, k, v)
+
+    def __reduce__(self) -> str | tuple[Any, ...]:
+        state = self.__getstate__()
+        args = ()
+        kwargs: dict[str, Any] = {}
+        cls_kwargs = {"sample_class": self.sample_class}
+        return (_reconstruct, (Samples, self._mixins, args, kwargs, state, cls_kwargs))
+
+    def __or__(self, other: "Samples") -> "Samples":
+        if self.__class__ != other.__class__:
+            raise MergeSamplesTypeError
+
+        samples = deepcopy(self)
+        for sample in other:
+            samples[sample.uuid] = sample
+
+        return samples
+
+    def __and__(self, other: "Samples") -> "Samples":
+        samples = deepcopy(self)
+        for field_ in fields_dict(self.__class__):
+            self_ = getattr(self, field_)
+            other_ = getattr(other, field_)
+            setattr(samples, field_, self.merge(field_, self_, other_))
+        return samples
+
     @merge.register("data")
     @staticmethod
     def _merge_data(this: list[Sample], that: list[Sample]) -> list[Sample]:
@@ -270,9 +352,7 @@ class Samples(UserList[S]):
             with suppress(StopIteration):
                 that_ = next(s for s in that if s.uuid == uuid)
             data.append(
-                this_ & that_
-                if this_ and that_
-                else this_ or that_  # type: ignore[arg-type]
+                this_ & that_ if this_ and that_ else this_ or that_  # type: ignore[arg-type]
             )
             # arg-type can be ignored because uuid is guaranteed
             # to be in at least one of the lists
@@ -312,8 +392,7 @@ class Samples(UserList[S]):
         Returns:
             type: The new class with the mixins applied.
         """
-
-        return _apply_mixins(cls, UserList, mixins)
+        return _apply_mixins(cls, mixins, sample_class=cls.sample_class)
 
     @classmethod
     def with_sample_class(cls, sample_class: type["Sample"]) -> type["Samples"]:
@@ -471,40 +550,3 @@ class Samples(UserList[S]):
             Class: A new instance of the class with only the failed samples.
         """
         return self.__class__([sample for sample in self if sample.failed])
-
-    def __str__(self) -> str:
-        return "\n".join([str(s) for s in self])
-
-    def __setstate__(self, state: dict) -> None:
-        for k, v in state.items():
-            self.__setattr__(k, v)
-
-    def __reduce__(self) -> str | tuple[Any, ...]:
-        return (
-            self.__class__,
-            (self.data,),
-            {k: self.__getattribute__(k) for k in fields_dict(self.__class__)},
-        )
-
-    def __or__(self, other: "Samples") -> "Samples":
-        if self.__class__ != other.__class__:
-            raise MergeSamplesTypeError
-
-        samples = deepcopy(self)
-        for sample in other:
-            samples[sample.uuid] = sample
-
-        return samples
-
-    def __and__(self, other: "Samples") -> "Samples":
-        if self.__class__ != other.__class__:
-            raise MergeSamplesTypeError
-
-        samples = deepcopy(self)
-        for field_ in fields_dict(self.__class__):
-            setattr(
-                samples,
-                field_,
-                self.merge(field_, getattr(self, field_), getattr(other, field_)),
-            )
-        return samples

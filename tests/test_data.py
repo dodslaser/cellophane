@@ -5,7 +5,6 @@ from copy import deepcopy
 from pathlib import Path
 from typing import ClassVar, Generator
 
-import cloudpickle
 import dill
 from attrs import define, field
 from pytest import FixtureRequest, MonkeyPatch, fixture, mark, param, raises
@@ -160,13 +159,10 @@ class Test_Sample:
         _sample_a2 = _SampleSubA(id="a2", files=["a2"])
         _sample_a1_2 = deepcopy(_sample_a1)
         _sample_a1_2.files = [Path("a1_2")]
-        _sample_b = _SampleSubB(id="b", files=["d"])
 
         _sample_a1_merge = _sample_a1 & _sample_a1_2
 
         assert _sample_a1_merge.files == [Path("a1"), Path("a1_2")]
-        with raises(data.MergeSamplesTypeError):
-            _sample_a1 & _sample_b
         with raises(data.MergeSamplesUUIDError):
             _sample_a1 & _sample_a2
 
@@ -349,8 +345,8 @@ class Test_Samples:
     @staticmethod
     def test_pickle(samples: data.Samples[data.Sample]) -> None:
         """Test pickling."""
-        _samples_pickle = cloudpickle.dumps(samples)
-        _samples_unpickle = cloudpickle.loads(_samples_pickle)
+        _samples_pickle = dill.dumps(samples)
+        _samples_unpickle = dill.loads(_samples_pickle)
 
         assert samples == _samples_unpickle
 
@@ -422,17 +418,7 @@ class Test_Samples:
             ]
         )
 
-        _samples_b = _SamplesSubB(
-            [
-                data.Sample(id="b1", files=["b1"]),
-                data.Sample(id="b2", files=["b2"]),
-            ]
-        )
-
         assert _samples_a1 & _samples_a2
-
-        with raises(data.MergeSamplesTypeError):
-            _samples_a1 & _samples_b
 
     @staticmethod
     def test_or() -> None:

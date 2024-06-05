@@ -6,7 +6,6 @@ from multiprocessing import Queue
 from pathlib import Path
 from typing import Callable, Sequence
 
-from cloudpickle import dumps, loads
 from mpire import WorkerPool
 from mpire.exception import InterruptWorker
 from psutil import Process, TimeoutExpired
@@ -18,7 +17,6 @@ from cellophane.src.executors import Executor
 from cellophane.src.logs import handle_warnings, redirect_logging_to_queue
 
 from .checkpoint import Checkpoints
-
 
 class Runner:
     """
@@ -57,16 +55,15 @@ class Runner:
         /,
         config: Config,
         root: Path,
-        samples_pickle: str,
+        samples: Samples,
         executor_cls: type[Executor],
         timestamp: str,
         workdir: Path,
-    ) -> tuple[bytes, DeferredCleaner]:
+    ) -> tuple[Samples, DeferredCleaner]:
         handle_warnings()
         redirect_logging_to_queue(log_queue)
 
         workdir.mkdir(parents=True, exist_ok=True)
-        samples: Samples = loads(samples_pickle)
         logger = LoggerAdapter(getLogger(), {"label": self.label})
         cleaner = DeferredCleaner(root=workdir)
 
@@ -133,7 +130,7 @@ class Runner:
         for sample in samples.failed:
             logger.debug(f"Sample {sample.id} failed - {sample.failed}")
 
-        return dumps(samples), cleaner
+        return samples, cleaner
 
 
 def _resolve_outputs(
@@ -228,12 +225,13 @@ def start_runners(
                 workdir = config.workdir / config.tag / runner_.label
                 if runner_.split_by is not None:
                     workdir /= group or "unknown"
+
                 result = pool.apply_async(
                     runner_,
                     kwargs={
                         "config": config,
                         "root": root,
-                        "samples_pickle": dumps(samples_),
+                        "samples": samples_,
                         "executor_cls": executor_cls,
                         "timestamp": timestamp,
                         "workdir": workdir,
@@ -254,7 +252,7 @@ def start_runners(
     try:
         cleaners: Sequence[DeferredCleaner]
         samples_, cleaners = zip(*(r.get() for r in results))
-        samples_ = reduce(lambda a, b: a & b, (loads(s) for s in samples_))
+        samples_ = reduce(lambda a, b: a & b, iter(samples_))
         for cleaner_ in cleaners:
             cleaner &= cleaner_
     except Exception as exc:  # pylint: disable=broad-except

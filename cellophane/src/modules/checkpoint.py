@@ -1,11 +1,10 @@
 import json
-from contextlib import suppress
 from functools import cached_property
 from pathlib import Path
 from random import randbytes
 from typing import Any, Iterator
+from dill import dumps
 
-import cloudpickle as cp
 from attrs import define, field
 from xxhash import xxh3_64
 
@@ -88,8 +87,8 @@ class Checkpoint:
             tuple[str, bytes]: The name of the file and the hash.
         """
         base = xxh3_64()
-        base.update(cp.dumps(args))
-        base.update(cp.dumps(kwargs))
+        base.update(dumps(args))
+        base.update(dumps(kwargs))
         base.update(self.label.encode())
 
         for path in self._paths:

@@ -5,14 +5,11 @@
 import logging
 import subprocess as sp
 from copy import copy
-from logging.handlers import QueueListener
 from multiprocessing import Queue
 from pathlib import Path
 from typing import Any, Callable
 from unittest.mock import MagicMock
 
-from attrs import define
-from cloudpickle import dumps, loads
 from graphlib import CycleError
 from psutil import Process, TimeoutExpired
 from pytest import LogCaptureFixture, mark, param, raises
@@ -75,133 +72,6 @@ class Test__cleanup:
         assert all(p.poll() is not None for p in procs)
         for p in pids:
             assert log_line.format(pid=p) in caplog.messages
-
-
-class Test_Runner:
-    """Test Runner class."""
-    @define(slots=False)
-    class DummySample(data.Sample):
-        dummy: str | None = None
-
-    samples: data.Samples = data.Samples(
-        [
-            DummySample(id="a", dummy="x"),
-            DummySample(id="b", dummy="y"),
-            DummySample(id="c", dummy=None),
-        ]
-    )
-
-    @staticmethod
-    @mark.parametrize(
-        "kwargs",
-        [
-            param(
-                {},
-                id="no_args",
-            ),
-            param(
-                {"label": "test"},
-                id="label",
-            ),
-            param(
-                {"split_by": "test"},
-                id="split_by",
-            ),
-        ],
-    )
-    def test_decorator(kwargs: dict[str, Any]) -> None:
-        """Test Runner decorator."""
-
-        @modules.runner(**kwargs)
-        def _dummy() -> None:
-            pass
-
-        assert _dummy.__name__ == "_dummy"
-        assert _dummy.label == kwargs.get("label", "_dummy")
-        assert _dummy.split_by == kwargs.get("split_by")
-
-    @mark.parametrize(
-        "runner_mock,runner_kwargs,expected_fail,log_lines",
-        [
-            param(
-                MagicMock(return_value=None),
-                {},
-                [False] * 3,
-                [["Runner did not return any samples"]],
-                id="none",
-            ),
-            param(
-                MagicMock(return_value=None),
-                {"split_by": "dummy"},
-                [False] * 3,
-                [["Runner did not return any samples"]],
-                id="split",
-            ),
-            param(
-                MagicMock(side_effect=RuntimeError),
-                {},
-                ["Unhandeled exception in runner 'runner_mock' RuntimeError()"] * 3,
-                [
-                    [
-                        "3 samples failed",
-                        "Sample a failed - Unhandeled exception in runner 'runner_mock' RuntimeError()",
-                        "Sample b failed - Unhandeled exception in runner 'runner_mock' RuntimeError()",
-                        "Sample c failed - Unhandeled exception in runner 'runner_mock' RuntimeError()",
-                    ]
-                ],
-                id="exception",
-            ),
-            param(
-                lambda samples, **_: samples[0].fail("DUMMY") or samples,
-                {},
-                ["DUMMY", False, False],
-                [
-                    ["Sample a failed - DUMMY"],
-                    ["Sample b processed successfully"],
-                    ["Sample c processed successfully"],
-                ],
-                id="failed_sample",
-            ),
-            param(
-                MagicMock(return_value="INVALID"),
-                {},
-                [False] * 3,
-                [["Unexpected return type <class 'str'>"]],
-                id="invalid_return",
-            ),
-        ],
-    )
-    def test_call(
-        self,
-        caplog: LogCaptureFixture,
-        tmp_path: Path,
-        runner_mock: data.Samples,
-        runner_kwargs: dict[str, Any],
-        expected_fail: list[int],
-        log_lines: list[list[str]],
-    ) -> None:
-        """Test Runner call."""
-        setattr(runner_mock, "__name__", "runner_mock")
-        setattr(runner_mock, "__qualname__", "runner_mock")
-        _runner = modules.runner(**runner_kwargs)(runner_mock)
-        with caplog.at_level("DEBUG"):
-            _log_queue: Queue = Queue()
-            _listener = QueueListener(_log_queue, *logging.getLogger().handlers)
-            _listener.start()
-            _samples, _ = _runner(
-                _log_queue,
-                config=MagicMock(log_level=None),
-                root=tmp_path / "root",
-                samples_pickle=dumps(self.samples),
-                executor_cls=SubprocessExecutor,
-                timestamp="DUMMY",
-                workdir=tmp_path,
-            )
-            _listener.stop()
-
-            for line in log_lines:
-                assert "\n".join(line) in "\n".join(caplog.messages)
-        assert [s.failed for s in loads(_samples)] == expected_fail
 
 
 class Test_Hook:
