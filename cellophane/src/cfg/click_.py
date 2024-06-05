@@ -292,6 +292,9 @@ class TypedArray(click.ParamType):
         except Exception as exc:  # pylint: disable=broad-except
             self.fail(str(exc), param, ctx)
 
+    def get_metavar(self, param: click.Parameter) -> str | None:
+        del param  # Unused
+        return f"{self.name.upper()}[{self.items_type}]"
 
 class ParsedSize(InvertibleParamType):
     """
@@ -407,6 +410,16 @@ class FormattedString(click.ParamType):
             self.fail(f"Unable to convert '{value}' to string: {exc!r}", param, ctx)
         return _value
 
+    def get_metavar(self, param: click.Parameter) -> str | None:
+        del param
+        metavar = f"{self.name.upper()}"
+        if self.format_:
+            metavar += f"[{self.format_}]"
+        if self.pattern:
+            metavar += f"({self.pattern})"
+        return metavar
+
+
 
 def click_type(  # type: ignore[return]
     type_: SCHEMA_TYPES | None = None,
@@ -416,6 +429,7 @@ def click_type(  # type: ignore[return]
     items_min: int | float | None = None,
     items_max: int | float | None = None,
     format_: FORMATS | None = None,
+    pattern: str | None = None,
     min_: int | float | None = None,
     max_: int | float | None = None,
 ) -> (
