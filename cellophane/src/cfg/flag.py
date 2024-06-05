@@ -63,7 +63,6 @@ class Flag:
         converter=_convert_float,
         on_setattr=setters.convert,
     )
-    format: FORMATS | None = field(default=None)
     min: int | None = field(
         default=None,
         converter=_convert_float,
@@ -74,6 +73,8 @@ class Flag:
         converter=_convert_float,
         on_setattr=setters.convert,
     )
+    format: FORMATS | None = field(default=None)
+    pattern: str | None = field(default=None)
     description: str | None = field(default=None)
     default: Any = field(default=None)
     value: Any = field(default=None)
@@ -136,6 +137,7 @@ class Flag:
         return click_type(
             type_=self.type,
             format_=self.format,
+            pattern=self.pattern,
             min_=self.min,
             max_=self.max,
             enum=self.enum,

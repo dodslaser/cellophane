@@ -360,13 +360,15 @@ class ParsedSize(InvertibleParamType):
 class FormattedString(click.ParamType):
     """Click parameter type for formatted strings."""
 
-    name = "formatted_string"
+    name = "string"
     format_: FORMATS | None = None
+    pattern: str | None = None
 
-    def __init__(self, format_: FORMATS | None = None) -> None:
+    def __init__(self, format_: FORMATS | None = None, pattern: str | None = None) -> None:
         if format_ not in [*get_args(FORMATS), None]:
             raise ValueError(f"Invalid format: {format_}")
         self.format_ = format_
+        self.pattern = pattern
 
     @overload
     def convert(
@@ -394,13 +396,15 @@ class FormattedString(click.ParamType):
         if value is None:
             return value
         _value = str(value)
-        if self.format_ is not None:
-            try:
+        try:
+            if self.format_ is not None:
                 draft7_format_checker.check(_value, self.format_)
-            except FormatError as exc:
-                self.fail(exc.message, param, ctx)
-            except Exception as exc:  # pylint: disable=broad-except
-                self.fail(f"Unable to convert '{value}' to string: {exc!r}", param, ctx)
+            if self.pattern is not None and not re.search(self.pattern, _value):
+                raise FormatError(f"'{value}' does not match pattern: '{self.pattern}'")
+        except FormatError as exc:
+            self.fail(exc.message, param, ctx)
+        except Exception as exc:  # pylint: disable=broad-except
+            self.fail(f"Unable to convert '{value}' to string: {exc!r}", param, ctx)
         return _value
 
 
@@ -435,7 +439,7 @@ def click_type(  # type: ignore[return]
         case _ if enum:
             return click.Choice(enum, case_sensitive=False)
         case "string":
-            return FormattedString(format_)
+            return FormattedString(format_, pattern)
         case "number" if min_ is not None or max_ is not None:
             return click.FloatRange(min_, max_)
         case "number":

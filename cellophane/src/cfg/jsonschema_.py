@@ -117,6 +117,7 @@ def properties_(
                 "items_min": subschema.get("items", {}).get("minimum"),
                 "items_max": subschema.get("items", {}).get("maximum"),
                 "format": subschema.get("format"),
+                "pattern": subschema.get("pattern"),
                 "min": subschema.get("minimum"),
                 "max": subschema.get("maximum"),
             }

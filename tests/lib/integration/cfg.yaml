@@ -129,6 +129,31 @@
     - "Invalid value for '--a': Failed to parse size! (input 'INVALID' was tokenized as ['INVALID'])"
   exception: SystemExit(2)
 
+- id: good_regex
+  structure:
+    schema.yaml: |
+      properties:
+        a:
+          type: string
+          pattern: "^[a-z]+$"
+  args:
+    --a: "valid"
+    --workdir: out
+
+- id: bad_regex
+  structure:
+    schema.yaml: |
+      properties:
+        a:
+          type: string
+          pattern: "^[a-z]+$"
+  args:
+    --a: "INVALID"
+    --workdir: out
+  output:
+    - "Invalid value for '--a': 'INVALID' does not match pattern: '^[a-z]+$'"
+  exception: SystemExit(2)
+
 - &parse_config
   id: parse_config
   structure:
