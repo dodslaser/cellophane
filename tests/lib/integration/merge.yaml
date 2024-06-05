@@ -10,13 +10,13 @@ structure:
       class SampleMixinA(Sample):
           a_1: int = 1
           a_2: int = 2
-      
+
       class SamplesMixinB(Samples):
           b: int = 3
 
       class SampleMixinB(Sample):
           b: int = 3
-      
+
       class SamplesMixinC(Samples):
           c: int = 4
           d: int = 5
@@ -24,12 +24,12 @@ structure:
       class SampleMixinC(Sample):
           c: int = 4
           d: int = 5
-      
+
       @Samples.merge.register("a_1")
       @Sample.merge.register("a_1")
       def merge_add(this, that):
           return this + that
-      
+
       @Samples.merge.register("a_2")
       @Samples.merge.register("b")
       @Sample.merge.register("a_2")
@@ -41,11 +41,11 @@ structure:
       def runner_a(samples, **_):
           samples.d = None
           return samples
-      
+
       @runner()
       def runner_b(samples, **_):
           return samples
-      
+
       @post_hook(condition="always")
       def validate(samples, logger, **_):
           for sample in samples:
@@ -59,8 +59,6 @@ structure:
           logger.info(f"{samples.b=}")
           logger.info(f"{samples.c=}")
           logger.info(f"{samples.d=}")
-        
-        
 
   samples.yaml: |
     - id: a

@@ -1,0 +1,88 @@
+- id: invalid_module
+  structure:
+    modules:
+      a.py: |
+        INVALID
+  args:
+    --workdir: out
+  logs:
+    - "Unable to import module 'a': NameError(\"name 'INVALID' is not defined\")"
+  exception: SystemExit(1)
+
+- id: unhandled_exception
+  args:
+    --workdir: out
+  logs:
+    - "Unhandled exception: Exception('DUMMY')"
+  mocks:
+    cellophane.cellophane.run_hooks:
+      side_effect: !!python/object/apply:Exception {args: [DUMMY]}
+  exception: SystemExit(1)
+
+- id: missing_config
+  args:
+    --workdir: out
+    --config_file: missing.yaml
+  output:
+    - "Could not open file 'missing.yaml': [Errno 2] No such file or directory: 'missing.yaml'"
+  exception: SystemExit(1)
+
+- id: merge_exception
+  structure:
+    modules:
+      a.py: |
+        from cellophane import runner, Sample
+
+        class SampleMixin(Sample):
+          foo: str = "foo"
+
+
+        @Sample.merge.register("foo")
+        def merge_foo(this, that):
+          raise Exception("DUMMY")
+
+        @runner()
+        def runner_a(samples, **_):
+            ...
+
+        @runner()
+        def runner_b(samples, **_):
+            ...
+    samples.yaml: |
+      - id: a
+        files:
+        - input/a.txt
+      - id: b
+        files:
+        - input/a.txt
+    input:
+      a.txt: "INPUT_A"
+  args:
+    --samples_file: samples.yaml
+    --workdir: out
+  logs:
+    - "Unhandled exception when collecting results: Exception('DUMMY')"
+
+- id: keyboard_interrupt
+  structure:
+    modules:
+      a.py: |
+        from cellophane import runner
+
+        @runner()
+        def runner(samples, **_):
+            return samples.with_call_id("runner")
+    samples.yaml: |
+      - id: a
+        files:
+        - input/a.txt
+    input:
+      a.txt: "INPUT_A"
+  args:
+    --samples_file: samples.yaml
+    --workdir: out
+  mocks:
+    cellophane.src.modules.runner_.WorkerPool.apply_async:
+      side_effect: !!python/name:KeyboardInterrupt
+  logs:
+    - Received SIGINT, telling runners to shut down...

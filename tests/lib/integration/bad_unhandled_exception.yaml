@@ -1,8 +1,0 @@
-args:
-  --workdir: out
-logs:
-  - "Unhandled exception: Exception('DUMMY')"
-mocks:
-  cellophane.cellophane.run_hooks:
-    side_effect: !!python/object/apply:Exception {args: [DUMMY]}
-exception: SystemExit(1)

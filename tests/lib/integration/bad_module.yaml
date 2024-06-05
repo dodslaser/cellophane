@@ -1,9 +1,0 @@
-structure:
-  modules:
-    a.py: |
-      INVALID
-args:
-  --workdir: out
-logs:
-  - "Unable to import module 'a': NameError(\"name 'INVALID' is not defined\")"
-exception: SystemExit(1)
