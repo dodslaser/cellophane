@@ -1,21 +1,18 @@
 """Module loader for cellophane modules."""
 
-import logging
-import sys
-from importlib.util import module_from_spec, spec_from_file_location
+from site import addsitedir
+from importlib import import_module
 from pathlib import Path
 
-from cellophane.src.data import Sample, Samples, samples
+from cellophane.src.data import Sample, Samples
 from cellophane.src.executors import Executor, SubprocessExecutor
-from cellophane.src.util import is_instance_or_subclass
+from cellophane.src.util import is_instance_or_subclass, freeze_logs
 
 from .hook import Hook, resolve_dependencies
 from .runner_ import Runner
 
 
-def load(
-    path: Path,
-) -> tuple[
+def load(root: Path) -> tuple[
     list[Hook],
     list[Runner],
     list[type[Sample]],
@@ -44,39 +41,38 @@ def load(
     sample_mixins: list[type[Sample]] = []
     samples_mixins: list[type[Samples]] = []
     executors_: list[type[Executor]] = [SubprocessExecutor]
+    error = None
 
-    for file in [*path.glob("*.py"), *path.glob("*/__init__.py")]:
-        base = file.stem if file.stem != "__init__" else file.parent.name
-        name = f"_cellophane_module_{base}"
-        spec = spec_from_file_location(name, file)
-        original_handlers = logging.root.handlers.copy()
+    addsitedir(str(root))
+    with freeze_logs():
+        for file in [*(root / "modules").glob("*.py"), *(root / "modules").glob("*/__init__.py")]:
+            if (base := file.stem if file.stem != "__init__" else file.parent.name) == "modules":
+                continue
 
-        try:
-            module = module_from_spec(spec)  # type: ignore[arg-type]
-            sys.modules[name] = module
-            spec.loader.exec_module(module)  # type: ignore[union-attr]
-        except Exception as exc:
-            raise ImportError(f"Unable to import module '{base}': {exc!r}") from exc
+            try:
+                module = import_module(f".{base}", "modules")
+            except Exception as exc:
+                error = f"Unable to import module '{base}': {exc!r}"
+                break
 
-        # Reset logging handlers to avoid duplicate messages
-        for handler in {*logging.root.handlers} ^ {*original_handlers}:
-            handler.close()
-            logging.root.removeHandler(handler)
+            for obj in [getattr(module, a) for a in dir(module)]:
+                if is_instance_or_subclass(obj, Hook):
+                    hooks.append(obj)
+                elif is_instance_or_subclass(obj, Sample):
+                    sample_mixins.append(obj)
+                elif is_instance_or_subclass(obj, Samples):
+                    samples_mixins.append(obj)
+                elif is_instance_or_subclass(obj, Runner):
+                    runners.append(obj)
+                elif is_instance_or_subclass(obj, Executor):
+                    executors_.append(obj)
 
-        for obj in [getattr(module, a) for a in dir(module)]:
-            if is_instance_or_subclass(obj, Hook):
-                hooks.append(obj)
-            elif is_instance_or_subclass(obj, Sample):
-                sample_mixins.append(obj)
-            elif is_instance_or_subclass(obj, Samples):
-                samples_mixins.append(obj)
-            elif is_instance_or_subclass(obj, Runner):
-                runners.append(obj)
-            elif is_instance_or_subclass(obj, Executor):
-                executors_.append(obj)
     try:
         hooks = resolve_dependencies(hooks)
     except Exception as exc:  # pylint: disable=broad-except
-        raise ImportError(f"Unable to resolve hook dependencies: {exc!r}") from exc
+        error = f"Unable to resolve hook dependencies: {exc!r}"
+
+    if error is not None:
+        raise ImportError(error)
 
     return hooks, runners, sample_mixins, samples_mixins, executors_

@@ -7,13 +7,13 @@ import traceback
 from pathlib import Path
 from typing import Any, Callable
 from uuid import uuid4
-
+from contextlib import suppress
 from click.testing import CliRunner, Result
 from coverage import Coverage
 from pytest import LogCaptureFixture, fail, mark, param
 from pytest_mock import MockerFixture
 from ruamel.yaml import YAML
-
+import sys
 import cellophane
 
 _YAML = YAML(typ="unsafe", pure=True)
@@ -91,6 +91,12 @@ def execute_from_structure(
     except (SystemExit, Exception) as exc:  # pylint: disable=broad-except
         _exception = exc
         _result = None
+
+    with suppress(ValueError):
+        sys.path.remove(str(root))
+    for module in sys.modules.copy():
+        if module.startswith("modules.") or module == "modules":
+            del sys.modules[module]
 
     cov = Coverage(data_file=pwd / f".coverage.{uuid4()}")
     cov.combine(data_paths=[str(d) for d in root.glob(".coverage.*")])

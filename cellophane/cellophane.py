@@ -76,7 +76,7 @@ def cellophane(label: str, root: Path) -> click.Command:
             sample_mixins,
             samples_mixins,
             executors_,
-        ) = load(root / "modules")
+        ) = load(root)
 
         _SAMPLE = Sample.with_mixins(sample_mixins)
         _SAMPLES = Samples.with_sample_class(_SAMPLE).with_mixins(samples_mixins)
