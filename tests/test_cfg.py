@@ -296,7 +296,7 @@ class Test_Flag:
                     ),
                     id=type_,
                 )
-                for type_, pytype, kwargs, in [
+                for type_, pytype, kwargs in [
                     ("string", FormattedString(), {}),
                     ("integer", int, {}),
                     ("integer", click.IntRange(min=0), {"min": 0}),
@@ -421,9 +421,7 @@ class Test__get_flags:
             ]
 
         if flags_base := _definition.get("flags_base"):
-            assert cfg.get_flags(_schema) == [
-                cfg.Flag(**flag) for flag in flags_base
-            ]
+            assert cfg.get_flags(_schema) == [cfg.Flag(**flag) for flag in flags_base]
 
 
 class Test_Config:
@@ -475,16 +473,12 @@ class Test_Config:
         [
             param(
                 {"a": "CONFIG"},
-                cfg.Flag(
-                    key=("a",), type="string", default="SCHEMA", value="CONFIG"
-                ),
+                cfg.Flag(key=("a",), type="string", default="SCHEMA", value="CONFIG"),
                 id="from_config",
             ),
             param(
                 {},
-                cfg.Flag(
-                    key=("a",), type="string", default="SCHEMA", value="SCHEMA"
-                ),
+                cfg.Flag(key=("a",), type="string", default="SCHEMA", value="SCHEMA"),
                 id="from_schema",
             ),
             param(

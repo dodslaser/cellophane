@@ -12,7 +12,9 @@ from .hook import Hook, resolve_dependencies
 from .runner_ import Runner
 
 
-def load(root: Path) -> tuple[
+def load(
+    root: Path,
+) -> tuple[
     list[Hook],
     list[Runner],
     list[type[Sample]],
@@ -45,8 +47,13 @@ def load(root: Path) -> tuple[
 
     addsitedir(str(root))
     with freeze_logs():
-        for file in [*(root / "modules").glob("*.py"), *(root / "modules").glob("*/__init__.py")]:
-            if (base := file.stem if file.stem != "__init__" else file.parent.name) == "modules":
+        for file in [
+            *(root / "modules").glob("*.py"),
+            *(root / "modules").glob("*/__init__.py"),
+        ]:
+            if (
+                base := file.stem if file.stem != "__init__" else file.parent.name
+            ) == "modules":
                 continue
 
             try:

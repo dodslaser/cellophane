@@ -71,6 +71,7 @@ class Test_merge_mappings:
         """Test merge_mappings."""
         assert util.merge_mappings(m_1, m_2) == expected
 
+
 class Test__instance_or_subclass:
     """Test _is_instance_or_subclass function."""
 

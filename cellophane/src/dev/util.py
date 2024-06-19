@@ -165,9 +165,7 @@ def with_modules(ignore_branch: bool = False) -> Callable:
                     case _ if ignore_branch:
                         pass
                     case (m, None, None):
-                        modules_[idx] = ask_version(
-                            m, repo.compatible_versions(m)
-                        )  # type: ignore[assignment]
+                        modules_[idx] = ask_version(m, repo.compatible_versions(m))  # type: ignore[assignment]
                     case (m, None, "latest"):
                         version = repo.external.modules[m].get("latest")
                         if version is None:

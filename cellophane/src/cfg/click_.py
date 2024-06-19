@@ -296,6 +296,7 @@ class TypedArray(click.ParamType):
         del param  # Unused
         return f"{self.name.upper()}[{self.items_type}]"
 
+
 class ParsedSize(InvertibleParamType):
     """
     Converts a string value representing a size to an integer.
@@ -367,7 +368,11 @@ class FormattedString(click.ParamType):
     format_: FORMATS | None = None
     pattern: str | None = None
 
-    def __init__(self, format_: FORMATS | None = None, pattern: str | None = None) -> None:
+    def __init__(
+        self,
+        format_: FORMATS | None = None,
+        pattern: str | None = None,
+    ) -> None:
         if format_ not in [*get_args(FORMATS), None]:
             raise ValueError(f"Invalid format: {format_}")
         self.format_ = format_
@@ -418,7 +423,6 @@ class FormattedString(click.ParamType):
         if self.pattern:
             metavar += f"({self.pattern})"
         return metavar
-
 
 
 def click_type(  # type: ignore[return]

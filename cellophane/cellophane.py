@@ -168,7 +168,7 @@ def _main(
         logger.debug("No samples file specified, creating empty samples object")
         samples = samples_class()
 
-    cleaner  = Cleaner(root=config.workdir / config.tag)
+    cleaner = Cleaner(root=config.workdir / config.tag)
     cleaner.register(config.workdir / config.tag)
 
     # Run pre-hooks

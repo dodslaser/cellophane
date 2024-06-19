@@ -12,6 +12,7 @@ from .. import util
 class PreservedDict(dict):
     """Dict subclass to allow dict inside Container"""
 
+
 @define(init=False, slots=False)
 class Container(Mapping):
     """Base container class for the Config, Sample, and Samples classes.
@@ -75,7 +76,7 @@ class Container(Mapping):
                 self.__setattr__(k, item)
             case str(k) if k.isidentifier():
                 self.__data__[k] = item
-            case *k, if all(isinstance(k_, str) for k_ in k):
+            case (*k,) if all(isinstance(k_, str) for k_ in k):
 
                 def _set(d: dict, k: str) -> dict:
                     if k not in d:
@@ -92,7 +93,7 @@ class Container(Mapping):
                 return super().__getattribute__(k)
             case str(k):
                 return self.__data__[k]
-            case *k,:
+            case (*k,):
                 return reduce(lambda d, k: d[k], k, self.__data__)
             case k:
                 raise TypeError(f"Key {k} is not a string or a sequence of strings")

@@ -76,9 +76,9 @@ def merge_mappings(m_1: Any, m_2: Any) -> Any:
             return m_1 | m_2
         case {**m_1}, {**m_2}:
             return {k: merge_mappings(v, m_2.get(k, v)) for k, v in (m_2 | m_1).items()}
-        case [{**m_1}], [{**m_2}]:
+        case [[{**m_1}], [{**m_2}]]:
             return [merge_mappings(m_1, m_2)]
-        case [*m_1], [*m_2] if all(isinstance(v, Hashable) for v in m_1 + m_2):
+        case [[*m_1], [*m_2]] if all(isinstance(v, Hashable) for v in m_1 + m_2):
             # dict is used to preserve order while removing duplicates
             # FIXME: Is this always the desired behavior?
             return [*dict.fromkeys(m_1 + m_2)]

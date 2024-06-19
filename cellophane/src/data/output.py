@@ -106,7 +106,6 @@ class OutputGlob:  # type: ignore[no-untyped-def]
 
         """
         outputs = set()
-        
 
         for sample in samples:
             meta = {

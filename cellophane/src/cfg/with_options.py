@@ -1,6 +1,5 @@
 """Configuration file handling and CLI generation"""
 
-import time
 from pathlib import Path
 from typing import Callable
 

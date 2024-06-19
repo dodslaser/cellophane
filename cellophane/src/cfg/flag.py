@@ -49,7 +49,7 @@ class Flag:
         ```
     """
 
-    key: tuple[str, ...] =field(converter=tuple, on_setattr=setters.convert)
+    key: tuple[str, ...] = field(converter=tuple, on_setattr=setters.convert)
     type: SCHEMA_TYPES | None = field(default=None)
     items_type: ITEMS_TYPES | None = field(default=None)
     items_format: FORMATS | None = field(default=None)

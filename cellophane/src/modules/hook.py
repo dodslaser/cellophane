@@ -101,6 +101,7 @@ class Hook:
                     _ret = samples
         return _ret
 
+
 def resolve_dependencies(
     hooks: list[Hook],
 ) -> list[Hook]:

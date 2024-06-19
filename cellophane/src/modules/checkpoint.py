@@ -104,7 +104,6 @@ class Checkpoint:
 
         delattr(self, "_paths")
 
-
     def hexdigest(self, *args: Any, **kwargs: Any) -> str:
         hash_ = self._hash(*args, **kwargs)
         combined = xxh3_64()
@@ -146,8 +145,9 @@ class Checkpoint:
             self._cache is not None
             and all(Path(s) in self._paths for s in self._cache)
             and all(str(p) in self._cache for p in self._paths)
-            and all(self._cache[f] == h  for f, h in self._hash(*args, **kwargs))
+            and all(self._cache[f] == h for f, h in self._hash(*args, **kwargs))
         )
+
 
 @define
 class Checkpoints:

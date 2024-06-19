@@ -21,8 +21,6 @@ def _resolve_path(path: Path, root: Path) -> Path:
         return (root / path).resolve()
 
 
-
-
 @define(frozen=True, on_setattr=None)
 class DeferredCall:
     action: Literal["register", "unregister"]
@@ -48,7 +46,10 @@ class DeferredCleaner:
         ignore_outside_root: bool,
     ) -> None:
         if ignore_outside_root:
-            warn(f"Deferred cleaner does not support {action}ing paths outside the root directory")
+            warn(
+                f"Deferred cleaner does not support {action}ing "
+                "paths outside the root directory"
+            )
             return
         rpath = _resolve_path(Path(path), self.root)
         self.calls.append(DeferredCall(action, rpath, False))
@@ -88,7 +89,6 @@ class Cleaner:
             warn(f"Refusing to unregister {rpath} outside {self.root}")
             return
 
-
         for parent in rpath.parents[::-1]:
             if parent in self.trash:
                 self.trash.remove(parent)
@@ -101,7 +101,6 @@ class Cleaner:
 
         self.trash.discard(rpath)
 
-
     def clean(self, logger: LoggerAdapter) -> None:
         n_dir = sum(t.is_dir() for t in self.trash)
         n_file = len(self.trash) - n_dir
@@ -112,7 +111,10 @@ class Cleaner:
             f"and {pluralize(n_dir, 'directory', 'directories')}"
         )
         if n_external:
-            logger.warning(f"Removing {pluralize(n_external, 'path', 'paths')} outside {self.root}")
+            logger.warning(
+                f"Removing {pluralize(n_external, 'path', 'paths')} "
+                f"outside {self.root}"
+            )
         for path in self.trash:
             if not path.exists():
                 logger.debug(f"Path {path} does not exist")

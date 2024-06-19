@@ -15,5 +15,5 @@ __all__ = [
     "fail_from_click_result",
     "parametrize_from_yaml",
     "run_definition",
-    "MockExecutor"
+    "MockExecutor",
 ]

@@ -68,7 +68,6 @@ def modules_repo(
     repo.remote("origin").push("master")
     repo.remote("origin").push("dev")
 
-
     yield repo, path
     rmtree(path)
 
@@ -81,6 +80,7 @@ def cellophane_repo(
 ) -> Iterator[tuple[dev.ProjectRepo, Path]]:
     """Create a dummy cellophane repository."""
     m_repo, m_path = modules_repo
+
     def _modules_repo(*args: Any, **kwargs: Any) -> dev.ModulesRepo:
         del args, kwargs  # Unused
         return m_repo
@@ -110,7 +110,7 @@ class Test_ProjectRepo:
 
     @staticmethod
     def test_initialize_exception_file_exists(
-        cellophane_repo: tuple[dev.ProjectRepo, Path]
+        cellophane_repo: tuple[dev.ProjectRepo, Path],
     ) -> None:
         """Test cellophane repository initialization with existing file."""
         _, _path = cellophane_repo

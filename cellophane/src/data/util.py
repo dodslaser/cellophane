@@ -1,6 +1,5 @@
 """Utility functions for data manipulation."""
 
-
 from pathlib import Path
 from typing import Any
 

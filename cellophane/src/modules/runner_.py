@@ -18,6 +18,7 @@ from cellophane.src.logs import handle_warnings, redirect_logging_to_queue
 
 from .checkpoint import Checkpoints
 
+
 class Runner:
     """
     A runner for executing a function as a job.

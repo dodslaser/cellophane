@@ -46,6 +46,7 @@ class NoModulesError(Exception):
     def __init__(self, msg: str | None = None) -> None:
         super().__init__(msg)
 
+
 class NoVersionsError(Exception):
     """
     Exception raised when there are no versions to select from.

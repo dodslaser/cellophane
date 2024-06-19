@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Any, Literal
 
 import rich_click as click
-from git.exc import GitCommandError
 
 from cellophane import logs
 

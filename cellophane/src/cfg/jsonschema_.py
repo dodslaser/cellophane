@@ -32,6 +32,7 @@ NullValidator = create(
     format_checker=Draft7Validator.FORMAT_CHECKER,
 )
 
+
 def _uptate_validators(
     validators: dict[str, Callable],
     compiled: dict | None = None,
@@ -52,7 +53,7 @@ def properties_(
     schema: dict,
     flags: dict[tuple[str, ...], Flag] | None = None,
     compiled: dict | None = None,
-    _path: tuple[str, ...] | None = None
+    _path: tuple[str, ...] | None = None,
 ) -> Generator:
     """Iterate over the properties of a JSON schema and yield validation results.
 
@@ -157,6 +158,7 @@ def required_(
                 key = (*(_path or ()), prop)
                 flags[key] = flags.get(key, Flag(key=key))
                 flags[key].required = True
+
 
 def dependent_required_(
     validator: Draft7Validator,
@@ -269,6 +271,7 @@ def if_(
 
     compiled |= util.merge_mappings(compiled, subschema)
     compiled.pop("if")
+
 
 @singledispatch
 def get_flags(schema: data.Container, _data: Mapping | None = None) -> list[Flag]:

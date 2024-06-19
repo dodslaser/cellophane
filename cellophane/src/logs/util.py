@@ -27,6 +27,7 @@ class ExternalFilter(logging.Filter):
     def _check_relative(path: Path, roots: tuple[Path, ...]) -> bool:
         return any(path.is_relative_to(r) for r in roots)
 
+
 def _showwarning(showwarning_orig: Callable) -> Callable:
     def inner(
         message: Warning | str,

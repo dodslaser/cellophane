@@ -28,6 +28,8 @@ class ExecutorTerminatedError(Exception):
 
 
 T = TypeVar("T", bound="Executor")
+
+
 @define(slots=False, init=False)
 class Executor:
     """Executor base class."""
@@ -73,7 +75,6 @@ class Executor:
         if self.uuid not in _LOCKS:
             _LOCKS[self.uuid] = {}
         return _LOCKS[self.uuid]
-
 
     def _callback(
         self,

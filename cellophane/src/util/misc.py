@@ -42,22 +42,19 @@ class freeze_logs:
             logging.info("This will not be printed")
         ```
     """
+
     logger: logging.Logger = field(default=logging.root)
     original_handlers: set[logging.Handler] = field(factory=set)
     original_level: int = field(default=logging.CRITICAL)
-
 
     def __enter__(self) -> None:
         self.original_level = self.logger.level
         self.original_handlers = {*self.logger.handlers}
         self.logger.setLevel(logging.CRITICAL + 1)
 
-
     def __exit__(self, *args: Any, **kwargs: Any) -> None:
-        del args, kwargs # Unused
+        del args, kwargs  # Unused
         for handler in {*self.logger.handlers} ^ self.original_handlers:
             handler.close()
             self.logger.removeHandler(handler)
         self.logger.setLevel(self.original_level)
-
-
