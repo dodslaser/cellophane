@@ -413,7 +413,7 @@ class Samples(UserList[S]):
 
         return type(cls.__name__, (cls,), {"sample_class": sample_class})
 
-    def split(self, by: str | None = "uuid") -> Iterable[tuple[Any, "Samples"]]:
+    def split(self, by: str | None = "uuid") -> Iterable[tuple[Any, "Samples[Sample]"]]:
         """
         Splits the data into groups based on the specified attribute value.
 
