@@ -277,12 +277,14 @@ class Test_Samples:
     def test_complete_failed(samples: data.Samples[data.Sample]) -> None:
         """Test complete and failed."""
         assert not samples.complete
-        assert samples.failed == samples
+        assert not samples.failed
+        assert samples.unprocessed == samples
 
         for s in samples:
             s.processed = True
 
         assert samples.complete == samples
+
 
         samples[1].fail("DUMMY")
         assert samples[1] in samples.failed

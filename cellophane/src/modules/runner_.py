@@ -124,10 +124,11 @@ class Runner:
         _resolve_outputs(samples, workdir, config, logger)
         for sample in samples.complete:
             logger.debug(f"Sample {sample.id} processed successfully")
+        for sample in samples.unprocessed:
+            sample.fail("Sample was not processed")
         if n_failed := len(samples.failed):
             logger.error(f"{n_failed} samples failed")
             cleaner.unregister(workdir)
-
         for sample in samples.failed:
             logger.debug(f"Sample {sample.id} failed - {sample.failed}")
 
@@ -203,8 +204,14 @@ def start_runners(
     Returns:
         data.Samples: The samples after processing.
     """
+    if not samples:
+        logger.warning("No samples to process")
+        return samples
+
     if not runners:
         logger.warning("No runners to execute")
+        for sample in samples.unprocessed:
+            sample.fail("Sample was not processed")
         return samples
 
     with WorkerPool(

@@ -188,14 +188,11 @@ def _main(
     for sample in samples:
         if sample not in samples.with_files:
             logger.warning(f"Sample {sample} will be skipped as it has no files")
-
-    if not samples.with_files:
-        logger.info("No samples to process")
-        raise SystemExit(0)
+            sample.fail("Missing files")
 
     samples = start_runners(
         runners=runners,
-        samples=samples.with_files,
+        samples=samples.unprocessed,
         logger=logger,
         log_queue=log_queue,
         config=config,

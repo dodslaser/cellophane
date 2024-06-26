@@ -223,7 +223,7 @@ class Sample:  # type: ignore[no-untyped-def]
         Checks if the sample is failed by any runner
         """
 
-        return self._fail or (False if self.processed else "Sample was not processed")
+        return self._fail or False
 
     @classmethod
     def with_mixins(cls, mixins: Sequence[type["Sample"]]) -> type["Sample"]:
@@ -535,7 +535,23 @@ class Samples(UserList[S]):
         """
 
         return self.__class__(
-            [sample for sample in self if not sample.failed], output=self.output
+            [sample for sample in self if sample.processed and not sample.failed], output=self.output
+        )
+
+    @property
+    def unprocessed(self) -> "Samples":
+        """
+        Get only completed samples from a Samples object.
+
+        Samples are considered as completed if all runners have completed
+        successfully, and the sample is marked as done.
+
+        Returns:
+            Class: A new instance of the class with only the completed samples.
+        """
+
+        return self.__class__(
+            [sample for sample in self if not sample.failed and not sample.processed], output=self.output
         )
 
     @property
