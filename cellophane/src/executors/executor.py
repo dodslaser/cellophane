@@ -16,6 +16,7 @@ from attrs import define, field
 from mpire import WorkerPool
 from mpire.async_result import AsyncResult
 from mpire.exception import InterruptWorker
+from ruamel.yaml import YAML
 
 from cellophane.src import cfg, logs
 
@@ -104,6 +105,7 @@ class Executor:
         cpus: int,
         memory: int,
         config: cfg.Config,
+        conda_spec: dict | None,
     ) -> None:
         """Target function for the executor."""
         sys.stdout = sys.stderr = open(os.devnull, "w", encoding="utf-8")
@@ -111,16 +113,29 @@ class Executor:
         logs.handle_warnings()
         logger = logging.LoggerAdapter(logging.getLogger(), {"label": name})
 
-        _workdir = workdir or config.workdir / uuid.hex
-        _workdir.mkdir(parents=True, exist_ok=True)
+        workdir_ = workdir or config.workdir / uuid.hex
+        workdir_.mkdir(parents=True, exist_ok=True)
+
+        env_ = env or {}
+        args_ = tuple(word for arg in args for word in shlex.split(str(arg)))
+        if conda_spec:
+            yaml = YAML(typ="safe")
+            (workdir_ / "conda").mkdir(parents=True, exist_ok=True)
+            conda_env_spec = workdir_ / "conda" / f"{uuid.hex}.environment.yaml"
+            micromamba_bootstrap = _ROOT / "scripts" / "bootstrap_micromamba.sh"
+            with open(conda_env_spec, "w") as f:
+                yaml.dump(conda_spec, f)
+            env_["_CONDA_ENV_SPEC"] = str(conda_env_spec.relative_to(workdir_))
+            env_["_CONDA_ENV_NAME"] = f"{uuid.hex}"
+            args_ = (str(micromamba_bootstrap), *args_)
 
         try:
             self.target(
-                *(word for arg in args for word in shlex.split(str(arg))),
+                *args_,
                 name=name,
                 uuid=uuid,
-                workdir=_workdir,
-                env={k: str(v) for k, v in env.items()} if env else {},
+                workdir=workdir_,
+                env={k: str(v) for k, v in env_.items()},
                 os_env=os_env,
                 cpus=cpus or config.executor.cpus,
                 memory=memory or config.executor.memory,
@@ -195,6 +210,7 @@ class Executor:
         error_callback: Callable | None = None,
         cpus: int | None = None,
         memory: int | None = None,
+        conda_spec: dict | None = None,
     ) -> tuple[AsyncResult, UUID]:
         """Submit a job for execution.
 
@@ -227,10 +243,8 @@ class Executor:
             A tuple containing the AsyncResult object and the UUID of the job.
         """
         _uuid = uuid or uuid4()
-        logger = logging.LoggerAdapter(
-            logging.getLogger(),
-            {"label": name or self.__class__.name},
-        )
+        _name = name or self.__class__.name
+        logger = logging.LoggerAdapter(logging.getLogger(), {"label": _name})
         self.locks[_uuid] = mp.Lock()
         self.locks[_uuid].acquire()
 
@@ -239,13 +253,14 @@ class Executor:
             args=args,
             kwargs={
                 "uuid": _uuid,
-                "name": name,
+                "name": _name,
                 "config": self.config,
                 "workdir": workdir,
                 "env": env,
                 "os_env": os_env,
                 "cpus": cpus,
                 "memory": memory,
+                "conda_spec": conda_spec,
             },
             callback=partial(
                 self._callback,
