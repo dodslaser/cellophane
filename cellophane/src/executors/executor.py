@@ -17,6 +17,7 @@ from mpire import WorkerPool
 from mpire.async_result import AsyncResult
 from mpire.exception import InterruptWorker
 from ruamel.yaml import YAML
+from time import sleep
 
 from cellophane.src import cfg, logs
 
@@ -279,6 +280,9 @@ class Executor:
         )
         if wait:
             self.wait(_uuid)
+        else:
+            # Sleep to ensure jobs are submitted before returning
+            sleep(0.1)
 
         return result, _uuid
 
