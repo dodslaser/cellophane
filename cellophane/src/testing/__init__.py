@@ -1,7 +1,6 @@
 """Testing utilities for Cellophane."""
 
 from .fixture import run_definition
-from .mock_executor import MockExecutor
 from .util import (
     create_structure,
     execute_from_structure,
@@ -15,5 +14,4 @@ __all__ = [
     "fail_from_click_result",
     "parametrize_from_yaml",
     "run_definition",
-    "MockExecutor",
 ]

@@ -7,7 +7,6 @@
     modules:
       dummy.py: |
         from cellophane import pre_hook, runner, Executor, executors
-        from cellophane.src.testing import MockExecutor
 
         @pre_hook()
         def runner_a(logger, samples, executor, **_):
@@ -107,7 +106,6 @@
     modules:
       dummy.py: |
         from cellophane import pre_hook, Executor
-        from cellophane.src.testing import MockExecutor
         from pathlib import Path
 
         @pre_hook()

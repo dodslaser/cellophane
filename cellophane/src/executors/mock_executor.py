@@ -1,15 +1,12 @@
-from typing import Any, Callable
-from unittest.mock import MagicMock
-from uuid import uuid4, UUID
+from logging import LoggerAdapter
+from pathlib import Path
+from time import sleep
+from typing import Any
+from uuid import UUID
 
 from attrs import define
-from mpire.async_result import AsyncResult
-from pathlib import Path
 
 from cellophane.src.executors.executor import Executor
-from cellophane.src.cfg import Config
-from logging import LoggerAdapter
-from time import sleep
 
 
 @define(slots=False, init=False)
@@ -37,4 +34,4 @@ class MockExecutor(Executor, name="mock"):
         logger.debug(f"{os_env=}")
         logger.debug(f"{cpus=}")
         logger.debug(f"{memory=}")
-        sleep(.1)  # Ensure logs are printed before the return
+        sleep(0.1)  # Ensure logs are printed before the return

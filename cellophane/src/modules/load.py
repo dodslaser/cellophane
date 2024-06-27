@@ -1,12 +1,12 @@
 """Module loader for cellophane modules."""
 
-from site import addsitedir
 from importlib import import_module
 from pathlib import Path
+from site import addsitedir
 
 from cellophane.src.data import Sample, Samples
-from cellophane.src.executors import Executor, SubprocessExecutor
-from cellophane.src.util import is_instance_or_subclass, freeze_logs
+from cellophane.src.executors import Executor, MockExecutor, SubprocessExecutor
+from cellophane.src.util import freeze_logs, is_instance_or_subclass
 
 from .hook import Hook, resolve_dependencies
 from .runner_ import Runner
@@ -42,7 +42,7 @@ def load(
     runners: list[Runner] = []
     sample_mixins: list[type[Sample]] = []
     samples_mixins: list[type[Samples]] = []
-    executors_: list[type[Executor]] = [SubprocessExecutor]
+    executors_: list[type[Executor]] = [SubprocessExecutor, MockExecutor]
     error = None
 
     addsitedir(str(root))
