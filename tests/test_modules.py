@@ -67,7 +67,7 @@ class Test__cleanup:
         with caplog.at_level("DEBUG"):
             logger = logging.LoggerAdapter(logging.getLogger(), {"label": "DUMMY"})
             samples: data.Samples = data.Samples([data.Sample(id="a")])
-            _cleanup(logger, samples, reason="DUMMY")
+            _cleanup(logger, samples, MagicMock(), reason="DUMMY")
 
         assert all(p.poll() is not None for p in procs)
         for p in pids:
@@ -110,6 +110,18 @@ class Test_Hook:
                 ["BEFORE_A", "BEFORE_B"],
                 ["after_all"],
                 id="before_some_after_all",
+            ),
+            param(
+                {"after": ["all", "AFTER_A"], "before": ["BEFORE_A", "BEFORE_B"]},
+                ["BEFORE_A", "BEFORE_B"],
+                ["AFTER_A", "after_all"],
+                id="before_some_after_all_some",
+            ),
+            param(
+                {"after": ["AFTER_A", "AFTER_B"], "before": ["BEFORE_A", "all"]},
+                ["before_all", "BEFORE_A"],
+                ["AFTER_A", "AFTER_B"],
+                id="before_some_all_after_some",
             ),
         ],
     )
@@ -300,6 +312,22 @@ class Test__resolve_dependencies:
                 ],
                 ["c", "a", "b"],
                 id="a_before_b_after_all",
+            ),
+            param(
+                [
+                    modules.pre_hook(after=["all", "b"])(func("a")),
+                    modules.pre_hook(after="all")(func("b")),
+                ],
+                ["b", "a"],
+                id="a_after_all_after_b",
+            ),
+            param(
+                [
+                    modules.pre_hook(before=["all", "b"])(func("a")),
+                    modules.pre_hook(before="all")(func("b")),
+                ],
+                ["a", "b"],
+                id="a_before_all_before_b",
             ),
         ],
     )

@@ -50,7 +50,15 @@ class Hook:
             case list(before), "all":
                 self.before = before
                 self.after = ["after_all"]
-            case list(before), list(after):
+            case list(before), list(after) if "all" in before and "all" not in after:
+                self.before = ["before_all", *before]
+                self.before.remove("all")
+                self.after = after
+            case list(before), list(after) if "all" not in before and "all" in after:
+                self.before = before
+                self.after = [*after, "after_all"]
+                self.after.remove("all")
+            case list(before), list(after) if "all" not in before and "all" not in after:
                 self.before = [*before, "after_all"]
                 self.after = [*after, "before_all"]
             case _:
