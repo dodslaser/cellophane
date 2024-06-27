@@ -68,11 +68,17 @@ class Runner:
         logger = LoggerAdapter(getLogger(), {"label": self.label})
         cleaner = DeferredCleaner(root=workdir)
 
-        cleanup = partial(_cleanup, logger, samples, reason=None)
         with executor_cls(
             config=config,
             log_queue=log_queue,
         ) as executor:
+            cleanup = partial(
+                _cleanup,
+                logger=logger,
+                samples=samples,
+                executor=executor,
+                reason=None,
+            )
             try:
                 match self.main(
                     samples=samples,
@@ -161,9 +167,11 @@ def _resolve_outputs(
 def _cleanup(
     logger: LoggerAdapter,
     samples: Samples,
+    executor: Executor,
     reason: str,
 ) -> None:
     reason_ = repr(reason) if isinstance(reason, BaseException) else reason
+    executor.terminate()
     logger.debug("Clearing outputs and failing samples")
     samples.output = set()
     for sample in samples:
