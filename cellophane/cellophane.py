@@ -1,6 +1,7 @@
 """Main cellophane entry point wrapper."""
 
 import time
+from contextlib import contextmanager
 from importlib.metadata import version
 from importlib.util import find_spec
 from logging import LoggerAdapter, getLogger
@@ -185,11 +186,13 @@ def _main(
     )
 
     # Validate sample files
+    # FIXME: Make validation configurable
     for sample in samples:
         if sample not in samples.with_files:
             logger.warning(f"Sample {sample} will be skipped as it has no files")
             sample.fail("Missing files")
 
+    # Start runners for unprocessed samples and mergeback failed samples after
     samples = start_runners(
         runners=runners,
         samples=samples.unprocessed,
@@ -200,7 +203,9 @@ def _main(
         executor_cls=executor_cls,
         timestamp=timestamp,
         cleaner=cleaner,
-    )
+    ) | samples.failed
+
+    # Run post-hooks
     samples = run_hooks(
         hooks,
         when="post",
@@ -212,6 +217,8 @@ def _main(
         timestamp=timestamp,
         cleaner=cleaner,
     )
+
+    # If there are failed samples, unregister the workdir from the cleaner
     if samples.failed:
         cleaner.unregister(config.workdir / config.tag)
     cleaner.clean(logger=logger)

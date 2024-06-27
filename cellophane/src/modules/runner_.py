@@ -218,7 +218,7 @@ def start_runners(
 
     if not runners:
         logger.warning("No runners to execute")
-        for sample in samples.unprocessed:
+        for sample in samples:
             sample.fail("Sample was not processed")
         return samples
 
@@ -258,12 +258,10 @@ def start_runners(
         except KeyboardInterrupt:
             logger.critical("Received SIGINT, telling runners to shut down...")
             pool.terminate()
-            return samples
 
         except BaseException as exc:  # pylint: disable=broad-except
             logger.critical(f"Unhandled exception in runner: {exc!r}")
             pool.terminate()
-            return samples
 
     try:
         cleaners: Sequence[DeferredCleaner]
@@ -276,5 +274,7 @@ def start_runners(
             f"Unhandled exception when collecting results: {exc!r}",
             exc_info=True,
         )
+        for sample in samples.unprocessed:
+            sample.fail("Sample was not processed")
         return samples
     return samples_

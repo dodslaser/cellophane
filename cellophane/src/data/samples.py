@@ -4,8 +4,9 @@ from collections import UserList
 from contextlib import suppress
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, ClassVar, Iterable, Literal, Sequence, TypeVar, overload, Union
+from typing import Any, ClassVar, Iterable, Literal, Sequence, TypeVar, Union, overload
 from uuid import UUID, uuid4
+
 from attrs import define, field, fields_dict, make_class
 from attrs.setters import convert, frozen
 from ruamel.yaml import YAML
@@ -324,8 +325,8 @@ class Samples(UserList[S]):
         return (_reconstruct, (Samples, self._mixins, args, kwargs, state, cls_kwargs))
 
     def __or__(self, other: "Samples") -> "Samples":
-        if self.__class__ != other.__class__:
-            raise MergeSamplesTypeError
+        if self.__class__.__name__ != other.__class__.__name__:
+            raise MergeSamplesTypeError(f"Cannot merge {self.__class__} with {other.__class__}")
 
         samples = deepcopy(self)
         for sample in other:
