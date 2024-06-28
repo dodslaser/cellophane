@@ -1,7 +1,8 @@
 """Miscellaneous utility functions."""
 
-from typing import Any
 import logging
+from typing import Any
+
 from attrs import define, field
 
 

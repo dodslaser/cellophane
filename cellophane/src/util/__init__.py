@@ -2,7 +2,7 @@
 
 from .freeze import freeze, frozenlist, unfreeze
 from .mappings import map_nested_keys, merge_mappings
-from .misc import is_instance_or_subclass, freeze_logs
+from .misc import freeze_logs, is_instance_or_subclass
 
 __all__ = [
     "freeze",

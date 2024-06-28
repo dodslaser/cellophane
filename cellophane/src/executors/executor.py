@@ -9,6 +9,7 @@ from contextlib import suppress
 from functools import partial
 from multiprocessing.synchronize import Lock
 from pathlib import Path
+from time import sleep
 from typing import Any, Callable, ClassVar, TypeVar
 from uuid import UUID, uuid4
 
@@ -17,12 +18,12 @@ from mpire import WorkerPool
 from mpire.async_result import AsyncResult
 from mpire.exception import InterruptWorker
 from ruamel.yaml import YAML
-from time import sleep
 
 from cellophane.src import cfg, logs
 
 _LOCKS: dict[UUID, dict[UUID, Lock]] = {}
 _POOLS: dict[UUID, WorkerPool] = {}
+_ROOT = Path(__file__).parent
 
 
 class ExecutorTerminatedError(Exception):

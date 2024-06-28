@@ -3,9 +3,9 @@ from functools import cached_property
 from pathlib import Path
 from random import randbytes
 from typing import Any, Iterator
-from dill import dumps
 
 from attrs import define, field
+from dill import dumps
 from xxhash import xxh3_64
 
 from cellophane.src.cfg import Config
