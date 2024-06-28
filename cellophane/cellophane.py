@@ -185,6 +185,7 @@ def _main(
         executor_cls=executor_cls,
         timestamp=timestamp,
         cleaner=cleaner,
+        logger=logger,
     )
 
     # Validate sample files
@@ -218,6 +219,7 @@ def _main(
         executor_cls=executor_cls,
         timestamp=timestamp,
         cleaner=cleaner,
+        logger=logger,
     )
 
     # If there are failed samples, unregister the workdir from the cleaner

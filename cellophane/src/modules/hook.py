@@ -154,6 +154,7 @@ def run_hooks(
     log_queue: Queue,
     timestamp: str,
     cleaner: Cleaner,
+    logger: LoggerAdapter,
 ) -> Samples:
     """Run hooks at the specified time and update the samples object.
 
@@ -181,7 +182,21 @@ def run_hooks(
             timestamp=timestamp,
             cleaner=cleaner,
         )
-        if hook.when == "pre" or hook.condition == "always":
+        if hook.when == "pre":
+            # Catch exceptions to allow post-hooks to run even if a pre-hook fails
+            try:
+                samples_ = hook_(samples=samples_)
+            except KeyboardInterrupt:
+                logger.warning("Keyboard interrupt received, failing samples and stopping execution")
+                for sample in samples_:
+                    sample.fail(f"Hook {hook.name} interrupted")
+                break
+            except BaseException as exc:
+                logger.error(f"Exception in {hook.label}: {exc}")
+                for sample in samples_:
+                    sample.fail(f"Hook {hook.name} failed: {exc}")
+                break
+        elif hook.condition == "always":
             samples_ = hook_(samples=samples_)
         elif hook.condition == "complete" and (s := samples.complete):
             samples_ = hook_(samples=s) | samples_.failed
