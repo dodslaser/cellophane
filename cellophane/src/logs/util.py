@@ -72,12 +72,15 @@ def redirect_logging_to_queue(
     """Set up queue-based logging for a logger.
 
     Args:
+    ----
         queue (Queue): The queue to store log records.
         logger (logging.Logger, optional): The logger to set up.
             Defaults to the root logger.
 
     Returns:
+    -------
         QueueHandler: The queue handler.
+
     """
     queue_handler = QueueHandler(queue)
     logger.handlers = [queue_handler]
@@ -86,16 +89,18 @@ def redirect_logging_to_queue(
 
 
 def start_logging_queue_listener() -> tuple[Queue, QueueListener]:
-    """
-    Starts a queue listener that listens to the specified queue and passes
+    """Starts a queue listener that listens to the specified queue and passes
     log records to the specified handlers.
 
     Args:
+    ----
         queue (Queue): The queue to listen to.
         handlers (logging.Handler): The handlers to pass log records to.
 
     Returns:
+    -------
         QueueListener: The queue listener.
+
     """
     queue: Queue = Queue()
     listener = QueueListener(
@@ -112,21 +117,19 @@ def setup_console_handler(
     logger: logging.Logger = logging.getLogger(),
     filters: tuple[logging.Filter, ...] | None = None,
 ) -> RichHandler:
-    """
-    Sets up logging for the cellophane module.
+    """Sets up logging for the cellophane module.
 
     Removes any existing handlers, creates a logger, sets up a log queue,
     creates a console handler with a specific formatter, starts a queue listener,
     and registers a listener stop function to be called at exit.
     """
-
     console_handler = RichHandler(show_path=True)
     console_handler.setFormatter(
         logging.Formatter(
             "%(label)s: %(message)s",
             datefmt="%H:%M:%S",
             defaults={"label": "unknown"},
-        )
+        ),
     )
     for filter_ in filters or ():
         console_handler.addFilter(filter_)
@@ -140,23 +143,23 @@ def setup_file_handler(
     logger: logging.Logger = logging.getLogger(),
     filters: tuple[logging.Filter, ...] = (),
 ) -> logging.FileHandler:
-    """
-    Creates a file handler for the specified logger and adds it to the logger's
+    """Creates a file handler for the specified logger and adds it to the logger's
     handlers. The file handler writes log messages to the specified file path.
     The log messages are formatted with a timestamp, label, and message.
 
     Args:
+    ----
         logger (logging.LoggerAdapter): The logger to add the file handler to.
         path (Path): The path to the log file.
-    """
 
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     file_handler = logging.FileHandler(path)
     file_handler.setFormatter(
         logging.Formatter(
             "%(asctime)s : %(levelname)s : %(label)s : %(message)s",
             defaults={"label": "external"},
-        )
+        ),
     )
     for filter_ in filters:
         file_handler.addFilter(filter_)

@@ -20,14 +20,15 @@ from .checkpoint import Checkpoints
 
 
 class Runner:
-    """
-    A runner for executing a function as a job.
+    """A runner for executing a function as a job.
 
     Args:
+    ----
         func (Callable): The function to be executed as a job.
         label (str | None): The label for the runner.
             Defaults to the name of the function.
         split_by (str | None): The attribute to split samples by.
+
     """
 
     label: str
@@ -114,13 +115,13 @@ class Runner:
             except SystemExit as exc:
                 logger.warning(
                     "Runner exited with non-zero status"
-                    + (f"({exc.code})" if exc.code is not None else "")
+                    + (f"({exc.code})" if exc.code is not None else ""),
                 )
                 cleanup(
                     reason=(
                         f"Runner '{self.name}' exitded with non-zero status"
                         + (f"({exc.code})" if exc.code is not None else "")
-                    )
+                    ),
                 )
 
             except BaseException as exc:  # pylint: disable=broad-except
@@ -199,10 +200,10 @@ def start_runners(
     timestamp: str,
     cleaner: Cleaner,
 ) -> Samples:
-    """
-    Start cellphane runners in parallel and collect the results.
+    """Start cellphane runners in parallel and collect the results.
 
     Args:
+    ----
         runners (Sequence[Runner]): The runners to execute.
         samples (data.Samples): The samples to process.
         logger (LoggerAdapter): The logger.
@@ -210,7 +211,9 @@ def start_runners(
         kwargs (Any): Additional keyword arguments to pass to the runners.
 
     Returns:
+    -------
         data.Samples: The samples after processing.
+
     """
     if not samples:
         logger.warning("No samples to process")

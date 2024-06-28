@@ -15,8 +15,7 @@ from .util import comment_yaml_block, dump_yaml
 
 
 class Schema(data.Container):
-    """
-    Represents a schema for configuration data.
+    """Represents a schema for configuration data.
 
     Class Methods:
         from_file(cls, path: Path | Sequence[Path]) -> Schema:
@@ -28,6 +27,7 @@ class Schema(data.Container):
         example_config: Example configuration generated from the schema.
 
     Example:
+    -------
         ```python
         schema = Schema()
 
@@ -47,13 +47,14 @@ class Schema(data.Container):
         # Generating an example configuration
         example_config = schema.example_config
         ```
+
     """
 
     @classmethod
     def from_file(cls, path: Path | Sequence[Path]) -> "Schema":
         """Loads the schema from a file or a sequence of files"""
         if isinstance(path, Path):
-            with open(path, "r", encoding="utf-8") as handle:
+            with open(path, encoding="utf-8") as handle:
                 return cls(YAML(typ="safe").load(handle) or {})
         elif isinstance(path, Sequence):
             schema: dict = {}
@@ -112,7 +113,7 @@ class Schema(data.Container):
             # Add a comment token before the flag
             current_node.ca.items.setdefault(flag.key[-1], [None, []])
             current_node.ca.items[flag.key[-1]][1] = [
-                CommentToken(f"# {_comment}\n", CommentMark((len(flag.key) - 1) * 2))
+                CommentToken(f"# {_comment}\n", CommentMark((len(flag.key) - 1) * 2)),
             ]
 
         # raise Exception(to_be_commented)

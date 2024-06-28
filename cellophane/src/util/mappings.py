@@ -7,16 +7,18 @@ def map_nested_keys(
     node: dict[str, Any] | Any,
     path: tuple[str, ...] | None = None,
 ) -> tuple[tuple[str, ...], ...]:
-    """
-    Maps the keys of a nested mapping.
+    """Maps the keys of a nested mapping.
 
     Args:
+    ----
         data (Any): Mapping for which to map the nested keys.
 
     Returns:
+    -------
         tuple[tuple[str, ...]]: A tuple of tuples of the paths to mapping keys.
 
     Example:
+    -------
         ```python
         data = {
             "key1": {
@@ -30,6 +32,7 @@ def map_nested_keys(
 
         map_nested_keys(data)   # (("key1", "key2"), ("key1", "key3"), ("key4", "key5"))
         ```
+
     """
     if path is None:  # For the root node
         path = ()
@@ -48,17 +51,19 @@ def map_nested_keys(
 
 
 def merge_mappings(m_1: Any, m_2: Any) -> Any:
-    """
-    Merges two nested mappings into a single mapping.
+    """Merges two nested mappings into a single mapping.
 
     Args:
+    ----
         m_1 (Any): The first mapping.
         m_2 (Any): The second mapping.
 
     Returns:
+    -------
         Any: The merged mapping.
 
     Example:
+    -------
         ```python
         m_1 = {"k1": "v1", "k2": ["v2", "v3"]}
         m_2 = {"k2": ["v4", "v5"], "k3": "v6"}
@@ -70,6 +75,7 @@ def merge_mappings(m_1: Any, m_2: Any) -> Any:
         #     "k3": "v6"
         # }
         ```
+
     """
     match m_1, m_2:
         case {**m_1}, {**m_2} if not any(k in m_1 for k in m_2):

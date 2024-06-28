@@ -109,7 +109,7 @@ def execute_from_structure(
             reason=(
                 "Unexpected exception\n"
                 f"Expected: {exception}\n"
-                f"Received: {repr(_exception)}\n"
+                f"Received: {_exception!r}\n"
                 f"Traceback: {''.join(traceback.format_exception(_exception))}"
             ),
         )

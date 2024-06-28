@@ -14,21 +14,24 @@ from .schema import Schema
 
 
 def with_options(schema: Schema) -> Callable:
-    """
-    Creates a decorator for adding command-line interface from a schema.
+    """Creates a decorator for adding command-line interface from a schema.
 
     The callback will be passed a Config object as the first argument.
 
     Args:
+    ----
         schema (Schema): The schema object defining the command-line interface.
 
     Returns:
+    -------
         Callable: The decorated callback function.
 
     Examples:
+    --------
         @options(schema)
         def cli(config: Config, **kwargs):
             ...
+
     """
 
     def wrapper(callback: Callable) -> Callable:

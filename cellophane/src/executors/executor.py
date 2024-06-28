@@ -61,7 +61,7 @@ class Executor:
         """Enter the context manager."""
         return self
 
-    def __exit__(self, *args: Any) -> None:
+    def __exit__(self, *args: object) -> None:
         """Exit the context manager."""
         self.terminate()
 
@@ -71,7 +71,7 @@ class Executor:
         try:
             return _POOLS[self.uuid]
         except KeyError as exc:
-            raise ExecutorTerminatedError() from exc
+            raise ExecutorTerminatedError from exc
 
     @property
     def locks(self) -> dict[UUID, Lock]:
@@ -171,12 +171,12 @@ class Executor:
         config: cfg.Config,
         logger: logging.LoggerAdapter,
     ) -> int | None:  # pragma: no cover
-        """
-        Will be called by the executor to execute a command.
+        """Will be called by the executor to execute a command.
 
         Subclasses should override this method to implement the target execution.
 
         Args:
+        ----
             name (str): The name of the job.
             uuid (UUID): The UUID of the job.
                 This should generally not be overridden, but can be used to
@@ -189,11 +189,14 @@ class Executor:
             memory (int): The amount of memory to allocate for the target.
 
         Returns:
+        -------
             int | None: The return code of the target execution,
                 or None if not applicable.
 
         Raises:
+        ------
             NotImplementedError: If the target execution is not implemented.
+
         """
         # Exluded from coverage as this is a stub method.
         del name, uuid, workdir, env, os_env, cpus, memory, config, logger  # Unused
@@ -217,6 +220,7 @@ class Executor:
         """Submit a job for execution.
 
         Args:
+        ----
             *args: Variable length argument list of strings or paths.
             name: The name of the job.
                 Defaults to __name__.
@@ -242,7 +246,9 @@ class Executor:
                 May not be supported by all executors.
 
         Returns:
+        -------
             A tuple containing the AsyncResult object and the UUID of the job.
+
         """
         _uuid = uuid or uuid4()
         _name = name or self.__class__.name
@@ -294,8 +300,10 @@ class Executor:
         After this hook has been called the job will exit with code 143.
 
         Args:
+        ----
             uuid (UUID): The UUID of the job pending termination.
             logger (logging.LoggerAdapter): A logger adapter for the job.
+
         """
         del uuid, logger  # Unused
         return 143  # SIGTERM
@@ -312,10 +320,13 @@ class Executor:
         """Wait for a specific job or all jobs to complete.
 
         Args:
+        ----
             uuid: The UUID of the job to wait for. Defaults to None.
 
         Returns:
+        -------
             None
+
         """
         if uuid is None:
             for uuid_ in [*self.locks]:

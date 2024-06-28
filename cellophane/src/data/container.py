@@ -21,11 +21,14 @@ class Container(Mapping):
     access using Sequence[str] keys.
 
     Args:
+    ----
         __data__ (dict | None): The initial data for the container.
             Defaults to an empty dictionary.
 
     Attributes:
+    ----------
         __data__ (dict): The dictionary that stores the data.
+
     """
 
     __data__: dict = field(factory=dict)
@@ -103,12 +106,12 @@ class Container(Mapping):
             return self.__data__[key]
 
         raise AttributeError(
-            f"'{self.__class__.__name__}' object has no attribute '{key}'"
+            f"'{self.__class__.__name__}' object has no attribute '{key}'",
         )
 
     def __deepcopy__(self, memo: dict[int, Any]) -> Any:
         _instance = self.__class__(
-            **{deepcopy(k): deepcopy(self[k]) for k in fields_dict(self.__class__)}
+            **{deepcopy(k): deepcopy(self[k]) for k in fields_dict(self.__class__)},
         )
         _instance.__data__ = deepcopy(self.__data__)
         return _instance

@@ -82,7 +82,7 @@ class Test_Hook:
             data.Sample(id="a"),
             data.Sample(id="b"),
             data.Sample(id="c"),
-        ]
+        ],
     )
 
     @staticmethod
@@ -423,7 +423,7 @@ class Test_load:
         assert {r.name for r in _runners} == expected.get("runners", {})
         assert {m.__name__ for m in _sample_mixins} == expected.get("sample_mixins", {})
         assert {m.__name__ for m in _samples_mixins} == expected.get(
-            "samples_mixins", []
+            "samples_mixins", [],
         )
 
     @staticmethod

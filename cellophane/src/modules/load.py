@@ -21,14 +21,15 @@ def load(
     list[type[Samples]],
     list[type[Executor]],
 ]:
-    """
-    Loads module(s) from the specified path and returns the hooks, runners,
+    """Loads module(s) from the specified path and returns the hooks, runners,
     sample mixins, and samples mixins found within.
 
     Args:
+    ----
         path (Path): The path to the directory containing the modules.
 
     Returns:
+    -------
         tuple[
             list[Hook],
             list[Runner],
@@ -36,8 +37,8 @@ def load(
             list[type[data.Samples]],
         ]: A tuple containing the lists of hooks, runners, sample mixins,
             and samples mixins.
-    """
 
+    """
     hooks: list[Hook] = []
     runners: list[Runner] = []
     sample_mixins: list[type[Sample]] = []

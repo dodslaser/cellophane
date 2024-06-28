@@ -18,7 +18,7 @@ _cellophane_type_checker = Draft7Validator.TYPE_CHECKER.redefine_many(
         "mapping": lambda _, instance: isinstance(instance, Mapping),
         "path": lambda _, instance: isinstance(instance, Path | str),
         "size": lambda _, instance: isinstance(instance, str | int),
-    }
+    },
 )
 
 BaseValidator: type[Validator] = extend(
@@ -58,6 +58,7 @@ def properties_(
     """Iterate over the properties of a JSON schema and yield validation results.
 
     Args:
+    ----
         validator (Draft7Validator): The JSON schema validator.
         properties (dict[str, dict]): The properties of the schema.
         instance (dict): The instance to validate.
@@ -66,9 +67,11 @@ def properties_(
         compiled (dict | None, optional): The compiled schema. Defaults to None.
 
     Yields:
+    ------
         Validation results for each property.
 
     Examples:
+    --------
         >>> schema = {
         ...     "type": "object",
         ...     "properties": {
@@ -80,6 +83,7 @@ def properties_(
         >>> validator = Draft7Validator(schema)
         >>> for result in properties(validator, schema["properties"], instance, schema):
         ...     print(result)
+
     """
     for prop, subschema in properties.items():
         instance_ = instance or {}

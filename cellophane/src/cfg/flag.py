@@ -25,10 +25,10 @@ def _convert_float(value: SupportsFloat | None) -> float | None:
 
 @define(slots=False)
 class Flag:
-    """
-    Represents a flag used for command-line options.
+    """Represents a flag used for command-line options.
 
-    Attributes:
+    Attributes
+    ----------
         key (list[str] | None): The key associated with the flag.
         type SCHEMA_TYPES: The JSONSchema type of the flag.
         items ITEMS_TYPES: The JSONSchema items type of the flag.
@@ -47,6 +47,7 @@ class Flag:
         flag: Returns the flag name.
         click_option: Returns the click.option decorator for the flag.
         ```
+
     """
 
     key: tuple[str, ...] = field(converter=tuple, on_setattr=setters.convert)
@@ -95,16 +96,18 @@ class Flag:
         ctx: click.Context | None = None,
         param: click.Parameter | None = None,
     ) -> Any:
-        """
-        Converts the value to the flag type.
+        """Converts the value to the flag type.
 
         Args:
+        ----
             value (Any): The value to be converted.
             ctx (click.Context | None): The click context.
             param (click.Parameter | None): The click parameter.
 
         Returns:
+        -------
             Any: The converted value.
+
         """
         _converter: Callable
         if isinstance(self.click_type, click.ParamType):
@@ -128,11 +131,12 @@ class Flag:
         | ParsedSize
         | FormattedString
     ):
-        """
-        Translate jsonschema type to Python type.
+        """Translate jsonschema type to Python type.
 
-        Returns:
+        Returns
+        -------
             type: The Python type corresponding to the property type.
+
         """
         return click_type(
             type_=self.type,
@@ -149,37 +153,42 @@ class Flag:
 
     @property
     def flag(self) -> str:
-        """
-        Constructs the flag name from the key.
+        """Constructs the flag name from the key.
 
-        Raises:
+        Raises
+        ------
             ValueError: Raised when the key is None.
 
-        Returns:
+        Returns
+        -------
             str: The flag name.
+
         """
         return "_".join(self.key)
 
     @property
     def no_flag(self) -> str:
-        """
-        Constructs the no-flag name from the key.
+        """Constructs the no-flag name from the key.
 
-        Raises:
+        Raises
+        ------
             ValueError: Raised when the key is None.
 
-        Returns:
+        Returns
+        -------
             str: The flag name.
+
         """
         return "_".join([*self.key[:-1], "no", self.key[-1]])
 
     @property
     def click_option(self) -> Callable:
-        """
-        Construct a click.option decorator from a Flag
+        """Construct a click.option decorator from a Flag
 
-        Returns:
+        Returns
+        -------
             Callable: A click.option decorator
+
         """
         return click.option(
             (

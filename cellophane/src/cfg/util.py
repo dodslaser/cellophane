@@ -41,18 +41,18 @@ def comment_yaml_block(
     key: tuple[str, ...] | list[str],
     level: int = 0,
 ) -> None:
-    """
-    Recursively comment a YAML node in-place.
+    """Recursively comment a YAML node in-place.
 
     This will comment all sequence and mapping items in the node, as well as
     multi-line strings.
 
     Args:
+    ----
         node (CommentedBase): The YAML node to comment.
         index (Any): The index of the node.
         level (int, optional): The level of the node. Defaults to 0.
-    """
 
+    """
     # Get the parent node and the index of the leaf node
     node = yaml.mlget([*key[:-1]]) if len(key) > 1 else yaml
     index = key[-1]

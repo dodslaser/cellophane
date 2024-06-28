@@ -81,7 +81,6 @@ class Test_SubprocessExecutor:
         spe: executors.SubprocessExecutor,  # pylint: disable=redefined-outer-name
     ) -> None:
         """Test command exception."""
-
         mocker.patch(
             "cellophane.executors.subprocess_executor.sp.Popen",
             side_effect=Exception("DUMMY"),

@@ -41,7 +41,7 @@ def _mock_recursive(endpoints: list[str], **kwargs: Any) -> MagicMock:
                 _mock_recursive([k[1]], **kwargs) if len(k) > 1 else MagicMock(**kwargs)
             )
             for e in endpoints
-        }
+        },
     )
 
 
@@ -205,7 +205,7 @@ class Test_ask_modules_branch:
         _select_mock = MagicMock(ask=MagicMock(return_value="latest"))
         mocker.patch("cellophane.src.dev.util.select", return_value=_select_mock)
         assert dev.ask_version(
-            [*repo.modules.keys()][0], valid=[("foo/1.33.7", "1.33.7")]
+            [*repo.modules.keys()][0], valid=[("foo/1.33.7", "1.33.7")],
         )
         assert _select_mock.ask.call_count == 1
 

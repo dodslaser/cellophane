@@ -53,7 +53,7 @@ def _apply_mixins(
         if getattr(mixin, "__slots__", None):
             raise TypeError(
                 f"{mixin.__name__}: Mixins must not have __slots__ "
-                "(use @define(slots=False) and don't set __slots__ in the class body)"
+                "(use @define(slots=False) and don't set __slots__ in the class body)",
             )
         name_ += f"_{mixin.__name__}"
         if "__attrs_attrs__" not in mixin.__dict__:
@@ -106,20 +106,22 @@ def _reconstruct(
 
 @define(slots=False)
 class Sample:  # type: ignore[no-untyped-def]
-    """
-    Base sample class represents a sample with an ID, a list of files, a flag indicating
+    """Base sample class represents a sample with an ID, a list of files, a flag indicating
     if it's done, and a list of Output objects.
     Can be subclassed in a module to add additional functionality (mixin).
 
-    Attributes:
+    Attributes
+    ----------
         id (str): The ID of the sample.
         files (list[str]): The list of files associated with the sample.
         done (bool | None): The flag indicating if the sample is done. Defaults to None.
         output (list[Output]): The list of Output objects associated with the sample.
 
-    Methods:
+    Methods
+    -------
         with_mixins(mixins): Returns a new Sample class with the specified mixins
             applied.
+
     """
 
     id: str = field(
@@ -213,34 +215,33 @@ class Sample:  # type: ignore[no-untyped-def]
         return this and that
 
     def fail(self, reason: str) -> None:
-        """
-        Marks the sample as failed with the specified reason.
+        """Marks the sample as failed with the specified reason.
         """
         self._fail = reason
 
     @property
     def failed(self) -> str | Literal[False]:
+        """Checks if the sample is failed by any runner
         """
-        Checks if the sample is failed by any runner
-        """
-
         return self._fail or False
 
     @classmethod
     def with_mixins(cls, mixins: Sequence[type["Sample"]]) -> type["Sample"]:
-        """
-        Returns a new Sample class with the specified mixins as base classes.
+        """Returns a new Sample class with the specified mixins as base classes.
 
         Internally called by Cellophane with the samples mixins specified
         in the loaded modules. Uses attrs.make_class to create a new class,
         so any attrs decorators in the mixins will be applied.
 
         Args:
+        ----
             cls (type): The class to apply the mixins to.
             mixins (Iterable[type]): An iterable of mixin classes to apply.
 
         Returns:
+        -------
             type: The new class with the mixins applied.
+
         """
         return _apply_mixins(cls, mixins)
 
@@ -250,14 +251,15 @@ S = TypeVar("S", bound="Sample")
 
 @define(slots=False, order=False, init=False)
 class Samples(UserList[S]):
-    """
-    Base samples class represents a list of samples.
+    """Base samples class represents a list of samples.
     Can be subclassed in a module to add additional functionality (mixin).
 
-    Attributes:
+    Attributes
+    ----------
         data (list[Sample]): The list of samples.
 
-    Methods:
+    Methods
+    -------
         from_file(path: Path): Returns a new Samples object with samples loaded from
             the specified YAML file.
         with_mixins(mixins): Returns a new Samples class with the specified mixins
@@ -271,7 +273,7 @@ class Samples(UserList[S]):
     sample_class: ClassVar[type[Sample]] = Sample
     merge: ClassVar[Merger] = Merger()
     output: set[Output | OutputGlob] = field(
-        factory=set, converter=set, on_setattr=convert
+        factory=set, converter=set, on_setattr=convert,
     )
     _mixins: ClassVar[tuple[type["Samples"], ...]] = ()
 
@@ -353,7 +355,7 @@ class Samples(UserList[S]):
             with suppress(StopIteration):
                 that_ = next(s for s in that if s.uuid == uuid)
             data.append(
-                this_ & that_ if this_ and that_ else this_ or that_  # type: ignore[arg-type]
+                this_ & that_ if this_ and that_ else this_ or that_,  # type: ignore[arg-type]
             )
             # arg-type can be ignored because uuid is guaranteed
             # to be in at least one of the lists
@@ -373,62 +375,67 @@ class Samples(UserList[S]):
         for sample in yaml.load(path):
             _id = sample.pop("id")
             samples.append(
-                cls.sample_class(id=str(_id), **sample)  # type: ignore[call-arg]
+                cls.sample_class(id=str(_id), **sample),  # type: ignore[call-arg]
             )
         return cls(samples)
 
     @classmethod
     def with_mixins(cls, mixins: Sequence[type["Samples"]]) -> type["Samples"]:
-        """
-        Returns a new Samples class with the specified mixins as base classes.
+        """Returns a new Samples class with the specified mixins as base classes.
 
         Internally called by Cellophane with the samples mixins specified
         in the loaded modules. Uses attrs.make_class to create a new class,
         so any attrs decorators in the mixins will be applied.
 
         Args:
+        ----
             cls (type): The class to apply the mixins to.
             mixins (Iterable[type]): An iterable of mixin classes to apply.
 
         Returns:
+        -------
             type: The new class with the mixins applied.
+
         """
         return _apply_mixins(cls, mixins, sample_class=cls.sample_class)
 
     @classmethod
     def with_sample_class(cls, sample_class: type["Sample"]) -> type["Samples"]:
-        """
-        Returns a new Samples class with the specified sample class as the
+        """Returns a new Samples class with the specified sample class as the
         class to use for samples.
 
         Internally called by Cellophane with the samples mixins specified
         in the loaded modules.
 
         Args:
+        ----
             cls (type): The class to apply the mixins to.
             sample_class (type): The class to use for samples.
 
         Returns:
+        -------
             type: The new class with the sample class applied.
-        """
 
+        """
         return type(cls.__name__, (cls,), {"sample_class": sample_class})
 
     def split(self, by: str | None = "uuid") -> Iterable[tuple[Any, "Samples[Sample]"]]:
-        """
-        Splits the data into groups based on the specified attribute value.
+        """Splits the data into groups based on the specified attribute value.
 
         Args:
+        ----
             by (str | None): The attribute to link the samples by.
                 Defaults to None, which results in Samples objects with one
                 sample each.
 
         Yields:
+        ------
             Iterable[tuple[Any, Samples]]: An iterable of tuples containing the
                 linked attribute value and a Samples object containing the
                 samples with that attribute value.
 
         Example:
+        -------
             ```python
             Samples(
                 [
@@ -460,6 +467,7 @@ class Samples(UserList[S]):
             # UUID('THIRD_UUID')
             # Samples(Sample(id='sample2', files=['file2.txt']))
             ```
+
         """
         if by is None:
             yield None, self
@@ -471,13 +479,14 @@ class Samples(UserList[S]):
 
     @property
     def unique_ids(self) -> set[str]:
-        """
-        Returns a set of unique IDs from the samples in the data.
+        """Returns a set of unique IDs from the samples in the data.
 
         Returns:
+        -------
             set[str]: The set of unique IDs.
 
         Example:
+        -------
             ```python
             data = [
                 Sample(id="sample1", files=["file1.txt"]),
@@ -488,82 +497,86 @@ class Samples(UserList[S]):
             unique_ids = data.unique_ids
             print(unique_ids)  # {"sample1", "sample2"}
             ```
+
         """
         return {s.id for s in self}
 
     @property
     def with_files(self) -> "Samples":
-        """
-        Get only samples with existing files from a Samples object.
+        """Get only samples with existing files from a Samples object.
 
-        Returns:
+        Returns
+        -------
             Class: A new instance of the class with only the samples with files.
+
         """
         return self.__class__(
             [
                 sample
                 for sample in self
                 if sample.files and all(Path(f).exists() for f in sample.files)
-            ]
+            ],
         )
 
     @property
     def without_files(self) -> "Samples":
-        """
-        Get only samples without existing files from a Samples object.
+        """Get only samples without existing files from a Samples object.
 
-        Returns:
+        Returns
+        -------
             Class: A new instance of the class with only the samples without files.
+
         """
         return self.__class__(
             [
                 sample
                 for sample in self
                 if not sample.files or any(not Path(f).exists() for f in sample.files)
-            ]
+            ],
         )
 
     @property
     def complete(self) -> "Samples":
-        """
-        Get only completed samples from a Samples object.
+        """Get only completed samples from a Samples object.
 
         Samples are considered as completed if all runners have completed
         successfully, and the sample is marked as done.
 
-        Returns:
+        Returns
+        -------
             Class: A new instance of the class with only the completed samples.
-        """
 
+        """
         return self.__class__(
-            [sample for sample in self if sample.processed and not sample.failed], output=self.output
+            [sample for sample in self if sample.processed and not sample.failed], output=self.output,
         )
 
     @property
     def unprocessed(self) -> "Samples":
-        """
-        Get only completed samples from a Samples object.
+        """Get only completed samples from a Samples object.
 
         Samples are considered as completed if all runners have completed
         successfully, and the sample is marked as done.
 
-        Returns:
+        Returns
+        -------
             Class: A new instance of the class with only the completed samples.
-        """
 
+        """
         return self.__class__(
-            [sample for sample in self if not sample.failed and not sample.processed], output=self.output
+            [sample for sample in self if not sample.failed and not sample.processed], output=self.output,
         )
 
     @property
     def failed(self) -> "Samples":
-        """
-        Get only failed samples from a Samples object.
+        """Get only failed samples from a Samples object.
 
         Samples are considered as failed if one or more of the runners has not
         completed successfully, or has explicitly marked the sample as not done.
 
-        Returns:
+        Returns
+        -------
             Class: A new instance of the class with only the failed samples.
+
         """
         return self.__class__([sample for sample in self if sample.failed])

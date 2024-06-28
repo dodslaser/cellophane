@@ -57,28 +57,27 @@ FORMATS = Literal[
 
 
 class InvertibleParamType(click.ParamType):
-    """
-    A custom Click parameter type for representing types that can be inverted back to a
+    """A custom Click parameter type for representing types that can be inverted back to a
     string representation.
     """
 
     def invert(self, value: Any) -> str:  # pragma: no cover
-        """
-        Inverts the value back to a string representation.
+        """Inverts the value back to a string representation.
         """
         # Excluded from coverage as this is a stub method that should be overridden
         raise NotImplementedError
 
 
 class StringMapping(InvertibleParamType):
-    """
-    Represents a click parameter type for comma-separated mappings.
+    """Represents a click parameter type for comma-separated mappings.
 
     Attributes:
+    ----------
         name (str): The name of the parameter type.
         scanner (re.Scanner): The regular expression scanner used for parsing mappings.
 
     Methods:
+    -------
         convert(
             value: str | Mapping,
             param: click.Parameter | None,
@@ -87,17 +86,21 @@ class StringMapping(InvertibleParamType):
             Converts the input value to a mapping.
 
     Args:
+    ----
         value (str | Mapping): The input value to be converted.
         param (click.Parameter | None): The click parameter associated with the value.
         ctx (click.Context | None): The click context.
 
     Returns:
+    -------
         Mapping | None: The converted mapping.
 
     Raises:
+    ------
         click.BadParameter: When the input value is not a valid comma-separated mapping.
 
     Example:
+    -------
         ```python
         mapping_type = StringMapping()
         value = "a=1, b=2, c=3"
@@ -107,6 +110,7 @@ class StringMapping(InvertibleParamType):
         result = mapping_type.convert(value, param, ctx)
         print(result)  # Output: {'a': '1', 'b': '2', 'c': '3'}
         ```
+
     """
 
     name = "mapping"
@@ -117,7 +121,7 @@ class StringMapping(InvertibleParamType):
             (r"[\w.]+(?==)", lambda _, token: token.strip()),
             (r"(?<==)[^,]+", lambda _, token: token.strip()),
             (r"\s*[=,]\s*", lambda *_: None),
-        ]
+        ],
     )
 
     def convert(
@@ -126,8 +130,7 @@ class StringMapping(InvertibleParamType):
         param: click.Parameter | None,
         ctx: click.Context | None,
     ) -> data.PreservedDict:
-        """
-        Converts a string value to a mapping.
+        """Converts a string value to a mapping.
 
         This method takes a value and converts it to a mapping.
         If the value is a string, it is scanned and split into tokens.
@@ -137,24 +140,29 @@ class StringMapping(InvertibleParamType):
         it is returned as is. Otherwise, an error is raised.
 
         Args:
+        ----
             value (str | Mapping): The value to be converted.
             param (click.Parameter | None): The click parameter
                 associated with the value.
             ctx (click.Context | None): The click context associated with the value.
 
         Returns:
+        -------
             Mapping | None: The converted mapping value.
 
         Raises:
+        ------
             ValueError: Raised when the value is not a valid comma-separated mapping.
 
         Example:
+        -------
             ```python
             converter = Converter()
             value = "a=1,b=2"
             result = converter.convert(value, None, None)
             print(result)  # {'a': '1', 'b': '2'}
             ```
+
         """
         if isinstance(value, Mapping):
             return data.PreservedDict(value)
@@ -166,7 +174,7 @@ class StringMapping(InvertibleParamType):
             parsed = data.PreservedDict(zip(tokens[::2], tokens[1::2]))
         except Exception:  # pylint: disable=broad-except
             self.fail(
-                f"Expected a comma separated mapping (a=b,x=y), got {value}", param, ctx
+                f"Expected a comma separated mapping (a=b,x=y), got {value}", param, ctx,
             )
 
         for k, v in parsed.items():
@@ -186,14 +194,16 @@ class StringMapping(InvertibleParamType):
         return data.PreservedDict(parsed)
 
     def invert(self, value: dict) -> str:
-        """
-        Inverts the value back to a string representation.
+        """Inverts the value back to a string representation.
 
         Args:
+        ----
             value (Mapping): The value to be inverted.
 
         Returns:
+        -------
             str: The inverted value.
+
         """
         _container = data.Container(value)
         _keys = util.map_nested_keys(value)
@@ -205,20 +215,23 @@ class StringMapping(InvertibleParamType):
 
 
 class TypedArray(click.ParamType):
-    """
-    A custom Click parameter type for representing typed arrays.
+    """A custom Click parameter type for representing typed arrays.
 
     Args:
+    ----
         items (Literal["string", "number", "integer", "path"] | None):
             The type of items in the array. Defaults to "string".
 
     Raises:
+    ------
         ValueError: If the provided items type is invalid.
 
     Returns:
+    -------
         list: The converted list of values.
 
     Examples:
+    --------
         >>> @click.command()
         ... @click.option("--values", type=TypedArray(items="number"))
         ... def process_values(values):
@@ -229,6 +242,7 @@ class TypedArray(click.ParamType):
         1
         2
         3
+
     """
 
     name = "array"
@@ -258,24 +272,28 @@ class TypedArray(click.ParamType):
         param: click.Parameter | None,
         ctx: click.Context | None,
     ) -> list:
-        """
-        Converts a list of values using the specified item type.
+        """Converts a list of values using the specified item type.
 
         Args:
+        ----
             value (list): The list of values to convert.
             param (click.Parameter): The Click parameter associated with the conversion.
             ctx (click.Context): The Click context.
 
         Returns:
+        -------
             list: The converted list of values.
 
         Raises:
+        ------
             Exception: If an error occurs during the conversion.
 
         Examples:
+        --------
             >>> items = TypedArray(items="number")
             >>> items.convert(["1", "2", "3"], param, ctx)
             [1, 2, 3]
+
         """
         try:
             value_ = [*value] if isinstance(value, (list, tuple)) else [value]
@@ -298,19 +316,22 @@ class TypedArray(click.ParamType):
 
 
 class ParsedSize(InvertibleParamType):
-    """
-    Converts a string value representing a size to an integer.
+    """Converts a string value representing a size to an integer.
 
     Args:
+    ----
         value (str): The value to be converted.
         param (click.Parameter | None): The click parameter associated with the value.
         ctx (click.Context | None): The click context associated with the value.
 
     Returns:
+    -------
         int: The converted integer value.
 
     Raises:
+    ------
         ValueError: Raised when the value is not a valid integer.
+
     """
 
     name = "size"
@@ -321,27 +342,31 @@ class ParsedSize(InvertibleParamType):
         param: click.Parameter | None,
         ctx: click.Context | None,
     ) -> int:
-        """
-        Converts a string value to an integer.
+        """Converts a string value to an integer.
 
         Args:
+        ----
             value (str): The value to be converted.
             param (click.Parameter | None): The click parameter
                 associated with the value.
             ctx (click.Context | None): The click context associated with the value.
 
         Returns:
+        -------
             int: The converted integer value.
 
         Raises:
+        ------
             ValueError: Raised when the value is not a valid integer.
 
         Example:
+        -------
             ```python
             converter = Converter()
             value = "1"
             result = converter.convert(value, None, None)
             print(result)
+
         """
         try:
             return parse_size(str(value))
@@ -349,14 +374,16 @@ class ParsedSize(InvertibleParamType):
             self.fail(str(exc), param, ctx)
 
     def invert(self, value: int) -> str:
-        """
-        Inverts the value back to a string representation.
+        """Inverts the value back to a string representation.
 
         Args:
+        ----
             value (int): The value to be inverted.
 
         Returns:
+        -------
             str: The inverted value.
+
         """
         return format_size(value)
 
@@ -447,11 +474,12 @@ def click_type(  # type: ignore[return]
     | ParsedSize
     | FormattedString
 ):
-    """
-    Translate jsonschema type to Python type.
+    """Translate jsonschema type to Python type.
 
-    Returns:
+    Returns
+    -------
         type: The Python type corresponding to the property type.
+
     """
     match type_:
         case _ if enum:

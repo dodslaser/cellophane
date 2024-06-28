@@ -33,8 +33,7 @@ CELLOPHANE_VERSION = version("cellophane")
 
 
 def cellophane(label: str, root: Path) -> click.Command:
-    """
-    Creates a click command for running the Cellophane application.
+    """Creates a click command for running the Cellophane application.
 
     Defines a click command that represents the Cellophane application.
     Sets up the necessary configurations, initializes the logger, and executes
@@ -45,11 +44,14 @@ def cellophane(label: str, root: Path) -> click.Command:
     schema files.
 
     Args:
+    ----
         label (str): The label for the application.
         root (Path): The root path for the application.
 
     Returns:
+    -------
         click.BaseCommand: The click command for the Cellophane application.
+
     """
     click.rich_click.REQUIRED_LONG_STRING = "(REQUIRED)"
     click.rich_click.DEFAULT_STRING = "{}"
@@ -228,7 +230,7 @@ def _main(
     ]:
         logger.warning(
             "One or more outputs were not copied "
-            "(This should be done by a post-hook)"
+            "(This should be done by a post-hook)",
         )
         for output_ in missing_outputs:
             logger.debug(f"Missing output: {output_}")

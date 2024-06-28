@@ -113,20 +113,21 @@ class Hook:
 def resolve_dependencies(
     hooks: list[Hook],
 ) -> list[Hook]:
-    """
-    Resolves hook dependencies and returns the hooks in the resolved order.
+    """Resolves hook dependencies and returns the hooks in the resolved order.
     Uses a topological sort to resolve dependencies. If the order of two hooks
     cannot be determined, the order is not guaranteed.
 
     # FIXME: It should be possible to determine the order of all hooks
 
     Args:
+    ----
         hooks (list[Hook]): The list of hooks to resolve.
 
     Returns:
+    -------
         list[Hook]: The hooks in the resolved order.
-    """
 
+    """
     deps = {
         name: {
             *[d for h in hooks if h.__name__ == name for d in h.after],
@@ -154,17 +155,19 @@ def run_hooks(
     timestamp: str,
     cleaner: Cleaner,
 ) -> Samples:
-    """
-    Run hooks at the specified time and update the samples object.
+    """Run hooks at the specified time and update the samples object.
 
     Args:
+    ----
         hooks (Sequence[Hook]): The hooks to run.
         when (Literal["pre", "post"]): The time to run the hooks.
         samples (data.Samples): The samples object to update.
         **kwargs (Any): Additional keyword arguments to pass to the hooks.
 
     Returns:
+    -------
         data.Samples: The updated samples object.
+
     """
     samples_ = deepcopy(samples)
 

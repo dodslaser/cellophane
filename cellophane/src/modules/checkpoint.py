@@ -14,16 +14,18 @@ from cellophane.src.data import Output, OutputGlob, Samples
 
 @define
 class Checkpoint:
-    """
-    Checkpoint store to track the state of a runner.
+    """Checkpoint store to track the state of a runner.
 
     Args:
+    ----
         workdir (Path): The working directory for the checkpoint store.
         config (Config): The configuration object.
 
     Attributes:
+    ----------
         file (Path): The file path for the checkpoint store.
         checkpoints (dict[str, bytes]): The checkpoints.
+
     """
 
     label: str
@@ -67,8 +69,7 @@ class Checkpoint:
         return paths
 
     def _hash(self, *args: Any, **kwargs: Any) -> Iterator[tuple[str, str]]:
-        """
-        Generate a hash for the samples.
+        """Generate a hash for the samples.
 
         The base of the hash will be calculate from the samples, and any additional
         arguments or keyword arguments passed to the function. The hash will be updated
@@ -79,12 +80,15 @@ class Checkpoint:
         be yielded.
 
         Args:
+        ----
             samples (Samples): The samples to hash.
             *args (Any): Arbitrary positional arguments to include in the hash.
             **kwargs (Any): Arbitrary keyword arguments to include in the hash.
 
         Yields:
+        ------
             tuple[str, bytes]: The name of the file and the hash.
+
         """
         base = xxh3_64()
         base.update(dumps(args))
@@ -116,31 +120,33 @@ class Checkpoint:
         return {o for o in self.samples.output if o.checkpoint == self.label}
 
     def store(self, *args: Any, **kwargs: Any) -> None:
-        """
-        Store a checkpoint.
+        """Store a checkpoint.
 
         Args:
+        ----
             tag (str): The tag for the checkpoint.
             samples (Samples): The samples to store.
             **kwargs (Any): Arbitrary keyword arguments to include in the hash.
+
         """
         self._cache = dict(self._hash(*args, **kwargs))
         with open(self.file, "w", encoding="utf-8") as file:
             file.write(json.dumps(self._cache))
 
     def check(self, *args: Any, **kwargs: Any) -> bool:
-        """
-        Check if a checkpoint matches the stored hash.
+        """Check if a checkpoint matches the stored hash.
 
         Args:
+        ----
             tag (str): The tag for the checkpoint.
             samples (Samples): The samples to check.
             **kwargs (Any): Arbitrary keyword arguments to include in the hash.
 
         Returns:
+        -------
             bool: True if the checkpoint matches the stored hash.
-        """
 
+        """
         return (
             self._cache is not None
             and all(Path(s) in self._paths for s in self._cache)
@@ -151,13 +157,14 @@ class Checkpoint:
 
 @define
 class Checkpoints:
-    """
-    Collection of checkpoints.
+    """Collection of checkpoints.
 
     Args:
+    ----
         samples (Samples): The samples to get checkpoints for.
         workdir (Path): The working directory for the checkpoint store.
         config (Config): The configuration object.
+
     """
 
     samples: Samples

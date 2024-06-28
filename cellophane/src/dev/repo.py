@@ -17,13 +17,13 @@ from .exceptions import InvalidModulesRepoError, InvalidProjectRepoError
 
 
 class ModulesRepo(Repo):
-    """
-    Represents a modules repository.
+    """Represents a modules repository.
 
     This class extends the `Repo` class and provides additional functionality
     specific to modules repositories.
 
     Methods:
+    -------
         from_url(cls, url: str) -> ModulesRepo:
             Creates a `ModulesRepo` instance by cloning the repository from the
             specified URL.
@@ -41,38 +41,45 @@ class ModulesRepo(Repo):
             Retrieves the latest tag for the specified module.
 
     Attributes:
+    ----------
         url: The URL of the repository.
 
-        Example:
+    Example:
+    -------
             ```python
             url = "https://github.com/ClinicalGenomicsGBG/cellophane_modules"
             repo = ModulesRepo.from_url(url)
             branches = repo.module_branches("my_module")
             latest_tag = repo.latest_module_tag("my_module")
             ```
+
     """
 
     @classmethod
     def from_url(cls, url: str, branch: str) -> "ModulesRepo":
-        """
-        Creates a `ModulesRepo` instance by cloning the repository from the specified
+        """Creates a `ModulesRepo` instance by cloning the repository from the specified
         URL.
 
         Args:
+        ----
             cls: The class itself.
             url (str): The URL of the repository.
 
         Returns:
+        -------
             ModulesRepo: An instance of the `ModulesRepo` class.
 
         Raises:
+        ------
             InvalidModulesRepoError: Raised when the repository cloning fails.
 
         Example:
+        -------
             ```python
             url = "https://github.com/ClinicalGenomicsGBG/cellophane_modules"
             repo = ModulesRepo.from_url(url)
             ```
+
         """
         _path = mkdtemp(prefix="cellophane_modules_")
         try:
@@ -87,21 +94,21 @@ class ModulesRepo(Repo):
 
     @cached_property
     def modules(self) -> dict[str, Any]:
-        """
-        Retrieves the list of modules in the repository.
-
+        """Retrieves the list of modules in the repository.
 
         Uses `git ls_tree` to retrieve the list of subdirectories in the repository.
         All non-hidden directories at the base level are considered modules.
 
-        Returns:
+        Returns
+        -------
             List[str]: The list of module names.
+
         """
         try:
             json_ = self.git.show(f"origin/{self.active_branch.name}:modules.json")
         except GitCommandError as exc:
             raise InvalidModulesRepoError(
-                self.url, msg="Could not parse modules.json"
+                self.url, msg="Could not parse modules.json",
             ) from exc
         return json.loads(json_)
 
@@ -112,16 +119,17 @@ class ModulesRepo(Repo):
 
 
 class ProjectRepo(Repo):
-    """
-    Represents a Cellophane project repository.
+    """Represents a Cellophane project repository.
 
     Extends the `Repo` class and provides additional functionality specific to
     Cellophane project repositories.
 
     Attributes:
+    ----------
         external (ModulesRepo): The external modules repository.
 
     Methods:
+    -------
         initialize(cls, name, path: Path, modules_repo_url: str, force=False):
             Initializes a new Cellophane project repository with the specified name,
             path, and modules repository URL.
@@ -132,6 +140,7 @@ class ProjectRepo(Repo):
         present_modules (List[str]): List modules that are present in the project.
 
     Example:
+    -------
         ```python
         path = Path("path/to/repo")
         modules_repo_url = "https://github.com/ClinicalGenomicsGBG/cellophane_modules"
@@ -140,6 +149,7 @@ class ProjectRepo(Repo):
         absent_modules = repo.absent_modules  # ["module_a", "module_b"]
         present_modules = repo.present_modules  # ["module_c", "module_d"]
         ```
+
     """
 
     external: ModulesRepo
@@ -163,11 +173,12 @@ class ProjectRepo(Repo):
 
     @property
     def modules(self) -> set[str]:
-        """
-        Retrieves the list of modules in the repository.
+        """Retrieves the list of modules in the repository.
 
-        Returns:
+        Returns
+        -------
             List[str]: The list of module names.
+
         """
         return {
             name
@@ -177,24 +188,26 @@ class ProjectRepo(Repo):
 
     @property
     def absent_modules(self) -> set[str]:
-        """
-        Retrieves the list of modules not added to the project.
+        """Retrieves the list of modules not added to the project.
 
-        Returns:
+        Returns
+        -------
             List[str]: List modules not added to the project.
-        """
 
+        """
         return {*self.external.modules} - self.modules
 
     def compatible_versions(self, module: str) -> set[tuple[str, str]]:
-        """
-        Retrieves the set of compatible versions for the specified module.
+        """Retrieves the set of compatible versions for the specified module.
 
         Args:
+        ----
             module (str): The name of the module.
 
         Returns:
+        -------
             Set[str]: The set of compatible versions.
+
         """
         pypi = PyPIVersion(CELLOPHANE_VERSION)
         semver = Version(

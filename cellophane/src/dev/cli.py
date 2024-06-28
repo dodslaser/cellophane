@@ -50,7 +50,7 @@ from .util import (
     "--path",
     type=click.Path(path_type=Path),
     help="Path to the cellophane project",
-    default=Path("."),
+    default=Path(),
 )
 @click.option(
     "--log_level",
@@ -75,7 +75,7 @@ def main(
     logs.setup_console_handler().setLevel(log_level)
 
     ctx.obj["logger"] = logging.LoggerAdapter(
-        logging.getLogger(), {"label": "cellophane"}
+        logging.getLogger(), {"label": "cellophane"},
     )
     ctx.obj["logger"].setLevel(log_level)
     ctx.obj["path"] = path
@@ -155,7 +155,7 @@ def module(
         raise SystemExit(1) from exc
     except Exception as exc:
         _logger.critical(
-            f"Unhandled Exception: {repr(exc)}",
+            f"Unhandled Exception: {exc!r}",
             exc_info=True,
         )
         raise SystemExit(1) from exc
@@ -169,7 +169,6 @@ def add(
     logger: logging.LoggerAdapter,
 ) -> None:
     """Add module(s)"""
-
     for module_, ref, version in modules:
         try:
             ref_ = ref if ref in [r.name for r in repo.tags] else f"modules/{ref}"
@@ -183,7 +182,7 @@ def add(
 
         except Exception as exc:  # pylint: disable=broad-except
             logger.error(
-                f"Unable to add '{module_}@{version}': {repr(exc)}",
+                f"Unable to add '{module_}@{version}': {exc!r}",
                 exc_info=True,
             )
             repo.head.reset("HEAD", index=True, working_tree=True)
@@ -221,7 +220,7 @@ def update(
             add_requirements(path, module_)
         except Exception as exc:  # pylint: disable=broad-except
             logger.error(
-                f"Unable to update '{module_}->{version}': {repr(exc)}", exc_info=True
+                f"Unable to update '{module_}->{version}': {exc!r}", exc_info=True,
             )
             repo.head.reset("HEAD", index=True, working_tree=True)
             continue
@@ -242,7 +241,6 @@ def rm(
     **kwargs: Any,
 ) -> None:
     """Remove module"""
-
     del kwargs  # Unused
 
     for module_, _, _ in modules:

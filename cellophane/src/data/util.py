@@ -12,13 +12,16 @@ def as_dict(data: Container, exclude: list[str] | None = None) -> dict[str, Any]
     The returned dictionary will have the same nested structure as the container.
 
     Args:
+    ----
         exclude (list[str] | None): A list of keys to exclude from the returned
             dictionary. Defaults to None.
 
     Returns:
+    -------
         dict: A dictionary representation of the container object.
 
     Example:
+    -------
         ```python
         data = Container(
             key_1 = "value_1",
@@ -36,6 +39,7 @@ def as_dict(data: Container, exclude: list[str] | None = None) -> dict[str, Any]
         #     }
         # }
         ```
+
     """
     return {
         k: as_dict(v) if isinstance(v, Container) else v
@@ -48,9 +52,12 @@ def convert_path_list(data: list[str | Path]) -> list[Path]:
     """Convert a list of strings to a list of Path objects.
 
     Args:
+    ----
         data (list[str | Path]): The list of strings to convert.
 
     Returns:
+    -------
         list[Path]: The list of Path objects.
+
     """
     return [Path(p) for p in data]

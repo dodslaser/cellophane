@@ -13,8 +13,7 @@ from .container import Container
 
 @define
 class Output:
-    """
-    Output file to be copied to the another directory.
+    """Output file to be copied to the another directory.
     """
 
     src: Path = field(
@@ -47,8 +46,7 @@ class Output:
 
 @define
 class OutputGlob:  # type: ignore[no-untyped-def]
-    """
-    Output glob find files to be copied to the another directory.
+    """Output glob find files to be copied to the another directory.
     """
 
     src: str = field(
@@ -91,10 +89,10 @@ class OutputGlob:  # type: ignore[no-untyped-def]
         workdir: Path,
         config: Container,
     ) -> set[Output]:
-        """
-        Resolve the glob pattern to a list of files to be copied.
+        """Resolve the glob pattern to a list of files to be copied.
 
         Args:
+        ----
             samples (Samples): The samples being processed.
             workdir (Path): The working directory
                 with tag and the value of the split_by attribute (if any) appended.
@@ -102,6 +100,7 @@ class OutputGlob:  # type: ignore[no-untyped-def]
             logger (LoggerAdapter): The logger.
 
         Returns:
+        -------
             set[Output]: The list of files to be copied.
 
         """
@@ -141,7 +140,7 @@ class OutputGlob:  # type: ignore[no-untyped-def]
                     case _ if len(matches) > 1:
                         warn(
                             f"Destination name {self.dst_name} will be ignored "
-                            f"as '{self.src}' matches multiple files"
+                            f"as '{self.src}' matches multiple files",
                         )
                         dst_name = m.name
                     case str() as n:
@@ -155,7 +154,7 @@ class OutputGlob:  # type: ignore[no-untyped-def]
                         dst=dst,
                         optional=self.optional,
                         checkpoint=self.checkpoint.format(**meta),
-                    )
+                    ),
                 )
 
         return outputs

@@ -3,7 +3,7 @@
 # pylint: disable=pointless-statement
 from copy import deepcopy
 from pathlib import Path
-from typing import ClassVar, Generator
+from typing import ClassVar
 
 import dill
 from attrs import define, field
@@ -185,7 +185,7 @@ class Test_Sample:
             d: ClassVar[int] = 1338
 
         _sample_class: type[_mixin] = data.Sample.with_mixins(
-            [_mixin]  # type: ignore[assignment]
+            [_mixin],  # type: ignore[assignment]
         )
 
         assert _sample_class is not data.Samples
@@ -222,7 +222,7 @@ class Test_Samples:
                 data.Sample(id="a", files=["a", "b"]),
                 data.Sample(id="a", files=["c", "d"]),
                 data.Sample(id="b", files=["e", "f"]),
-            ]
+            ],
         )
 
     @staticmethod
@@ -233,7 +233,7 @@ class Test_Samples:
             [
                 data.Sample(id="a", files=[LIB / "misc" / "dummy_1"]),
                 data.Sample(id="b", files=[LIB / "misc" / "dummy_2"]),
-            ]
+            ],
         )
 
     @staticmethod
@@ -334,7 +334,7 @@ class Test_Samples:
             d: ClassVar[int] = 1338
 
         _samples_class: type[_mixin] = data.Samples.with_mixins(
-            [_mixin]  # type: ignore[assignment]
+            [_mixin],  # type: ignore[assignment]
         )
         assert _samples_class is not data.Samples
         assert _samples_class.d == 1338
@@ -359,7 +359,7 @@ class Test_Samples:
             [
                 data.Sample(id="a", files=["a", "b"]),
                 data.Sample(id="b", files=["c", "d"]),
-            ]
+            ],
         )
         assert samples[samples[0].uuid] == samples[0]  # pylint: disable=no-member
 
@@ -410,14 +410,14 @@ class Test_Samples:
             [
                 data.Sample(id="a1_1", files=["a1_1"]),
                 data.Sample(id="a1_2", files=["a1_2"]),
-            ]
+            ],
         )
 
         _samples_a2 = _SamplesSubA(
             [
                 data.Sample(id="a2_1", files=["a2_1"]),
                 data.Sample(id="a2_2", files=["a2_2"]),
-            ]
+            ],
         )
 
         assert _samples_a1 & _samples_a2
@@ -465,7 +465,7 @@ class Test_OutputGlob:
     def meta(
         tmp_path: Path,
         monkeypatch: MonkeyPatch,
-    ) -> Generator[dict[str, Path], None, None]:
+    ) -> dict[str, Path]:
         """Dummy metadata for output formatting."""
         workdir = tmp_path / "workdir"
         workdir.mkdir(exist_ok=True)
@@ -481,7 +481,7 @@ class Test_OutputGlob:
 
         monkeypatch.chdir(tmp_path)
 
-        yield {
+        return {
             "_workdir": tmp_path / "workdir",
             "_resultdir": tmp_path / "resultdir",
         }
@@ -491,31 +491,31 @@ class Test_OutputGlob:
     def expected_outputs(
         meta: dict,
         request: FixtureRequest,
-    ) -> Generator[set[data.Output], None, None]:
+    ) -> set[data.Output]:
         """Append tmp_path to expected outputs."""
         outputs = request.param
         for output in outputs:
             output.src = Path(str(output.src).format(**meta))
             output.dst = Path(str(output.dst).format(**meta))
-        yield {*outputs}
+        return {*outputs}
 
     @fixture(scope="function")
     @staticmethod
-    def config() -> Generator[data.Container, None, None]:
+    def config() -> data.Container:
         """Dummy config fixture."""
-        yield data.Container(resultdir=Path("resultdir"))
+        return data.Container(resultdir=Path("resultdir"))
 
     @staticmethod
     def test_hash() -> None:
         """Test __hash__."""
         a = data.OutputGlob(
-            src="src", dst_dir="dst_parent/dst_dir", dst_name="dst_name"
+            src="src", dst_dir="dst_parent/dst_dir", dst_name="dst_name",
         )
         b = data.OutputGlob(
-            src="src", dst_dir="dst_parent/dst_dir", dst_name="dst_name"
+            src="src", dst_dir="dst_parent/dst_dir", dst_name="dst_name",
         )
         c = data.OutputGlob(
-            src="src", dst_dir="dst_parent/dst_dir", dst_name="dst_name_2"
+            src="src", dst_dir="dst_parent/dst_dir", dst_name="dst_name_2",
         )
 
         assert {a, b, c} == {a, c}

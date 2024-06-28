@@ -9,7 +9,7 @@ from pytest_mock import MockerFixture
 from .util import create_structure, execute_from_structure
 
 
-@fixture
+@fixture()
 def run_definition(
     tmp_path: Path,
     caplog: LogCaptureFixture,

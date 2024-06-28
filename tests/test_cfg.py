@@ -342,7 +342,7 @@ class Test_Schema:
                 {
                     "type": "object",
                     "properties": {
-                        "a": {"type": "object", "properties": {"b": {"type": "string"}}}
+                        "a": {"type": "object", "properties": {"b": {"type": "string"}}},
                     },
                 },
                 id="nested",
@@ -360,10 +360,10 @@ class Test_Schema:
                             "properties": {
                                 "b": {"type": "string", "default": "MERGE_B"},
                                 "c": {"type": "string", "default": "MERGE_C"},
-                            }
+                            },
                         },
                         "d": {"type": "string", "default": "MERGE_D"},
-                    }
+                    },
                 },
                 id="merge",
             ),
@@ -491,7 +491,7 @@ class Test_Config:
     def test_flags(self, kwargs: dict, expected: cfg.Flag) -> None:
         """Test cfg.Config.flags."""
         _definition = _YAML.load(
-            (LIB / "schema" / "flags" / "default.yaml").read_text()
+            (LIB / "schema" / "flags" / "default.yaml").read_text(),
         )
         _schema = cfg.Schema(_definition["schema"])
         _config = cfg.Config(_schema, allow_empty=True, **kwargs)
