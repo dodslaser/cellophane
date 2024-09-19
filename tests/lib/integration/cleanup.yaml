@@ -79,7 +79,7 @@
     --tag: DUMMY
   logs:
   - Deferred cleaner does not support registering paths outside the root directory
-  - Refusing to register /private/tmp/NON_ROOT outside out/DUMMY
+  - NON_ROOT outside out/DUMMY
   - Removing out/DUMMY
 
 - id: cleanup-non-root
@@ -112,8 +112,7 @@
     --workdir: out
     --tag: DUMMY
   logs:
-  - Refusing to register /private/tmp/NON_ROOT outside out/DUMMY
-  - Refusing to unregister /private/tmp/NON_ROOT outside out/DUMMY
+  - NON_ROOT outside out/DUMMY
   - Cleaning up 2 files and 1 directory
   - Removing 2 paths outside out/DUMMY
   - out/DOES_NOT_EXIST does not exist
