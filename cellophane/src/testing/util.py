@@ -129,7 +129,7 @@ def execute_from_structure(
         if _result and output_line not in _result.output:
             fail_from_click_result(
                 result=_result,
-                reason="Command output not found\nMissing output:\n{output_line}",
+                reason=f"Command output not found\nMissing output:\n{output_line}",
             )
 
     return _result
