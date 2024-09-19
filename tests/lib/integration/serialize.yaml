@@ -1,0 +1,101 @@
+structure:
+  modules:
+    a.py: |
+      from cellophane import runner, Samples, Sample, CELLOPHANE_ROOT
+      from warnings import warn
+      from pathlib import Path
+      from inspect import stack
+
+      def show_caller(mixin, method):
+
+          try:
+              stack_ = iter(stack())
+              caller = next(stack_)
+              while not Path(caller.filename).is_relative_to(CELLOPHANE_ROOT):
+                  caller = next(stack_)
+          except StopIteration:
+              caller = stack()[1]
+          warn(f"{mixin}.{method} called - {Path(caller.filename).name}:{caller.lineno} ({caller.function})")
+
+      class DummySampleA(Sample):
+          def __reduce__(self):
+              show_caller("DummySampleA", "__reduce__")
+              return super().__reduce__()
+
+          def __getstate__(self):
+              show_caller("DummySampleA", "__getstate__")
+              return super().__getstate__()
+
+          def __setstate__(self, state):
+              show_caller("DummySampleA", "__setstate__")
+              return super().__setstate__(state)
+
+      class DummySampleB(Sample):
+          def __reduce__(self):
+              show_caller("DummySampleB", "__reduce__")
+              return super().__reduce__()
+
+          def __getstate__(self):
+              show_caller("DummySampleB", "__getstate__")
+              return super().__getstate__()
+
+          def __setstate__(self, state):
+              show_caller("DummySampleB", "__setstate__")
+              return super().__setstate__(state)
+
+      class DummySampleC(Sample):
+          def __reduce__(self):
+              show_caller("DummySampleC", "__reduce__")
+              return super().__reduce__()
+
+          def __getstate__(self):
+              show_caller("DummySampleC", "__getstate__")
+              return super().__getstate__()
+
+          def __setstate__(self, state):
+              show_caller("DummySampleC", "__setstate__")
+              return super().__setstate__(state)
+
+      class DummySamples(Samples):
+          A: str = "FOO"
+          B: str = "BAR"
+          C: str = "BAZ"
+
+          def __reduce__(self):
+              show_caller("DummySamples", "__reduce__")
+              return super().__reduce__()
+
+          def __getstate__(self):
+              show_caller("DummySamples", "__getstate__")
+              return super().__getstate__()
+
+          def __setstate__(self, state):
+              show_caller("DummySamples", "__setstate__")
+              return super().__setstate__(state)
+
+      @runner()
+      def runner_a(**_):
+          ...
+
+  samples.yaml: |
+    - id: a
+      files:
+      - input/a
+  input:
+    a: A
+args:
+  --samples_file: samples.yaml
+  --workdir: out
+logs:
+  - DummySampleA.__reduce__ called
+  - DummySampleA.__getstate__ called
+  - DummySampleA.__setstate__ called
+  - DummySampleB.__reduce__ called
+  - DummySampleB.__getstate__ called
+  - DummySampleB.__setstate__ called
+  - DummySampleC.__reduce__ called
+  - DummySampleC.__getstate__ called
+  - DummySampleC.__setstate__ called
+  - DummySamples.__reduce__ called
+  - DummySamples.__getstate__ called
+  - DummySamples.__setstate__ called

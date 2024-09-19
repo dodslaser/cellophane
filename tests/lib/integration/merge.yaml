@@ -1,0 +1,92 @@
+structure:
+  modules:
+    a.py: |
+      from cellophane import Samples, Sample, runner, post_hook, data
+
+      class SamplesMixinA(Samples):
+          a_1: int = 1
+          a_2: int = 2
+
+      class SampleMixinA(Sample):
+          a_1: int = 1
+          a_2: int = 2
+
+      class SamplesMixinB(Samples):
+          b: int = 3
+
+      class SampleMixinB(Sample):
+          b: int = 3
+
+      class SamplesMixinC(Samples):
+          c: int = 4
+          d: int = 5
+
+      class SampleMixinC(Sample):
+          c: int = 4
+          d: int = 5
+
+      @Samples.merge.register("a_1")
+      @Sample.merge.register("a_1")
+      def merge_add(this, that):
+          return this + that
+
+      @Samples.merge.register("a_2")
+      @Samples.merge.register("b")
+      @Sample.merge.register("a_2")
+      @Sample.merge.register("b")
+      def merge_multiply(this, that):
+          return this * that
+
+      @runner()
+      def runner_a(samples, **_):
+          samples.d = None
+          return samples
+
+      @runner()
+      def runner_b(samples, **_):
+          return samples
+
+      @post_hook(condition="always")
+      def validate(samples, logger, **_):
+          for sample in samples:
+              logger.debug(f"{sample.id} {sample.a_1=}")
+              logger.debug(f"{sample.id} {sample.a_2=}")
+              logger.debug(f"{sample.id} {sample.b=}")
+              logger.debug(f"{sample.id} {sample.c=}")
+              logger.debug(f"{sample.id} {sample.d=}")
+          logger.info(f"{samples.a_1=}")
+          logger.info(f"{samples.a_2=}")
+          logger.info(f"{samples.b=}")
+          logger.info(f"{samples.c=}")
+          logger.info(f"{samples.d=}")
+
+  samples.yaml: |
+    - id: a
+      files:
+      - input/a.txt
+    - id: b
+      files:
+      - input/b.txt
+  input:
+    a.txt: "INPUT_A"
+    b.txt: "INPUT_B"
+args:
+  --samples_file: samples.yaml
+  --workdir: out
+
+logs:
+- a sample.a_1=2
+- a sample.a_2=4
+- a sample.b=9
+- a sample.c=(4, 4)
+- a sample.d=(5, 5)
+- b sample.a_1=2
+- b sample.a_2=4
+- b sample.b=9
+- b sample.c=(4, 4)
+- b sample.d=(5, 5)
+- samples.a_1=2
+- samples.a_2=4
+- samples.b=9
+- samples.c=(4, 4)
+- samples.d=5

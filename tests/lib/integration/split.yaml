@@ -1,0 +1,63 @@
+- id: split
+  structure: &split-structure
+    modules:
+      a.py: |
+        from cellophane import runner, Sample, Samples, pre_hook
+
+        class TestSample(Sample):
+            custom_prop: str | None = None
+            other_prop: str = "UNSET"
+
+        @pre_hook()
+        def pre_hook(samples, logger, **_):
+            for p, s in samples.split(by="custom_prop"):
+                s[0].other_prop = "SET"
+            for s in samples:
+                logger.info(f"{s.id} - {s.custom_prop} - {s.other_prop}")
+            return samples
+
+
+        @runner(split_by="custom_prop")
+        def runner(samples, workdir, logger, **_):
+            logger.info(f"{samples[0].custom_prop}: {len(samples)}")
+            logger.info(f"{samples[0].custom_prop}: {workdir}")
+            return samples
+
+    samples.yaml: |
+      - id: a
+        custom_prop: x
+        files:
+        - input/a.txt
+      - id: b
+        custom_prop: y
+        files:
+        - input/b.txt
+      - id: c
+        custom_prop: y
+        files:
+        - input/c.txt
+      - id: d
+        custom_prop: ~
+        files:
+        - input/d.txt
+
+    input:
+      a.txt: "INPUT_A"
+      b.txt: "INPUT_B"
+      c.txt: "INPUT_C"
+      d.txt: "INPUT_D"
+  args:
+    --samples_file: samples.yaml
+    --workdir: out
+    --tag: DUMMY
+  logs:
+    - "x: 1"
+    - "x: out/DUMMY/runner/x"
+    - "y: 2"
+    - "y: out/DUMMY/runner/y"
+    - "None: 1"
+    - "None: out/DUMMY/runner/unknown"
+    - "a - x - SET"
+    - "b - y - SET"
+    - "c - y - UNSET"
+    - "d - None - SET"

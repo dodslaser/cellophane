@@ -13,6 +13,12 @@ from pytest import fail, mark, param, raises
 from ruamel.yaml import YAML
 
 from cellophane.src import cfg, data
+from cellophane.src.cfg.click_ import (
+    FormattedString,
+    ParsedSize,
+    StringMapping,
+    TypedArray,
+)
 
 _YAML = YAML(typ="unsafe")
 LIB = Path("__file__").parent / "tests" / "lib"
@@ -54,7 +60,7 @@ class Test_StringMapping:
     )
     def test_convert(value: str, expected: dict) -> None:
         """Test StringMapping.convert."""
-        _mapping = cfg._click.StringMapping()
+        _mapping = cfg.click_.StringMapping()
         assert _mapping.convert(value, None, None) == expected
 
     @staticmethod
@@ -85,7 +91,7 @@ class Test_StringMapping:
     )
     def test_convert_exception(value: str) -> None:
         """Test StringMapping.convert exceptions."""
-        _mapping = cfg._click.StringMapping()
+        _mapping = cfg.click_.StringMapping()
         with raises(click.BadParameter):
             _mapping.convert(value, None, None)
 
@@ -111,7 +117,7 @@ class Test_TypedArray:
         expected: list[int],
     ) -> None:
         """Test TypedArray.convert."""
-        _array = cfg._click.TypedArray(item_type)
+        _array = cfg.click_.TypedArray(item_type)
         assert _array.convert(value, None, None) == expected  # type: ignore[arg-type]
 
     @staticmethod
@@ -139,7 +145,7 @@ class Test_TypedArray:
     ) -> None:
         """Test TypedArray.convert exceptions."""
         with raises(exception):
-            _array = cfg._click.TypedArray(item_type)  # type: ignore[arg-type]
+            _array = cfg.click_.TypedArray(item_type)  # type: ignore[arg-type]
             _array.convert(value, None, None)  # type: ignore[arg-type]
 
 
@@ -187,7 +193,7 @@ class Test_ParsedSize:
         expected: list[int],
     ) -> None:
         """Test TypedArray.convert."""
-        _array = cfg._click.ParsedSize()
+        _array = cfg.click_.ParsedSize()
         assert _array.convert(value, None, None) == expected
 
     @staticmethod
@@ -207,7 +213,7 @@ class Test_ParsedSize:
     ) -> None:
         """Test TypedArray.convert exceptions."""
         with raises(exception):
-            _array = cfg._click.ParsedSize()
+            _array = cfg.click_.ParsedSize()
             _array.convert(value, None, None)
 
 
@@ -219,43 +225,43 @@ class Test_Flag:
         "flag,click_option",
         [
             param(
-                cfg._click.Flag(
+                cfg.Flag(
                     required=True,
-                    key=["a", "b"],
+                    key=("a", "b"),
                     type="string",
                 ),
-                click.option("--a_b", type=str, required=True),
+                click.option("--a_b", type=FormattedString(), required=True),
                 id="required",
             ),
             param(
-                cfg._click.Flag(
-                    key=["a", "b"],
+                cfg.Flag(
+                    key=("a", "b"),
                     type="string",
                     default="default",
                 ),
                 click.option(
                     "--a_b",
-                    type=str,
+                    type=FormattedString(),
                     default="default",
                 ),
                 id="default",
             ),
             param(
-                cfg._click.Flag(
-                    key=["a", "b"],
+                cfg.Flag(
+                    key=("a", "b"),
                     type="string",
                     secret=True,
                 ),
                 click.option(
                     "--a_b",
-                    type=str,
+                    type=FormattedString(),
                     show_default=False,
                 ),
                 id="secret",
             ),
             param(
-                cfg._click.Flag(
-                    key=["a", "b"],
+                cfg.Flag(
+                    key=("a", "b"),
                     type="boolean",
                 ),
                 click.option(
@@ -266,37 +272,41 @@ class Test_Flag:
                 id="boolean",
             ),
             param(
-                cfg._click.Flag(
-                    key=["a", "b"],
+                cfg.Flag(
+                    key=("a", "b"),
                     type="string",
                     enum=["A", "B", "C"],
                 ),
                 click.option(
                     "--a_b",
-                    type=click.Choice(["A", "B", "C"]),
+                    type=click.Choice(["A", "B", "C"], case_sensitive=False),
                 ),
-                id="boolean",
+                id="enum",
             ),
             *(
                 param(
-                    cfg._click.Flag(
+                    cfg.Flag(
                         key=("a", "b"),  # type: ignore[arg-type]
-                        type=_type,  # type: ignore[arg-type]
+                        type=type_,  # type: ignore[arg-type]
+                        **kwargs,
                     ),
                     click.option(
                         "--a_b",
                         type=pytype,
                     ),
-                    id=_type,
+                    id=type_,
                 )
-                for _type, pytype, in [
-                    ("string", str),
-                    ("integer", int),
-                    ("number", float),
-                    ("array", cfg._click.TypedArray("string")),
-                    ("mapping", cfg._click.StringMapping()),
-                    ("path", click.Path()),
-                    (None, str),
+                for type_, pytype, kwargs in [
+                    ("string", FormattedString(), {}),
+                    ("integer", int, {}),
+                    ("integer", click.IntRange(min=0), {"min": 0}),
+                    ("number", float, {}),
+                    ("number", click.FloatRange(min=0), {"min": 0}),
+                    ("array", TypedArray("string"), {}),
+                    ("mapping", StringMapping(), {}),
+                    ("path", click.Path(), {}),
+                    ("size", ParsedSize(), {}),
+                    (None, FormattedString(), {}),
                 ]
             ),
         ],
@@ -319,26 +329,6 @@ class Test_Flag:
 
         assert _click_info == _flag_info
 
-    @staticmethod
-    def test_invalid_type() -> None:
-        """Test setting invalid type on cfg._click.Flag."""
-        with raises(ValueError):
-            cfg._click.Flag(key=["a", "b"], type="invalid")  # type: ignore[arg-type]
-
-    @staticmethod
-    def test_invalid_key() -> None:
-        """Test setting invalid key on cfg._click.Flag."""
-        _flag = cfg._click.Flag()
-        with raises(ValueError):
-            _flag.key = "INVALID"  # type: ignore[assignment]
-
-    @staticmethod
-    def test_unset_key() -> None:
-        """Test accessing unset key on cfg._click.Flag."""
-        _flag = cfg._click.Flag()
-        with raises(ValueError):
-            _ = _flag.key
-
 
 class Test_Schema:
     """Test cfg.Schema."""
@@ -352,7 +342,7 @@ class Test_Schema:
                 {
                     "type": "object",
                     "properties": {
-                        "a": {"type": "object", "properties": {"b": {"type": "string"}}}
+                        "a": {"type": "object", "properties": {"b": {"type": "string"}}},
                     },
                 },
                 id="nested",
@@ -370,10 +360,10 @@ class Test_Schema:
                             "properties": {
                                 "b": {"type": "string", "default": "MERGE_B"},
                                 "c": {"type": "string", "default": "MERGE_C"},
-                            }
+                            },
                         },
                         "d": {"type": "string", "default": "MERGE_D"},
-                    }
+                    },
                 },
                 id="merge",
             ),
@@ -421,27 +411,21 @@ class Test__get_flags:
         _schema = cfg.Schema(_definition["schema"])
         _config = _definition.get("config", {})
         if flags := _definition.get("flags"):
-            assert cfg._get_flags(_schema, _config) == [
-                cfg._click.Flag(**flag) for flag in flags
+            assert cfg.get_flags(_schema, _config) == [
+                cfg.Flag(**flag) for flag in flags
             ]
 
         if flags_noconfig := _definition.get("flags_noconfig"):
-            assert cfg._get_flags(_schema, {}) == [
-                cfg._click.Flag(**flag) for flag in flags_noconfig
+            assert cfg.get_flags(_schema, {}) == [
+                cfg.Flag(**flag) for flag in flags_noconfig
             ]
 
         if flags_base := _definition.get("flags_base"):
-            assert cfg._get_flags(_schema) == [
-                cfg._click.Flag(**flag) for flag in flags_base
-            ]
+            assert cfg.get_flags(_schema) == [cfg.Flag(**flag) for flag in flags_base]
 
 
 class Test_Config:
     """Test cfg.Config."""
-
-    def test_empty(self) -> None:
-        """Test empty cfg.Config."""
-        assert raises(ValueError, cfg.Config, {})
 
     @staticmethod
     @mark.parametrize(
@@ -472,7 +456,7 @@ class Test_Config:
                 _config = cfg.Config(_schema, **kwargs)
                 _YAML.dump(data.as_dict(_config), sys.stdout)
 
-            _cli = reduce(lambda x, y: y.click_option(x), cfg._get_flags(_schema), _cli)
+            _cli = reduce(lambda x, y: y.click_option(x), cfg.get_flags(_schema), _cli)
             runner = CliRunner()
 
             result = runner.invoke(_cli, _definition["cli"])
@@ -489,31 +473,27 @@ class Test_Config:
         [
             param(
                 {"a": "CONFIG"},
-                cfg._click.Flag(
-                    key=["a"], type="string", default="SCHEMA", value="CONFIG"
-                ),
+                cfg.Flag(key=("a",), type="string", default="SCHEMA", value="CONFIG"),
                 id="from_config",
             ),
             param(
                 {},
-                cfg._click.Flag(
-                    key=["a"], type="string", default="SCHEMA", value="SCHEMA"
-                ),
+                cfg.Flag(key=("a",), type="string", default="SCHEMA", value="SCHEMA"),
                 id="from_schema",
             ),
             param(
                 {"include_defaults": False},
-                cfg._click.Flag(key=["a"], type="string", default="SCHEMA", value=None),
+                cfg.Flag(key=("a",), type="string", default="SCHEMA", value=None),
                 id="no_include_defaults",
             ),
         ],
     )
-    def test_flags(self, kwargs: dict, expected: cfg._click.Flag) -> None:
+    def test_flags(self, kwargs: dict, expected: cfg.Flag) -> None:
         """Test cfg.Config.flags."""
         _definition = _YAML.load(
-            (LIB / "schema" / "flags" / "default.yaml").read_text()
+            (LIB / "schema" / "flags" / "default.yaml").read_text(),
         )
         _schema = cfg.Schema(_definition["schema"])
         _config = cfg.Config(_schema, allow_empty=True, **kwargs)
 
-        assert cfg._get_flags(_schema, data.as_dict(_config)) == [expected]
+        assert cfg.get_flags(_schema, data.as_dict(_config)) == [expected]

@@ -11,12 +11,12 @@ At the very least wou will need an environment with python 3.11+ and pip install
 ```shell
 micromamba env create -p my_cellphane_env python=3.11
 micromamba activate my_cellphane_env
-pip install git+https://github.com/ClinicalGenomicsGBG/cellophane.git@dev
+pip install git+https://github.com/ClinicalGenomicsGBG/cellophane.git@latest
 ```
 
 ## Initializing a wrapper
 
-The `cellphane init` command will initialize a new wrapper in the current directory. This command does the following:
+The `cellophane init` command will initialize a new wrapper in the current directory. This command does the following:
 
 - Set up the directory structure for the wrapper.
 - Add an empty `schema.yaml` file where you can define configuration options.
@@ -123,15 +123,16 @@ Argument      | Type        | Description
 
 At runtime, the decorated function (runner) will be called with the following keyword arguments:
 
-Argument    | Type                    | Description
-------------|-------------------------|-------------
-`samples`   | `cellophane.Samples`    | Samples to process.
-`config`    | `cellophane.Config`     | Wrapper configuration.
-`timestamp` | `str`                   | A string representation of the current timestamp (YYYYMMDDHHMMSS).
-`logger`    | `logging.LoggerAdapter` | A logger that can be used to log messages.
-`root`      | `pathlib.Path`          | A `pathlib.Path` pointing to the root directory of the wrapper.
-`workdir`   | `pathlib.Path`          | A `pathlib.Path` pointing to the working directory of the runner.
-`executor`  | `cellophane.Executor`   | An `Executor` that can be used to run external commands.
+Argument      | Type                     | Description
+--------------|--------------------------|-------------
+`samples`     | `cellophane.Samples`     | Samples to process.
+`config`      | `cellophane.Config`      | Wrapper configuration.
+`timestamp`   | `str`                    | A string representation of the current timestamp (YYYYMMDDHHMMSS).
+`logger`      | `logging.LoggerAdapter`  | A logger that can be used to log messages.
+`root`        | `pathlib.Path`           | A `pathlib.Path` pointing to the root directory of the wrapper.
+`workdir`     | `pathlib.Path`           | A `pathlib.Path` pointing to the working directory of the runner.
+`executor`    | `cellophane.Executor`    | An `Executor` that can be used to run external commands.
+`checkpoints` | `cellophane.Checkpoints` | A collections of checkpoints that can be used for skipping steps if the output already exists.
 
 ---
 
@@ -286,6 +287,77 @@ Argument        | Type                    | Description
 
 </details>
 
+<details>
+
+---
+
+<summary><strong>Output</strong></summary>
+
+Outputs for runners can be specified using the `@cellophane.output` decorator.
+
+Argument      | Type  | Description
+--------------|-------|-------------
+`src`         | `str` | A glob pattern specifying the output files. Paths are relative to workdir. Patterns will be formatted with access to the `sample` and `samples` objects.
+`dst_name`    | `str` | The file name for the output. If not specified, the `src` pattern will be used. Can contain parent directories, and may be used to rename directories if `src` matches a directory.
+`dst_dir`     | `str` | The directory for the output, relative to `config.resultdir`. Files will be placed under this directory using their original names or the `dst_name` if specified.
+`checkpoint`  | `str` | The label of the checkpoint that this file belongs to. If not specified, the file will be considered part of the main output. Defaults to `'main'`.
+`òptional`    | `bool`| If `True`, the output will not be considered required. No warning will be issued if the output is missing. Will be excluded when generating the checkpoint hash.
+
+> **Note:** If a file for an `optional` output is present it will be inclued when generating the checkpoint hash. This is to ensure that all files that CAN be generated given a paricular inputs and configuration are present in the output.
+
+</details>
+
+<details>
+
+---
+
+<summary><strong>Checkpoints</strong></summary>
+
+Checkpoints are used to keep track of the output of runners. They can be used to skip steps if the output already exists. Each output will belong to a checkpoint. When a checkpoint is stored, a hash will be calculated using the `config` object, the sample IDs, the sample files and the output files. Arbitrary `*args` and `**kwargs` may be passed to the `store` and `check` to include additional information in the hash. A `cellophane.Checkpoints` object is passed to the runners and can be used to access the individual checkpoints as attributes.
+
+Checkpoints are stored as `cellophane.Checkpoint` objects, which have the following attributes:
+
+Method                    | Returns | Description
+--------------------------|---------|-------------
+`store(*args, *kwargs)` | `None`  | A function used to store the checkpoint. Takes arbitrary arguments that will be included in the hash.
+`check(*args, *kwargs)` | `bool`  | A function used to check if the checkpoint exists. Takes arbitrary arguments that will be included in the hash.
+
+> **Note:** At most 128kb of data will be included in the hash, evenly spaced as 128 byte chunks at 1000 positions troughout the file.
+
+```python
+from cellophane import runner
+
+some_important_value = 42
+
+@output(src="main.txt", dst_name="output.txt", checkpoint="main")
+@output(src="task.txt", dst_name="task.txt", checkpoint="task")
+@runner()
+def my_runner(
+    samples: Samples,
+    config: Config,
+    logger: logging.LoggerAdapter,
+    workdir: pathlib.Path,
+    executor: Executor,
+    checkpoints: Checkpoints,
+    **_,
+) -> None:
+    if checkpoints.task.check(some_important_value):
+        logger.info("Task output already exists, skipping")
+    else:
+        # Do something important that creates task.txt
+        ...
+        checkpoints.task.store(some_important_value)
+
+    if checkpoints.main.check():
+        logger.info("Main output already exists, skipping")
+    else:
+        # Do something important that creates main.txt
+        ...
+        checkpoints.main.store()
+```
+
+</details>
+
 ## Example module
 
 ```python
@@ -409,12 +481,10 @@ This command will ask what module(s) to add and then what version to use for eac
 
 Alternatively, you can select a module and version directly from the command-line. The `latest` tag will select the latest version of the module. The `dev` tag will select the `dev` branch of the module.
 
-> **NOTE:** The structure of the module repository has changed in the dev branch in a backwards-incompatible way. It is currently recommended to use the `--modules_branch dev` flag to use the dev branch of the module repository.
-
 > **NOTE:** The `add`/`rm`/`update` commands can also be used without specifying a module. In this case, you will be prompted to select a module from a list of available modules.
 
 ```text
-python -m cellophane --modules_branch dev module add slims@latest
+python -m cellophane module add slims@latest
 ```
 
 After adding a module it is important to also install any dependencies required by the module. The `requirements.txt` file at the project root includes dependencies for all modules.
@@ -426,13 +496,13 @@ pip install -r requirements.txt
 To update a module to a specific version, use the `update` command. If a module is checked out at the `dev` branch, the `update` command will pull the latest changes from the remote repository.
 
 ```text
-python -m cellophane --modules_branch dev module update slims@dev
+python -m cellophane module update slims@dev
 ```
 
 To remove a module, use the `rm` command. This essentially does the reverse of the `add` command and creates a git commit with the changes.
 
 ```text
-python -m cellophane --modules_branch dev module rm slims
+python -m cellophane module rm slims
 ```
 
 # Configuration

@@ -1,13 +1,10 @@
 """Tests for the data module."""
 
 # pylint: disable=pointless-statement
-
-import logging
 from copy import deepcopy
 from pathlib import Path
-from typing import ClassVar, Generator
+from typing import ClassVar
 
-import cloudpickle
 import dill
 from attrs import define, field
 from pytest import FixtureRequest, MonkeyPatch, fixture, mark, param, raises
@@ -162,13 +159,10 @@ class Test_Sample:
         _sample_a2 = _SampleSubA(id="a2", files=["a2"])
         _sample_a1_2 = deepcopy(_sample_a1)
         _sample_a1_2.files = [Path("a1_2")]
-        _sample_b = _SampleSubB(id="b", files=["d"])
 
         _sample_a1_merge = _sample_a1 & _sample_a1_2
 
         assert _sample_a1_merge.files == [Path("a1"), Path("a1_2")]
-        with raises(data.MergeSamplesTypeError):
-            _sample_a1 & _sample_b
         with raises(data.MergeSamplesUUIDError):
             _sample_a1 & _sample_a2
 
@@ -191,7 +185,7 @@ class Test_Sample:
             d: ClassVar[int] = 1338
 
         _sample_class: type[_mixin] = data.Sample.with_mixins(
-            [_mixin]  # type: ignore[assignment]
+            [_mixin],  # type: ignore[assignment]
         )
 
         assert _sample_class is not data.Samples
@@ -228,7 +222,7 @@ class Test_Samples:
                 data.Sample(id="a", files=["a", "b"]),
                 data.Sample(id="a", files=["c", "d"]),
                 data.Sample(id="b", files=["e", "f"]),
-            ]
+            ],
         )
 
     @staticmethod
@@ -239,7 +233,7 @@ class Test_Samples:
             [
                 data.Sample(id="a", files=[LIB / "misc" / "dummy_1"]),
                 data.Sample(id="b", files=[LIB / "misc" / "dummy_2"]),
-            ]
+            ],
         )
 
     @staticmethod
@@ -283,12 +277,14 @@ class Test_Samples:
     def test_complete_failed(samples: data.Samples[data.Sample]) -> None:
         """Test complete and failed."""
         assert not samples.complete
-        assert samples.failed == samples
+        assert not samples.failed
+        assert samples.unprocessed == samples
 
         for s in samples:
             s.processed = True
 
         assert samples.complete == samples
+
 
         samples[1].fail("DUMMY")
         assert samples[1] in samples.failed
@@ -338,7 +334,7 @@ class Test_Samples:
             d: ClassVar[int] = 1338
 
         _samples_class: type[_mixin] = data.Samples.with_mixins(
-            [_mixin]  # type: ignore[assignment]
+            [_mixin],  # type: ignore[assignment]
         )
         assert _samples_class is not data.Samples
         assert _samples_class.d == 1338
@@ -351,8 +347,8 @@ class Test_Samples:
     @staticmethod
     def test_pickle(samples: data.Samples[data.Sample]) -> None:
         """Test pickling."""
-        _samples_pickle = cloudpickle.dumps(samples)
-        _samples_unpickle = cloudpickle.loads(_samples_pickle)
+        _samples_pickle = dill.dumps(samples)
+        _samples_unpickle = dill.loads(_samples_pickle)
 
         assert samples == _samples_unpickle
 
@@ -363,7 +359,7 @@ class Test_Samples:
             [
                 data.Sample(id="a", files=["a", "b"]),
                 data.Sample(id="b", files=["c", "d"]),
-            ]
+            ],
         )
         assert samples[samples[0].uuid] == samples[0]  # pylint: disable=no-member
 
@@ -414,27 +410,17 @@ class Test_Samples:
             [
                 data.Sample(id="a1_1", files=["a1_1"]),
                 data.Sample(id="a1_2", files=["a1_2"]),
-            ]
+            ],
         )
 
         _samples_a2 = _SamplesSubA(
             [
                 data.Sample(id="a2_1", files=["a2_1"]),
                 data.Sample(id="a2_2", files=["a2_2"]),
-            ]
-        )
-
-        _samples_b = _SamplesSubB(
-            [
-                data.Sample(id="b1", files=["b1"]),
-                data.Sample(id="b2", files=["b2"]),
-            ]
+            ],
         )
 
         assert _samples_a1 & _samples_a2
-
-        with raises(data.MergeSamplesTypeError):
-            _samples_a1 & _samples_b
 
     @staticmethod
     def test_or() -> None:
@@ -479,7 +465,7 @@ class Test_OutputGlob:
     def meta(
         tmp_path: Path,
         monkeypatch: MonkeyPatch,
-    ) -> Generator[dict[str, Path], None, None]:
+    ) -> dict[str, Path]:
         """Dummy metadata for output formatting."""
         workdir = tmp_path / "workdir"
         workdir.mkdir(exist_ok=True)
@@ -495,7 +481,7 @@ class Test_OutputGlob:
 
         monkeypatch.chdir(tmp_path)
 
-        yield {
+        return {
             "_workdir": tmp_path / "workdir",
             "_resultdir": tmp_path / "resultdir",
         }
@@ -505,31 +491,31 @@ class Test_OutputGlob:
     def expected_outputs(
         meta: dict,
         request: FixtureRequest,
-    ) -> Generator[set[data.Output], None, None]:
+    ) -> set[data.Output]:
         """Append tmp_path to expected outputs."""
         outputs = request.param
         for output in outputs:
             output.src = Path(str(output.src).format(**meta))
             output.dst = Path(str(output.dst).format(**meta))
-        yield {*outputs}
+        return {*outputs}
 
     @fixture(scope="function")
     @staticmethod
-    def config() -> Generator[data.Container, None, None]:
+    def config() -> data.Container:
         """Dummy config fixture."""
-        yield data.Container(resultdir=Path("resultdir"))
+        return data.Container(resultdir=Path("resultdir"))
 
     @staticmethod
     def test_hash() -> None:
         """Test __hash__."""
         a = data.OutputGlob(
-            src="src", dst_dir="dst_parent/dst_dir", dst_name="dst_name"
+            src="src", dst_dir="dst_parent/dst_dir", dst_name="dst_name",
         )
         b = data.OutputGlob(
-            src="src", dst_dir="dst_parent/dst_dir", dst_name="dst_name"
+            src="src", dst_dir="dst_parent/dst_dir", dst_name="dst_name",
         )
         c = data.OutputGlob(
-            src="src", dst_dir="dst_parent/dst_dir", dst_name="dst_name_2"
+            src="src", dst_dir="dst_parent/dst_dir", dst_name="dst_name_2",
         )
 
         assert {a, b, c} == {a, c}
@@ -619,8 +605,6 @@ class Test_OutputGlob:
         expected_outputs: set[data.Output],
     ) -> None:
         """Test resolve."""
-        logger = logging.LoggerAdapter(logging.getLogger("test"), {})
-
         glob = data.OutputGlob(
             src=kwargs.pop("src").format(**meta),
             dst_dir=(
@@ -633,13 +617,9 @@ class Test_OutputGlob:
             ),
             **kwargs,
         )
-
-        assert (
-            glob.resolve(
-                samples=[None],  # type: ignore[arg-type]
-                workdir=Path("workdir"),
-                config=config,
-                logger=logger,
-            )
-            == expected_outputs
+        outputs = glob.resolve(
+            samples=[None],  # type: ignore[arg-type]
+            workdir=Path("workdir"),
+            config=config,
         )
+        assert outputs == expected_outputs

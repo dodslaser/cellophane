@@ -15,11 +15,11 @@ schema:
           default: C
 
 flags:
-  - key: [a]
+  - key: !!python/tuple [a]
     required: true
-  - key: [b]
+  - key: !!python/tuple [b]
     required: true
-  - key: [c]
+  - key: !!python/tuple [c]
     required: false
     type: string
     default: C

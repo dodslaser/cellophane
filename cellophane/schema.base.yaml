@@ -5,16 +5,24 @@ required:
 
 
 properties:
-  log_level:
-    default: INFO
-    description: Log level
-    enum:
-      - DEBUG
-      - INFO
-      - WARNING
-      - ERROR
-      - CRITICAL
-    type: string
+  log:
+    type: object
+    properties:
+      level:
+        default: INFO
+        description: Log level (NOTSET will log all messages, including those from external libraries)
+        enum:
+          - NOTSET
+          - DEBUG
+          - INFO
+          - WARNING
+          - ERROR
+          - CRITICAL
+        type: string
+      external:
+        default: false
+        description: Log messages from external libraries
+        type: boolean
 
   executor:
     type: object
@@ -43,7 +51,7 @@ properties:
   workdir:
     description: Working directory where intermediate files are stored
     type: path
-  
+
   resultdir:
     description: Results base directory where output files are copied
     type: path

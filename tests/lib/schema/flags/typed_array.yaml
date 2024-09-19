@@ -11,7 +11,7 @@ config:
   a: [a, b, c]
 
 flags:
-  - key: [a]
+  - key: !!python/tuple [a]
     type: array
     value: [a, b, c]
-    items: path
+    items_type: path

@@ -6,7 +6,7 @@ schema:
   required: [a]
 
 flags:
-  - key: ["a"]
+  - key: !!python/tuple ["a"]
     type: string
     default: SCHEMA
     required: false

@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Any, Literal
 
 import rich_click as click
-from git.exc import GitCommandError
 
 from cellophane import logs
 
@@ -18,6 +17,7 @@ from .exceptions import (
 )
 from .repo import ProjectRepo
 from .util import (
+    add_or_update_modules_remote,
     add_requirements,
     initialize_project,
     remove_requirements,
@@ -37,7 +37,7 @@ from .util import (
     "modules_repo_url",
     type=str,
     help="URL to the module repository",
-    default="https://github.com/dodslaser/cellophane_modules",
+    default="https://github.com/ClinicalGenomicsGBG/cellophane_modules",
 )
 @click.option(
     "--modules-branch",
@@ -50,7 +50,7 @@ from .util import (
     "--path",
     type=click.Path(path_type=Path),
     help="Path to the cellophane project",
-    default=Path("."),
+    default=Path(),
 )
 @click.option(
     "--log_level",
@@ -72,10 +72,10 @@ def main(
     A library for writing modular wrappers
     """
     ctx.ensure_object(dict)
-    logs.setup_logging().setLevel(log_level)
+    logs.setup_console_handler().setLevel(log_level)
 
     ctx.obj["logger"] = logging.LoggerAdapter(
-        logging.getLogger(), {"label": "cellophane"}
+        logging.getLogger(), {"label": "cellophane"},
     )
     ctx.obj["logger"].setLevel(log_level)
     ctx.obj["path"] = path
@@ -134,6 +134,8 @@ def module(
             "logger": _logger,
         }
 
+        add_or_update_modules_remote(_repo)
+
         match command:
             case "add":
                 add(**common_kwargs, valid_modules=_repo.absent_modules)
@@ -153,7 +155,7 @@ def module(
         raise SystemExit(1) from exc
     except Exception as exc:
         _logger.critical(
-            f"Unhandled Exception: {repr(exc)}",
+            f"Unhandled Exception: {exc!r}",
             exc_info=True,
         )
         raise SystemExit(1) from exc
@@ -167,18 +169,8 @@ def add(
     logger: logging.LoggerAdapter,
 ) -> None:
     """Add module(s)"""
-
     for module_, ref, version in modules:
-
         try:
-            remote = repo.create_remote("modules", repo.external.url)
-        except GitCommandError as exc:
-            # Remote already exists
-            if exc.status == 3:
-                remote = repo.remotes["modules"]
-                remote.set_url(repo.external.url)
-        try:
-            remote.fetch()
             ref_ = ref if ref in [r.name for r in repo.tags] else f"modules/{ref}"
             repo.git.read_tree(
                 f"--prefix=modules/{module_}/",
@@ -190,7 +182,7 @@ def add(
 
         except Exception as exc:  # pylint: disable=broad-except
             logger.error(
-                f"Unable to add '{module_}@{version}': {repr(exc)}",
+                f"Unable to add '{module_}@{version}': {exc!r}",
                 exc_info=True,
             )
             repo.head.reset("HEAD", index=True, working_tree=True)
@@ -228,7 +220,7 @@ def update(
             add_requirements(path, module_)
         except Exception as exc:  # pylint: disable=broad-except
             logger.error(
-                f"Unable to update '{module_}->{version}': {repr(exc)}", exc_info=True
+                f"Unable to update '{module_}->{version}': {exc!r}", exc_info=True,
             )
             repo.head.reset("HEAD", index=True, working_tree=True)
             continue
@@ -249,7 +241,6 @@ def rm(
     **kwargs: Any,
 ) -> None:
     """Remove module"""
-
     del kwargs  # Unused
 
     for module_, _, _ in modules:
@@ -258,7 +249,7 @@ def rm(
             update_example_config(path)
             remove_requirements(path, module_)
         except Exception as exc:  # pylint: disable=broad-except
-            logger.error(f"Unable to remove '{module_}': {repr(exc)}", exc_info=True)
+            logger.error(f"Unable to remove '{module_}': {exc!r}", exc_info=True)
             repo.head.reset("HEAD", index=True, working_tree=True)
         else:
             repo.index.add("config.example.yaml")
@@ -298,9 +289,9 @@ def init(ctx: click.Context, name: str, force: bool) -> None:
             modules_repo_url=ctx.obj["modules_repo_url"],
             modules_repo_branch=ctx.obj["modules_repo_branch"],
         )
-    except FileExistsError as e:
+    except FileExistsError as exc:
         logger.critical("Project path is not empty (--force to ignore)")
-        raise SystemExit(1) from e
-    except Exception as e:
-        logger.critical(f"Unhandeled exception: {e}", exc_info=True)
-        raise SystemExit(1) from e
+        raise SystemExit(1) from exc
+    except Exception as exc:
+        logger.critical(f"Unhandeled exception: {exc!r}", exc_info=True)
+        raise SystemExit(1) from exc

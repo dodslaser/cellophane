@@ -1,0 +1,34 @@
+structure:
+  modules:
+    a.py: |
+      from cellophane import runner
+
+      @runner()
+      def runner_a(samples, **_):
+          for sample in samples:
+              if sample.id == "a":
+                  sample.fail("DUMMY")
+          return samples
+
+  samples.yaml: |
+    - id: a
+      files:
+      - input/a.txt
+    - id: b
+      files:
+      - input/b.txt
+    - id: c
+      files:
+      - input/c.txt
+  input:
+    a.txt: "INPUT_A"
+    b.txt: "INPUT_B"
+    c.txt: "INPUT_C"
+args:
+  --samples_file: samples.yaml
+  --workdir: out
+logs:
+  - Sample a failed - DUMMY
+  - Sample b processed successfully
+  - Sample c processed successfully
+exception: null

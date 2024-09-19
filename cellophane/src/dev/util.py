@@ -5,7 +5,7 @@ from functools import wraps
 from pathlib import Path
 from typing import Any, Callable, Iterable, Sequence
 
-from git import Repo
+from git import GitCommandError, Remote, Repo
 from questionary import Choice, checkbox, select
 from rich.console import Console
 
@@ -21,12 +21,13 @@ from .repo import ProjectRepo
 
 
 def add_requirements(path: Path, _module: str) -> None:
-    """
-    Add module requirements to the global requirements file.
+    """Add module requirements to the global requirements file.
 
     Args:
+    ----
       path (Path): The path to the root of the application.
       _module (str): The name of the module.
+
     """
     requirements_path = path / "modules" / "requirements.txt"
     module_path = path / "modules" / _module
@@ -42,12 +43,13 @@ def add_requirements(path: Path, _module: str) -> None:
 
 
 def remove_requirements(path: Path, _module: str) -> None:
-    """
-    Remove a specific module's requirements from the project's requirements.txt file.
+    """Remove a specific module's requirements from the project's requirements.txt file.
 
     Args:
+    ----
       path (Path): The path to the project directory.
       _module (str): The name of the module to remove requirements for.
+
     """
     requirements_path = path / "modules" / "requirements.txt"
 
@@ -59,11 +61,12 @@ def remove_requirements(path: Path, _module: str) -> None:
 
 
 def update_example_config(path: Path) -> None:
-    """
-    Update the example configuration file.
+    """Update the example configuration file.
 
     Args:
+    ----
       path (Path): The path to the root of the application.
+
     """
     schema = Schema.from_file(
         path=[
@@ -78,11 +81,12 @@ def update_example_config(path: Path) -> None:
 
 
 def ask_modules(valid_modules: Iterable[str]) -> list[tuple[str, None, None]]:
-    """
-    Ask the user to select one or more modules.
+    """Ask the user to select one or more modules.
 
     Args:
+    ----
       valid_modules (Sequence[str]): The valid modules to select from.
+
     """
     if not valid_modules:
         raise NoModulesError("No modules to select from")
@@ -101,12 +105,13 @@ def ask_modules(valid_modules: Iterable[str]) -> list[tuple[str, None, None]]:
 
 
 def ask_version(module_: str, valid: Iterable[tuple[str, str]]) -> tuple[str, str, str]:
-    """
-    Ask the user to select a version for a module.
+    """Ask the user to select a version for a module.
 
     Args:
+    ----
       _module (str): The name of the module.
       modules_repo (ModulesRepo): The modules repository.
+
     """
     if not valid:
         raise NoVersionsError("No compatible versions to select from")
@@ -165,9 +170,7 @@ def with_modules(ignore_branch: bool = False) -> Callable:
                     case _ if ignore_branch:
                         pass
                     case (m, None, None):
-                        modules_[idx] = ask_version(
-                            m, repo.compatible_versions(m)
-                        )  # type: ignore[assignment]
+                        modules_[idx] = ask_version(m, repo.compatible_versions(m))  # type: ignore[assignment]
                     case (m, None, "latest"):
                         version = repo.external.modules[m].get("latest")
                         if version is None:
@@ -192,14 +195,14 @@ def initialize_project(
     modules_repo_branch: str,
     force: bool = False,
 ) -> ProjectRepo:
-    """
-    Initializes a new Cellophane repository with the specified name, path,
+    """Initializes a new Cellophane repository with the specified name, path,
     and modules repository URL.
 
     Creates the necessary directories and files for the repository structure.
     The repository is then initialized,, and an initial commit is made.
 
     Args:
+    ----
         name (str): The name of the repository.
         path (Path): The path where the repository will be initialized.
         modules_repo_url (str): The URL of the modules repository.
@@ -207,13 +210,16 @@ def initialize_project(
             is not empty. Defaults to False.
 
     Returns:
+    -------
         CellophaneRepo: An instance of the `CellophaneRepo` class representing the
             initialized repository.
 
     Raises:
+    ------
         FileExistsError: Raised when the path is not empty and force is False.
 
     Example:
+    -------
         ```python
         name = "my_awesome_repo"
         path = Path("/path/to/repo")
@@ -249,6 +255,7 @@ def initialize_project(
         # │   # Alternative entrypoint for the wrapper
         # └── my_awesome_wrapper.py
         ```
+
     """
     _prog_name = re.sub("\\W", "_", name)
 
@@ -270,31 +277,31 @@ def initialize_project(
     (path / "__main__.py").write_text(
         (CELLOPHANE_ROOT / "template" / "__main__.py")
         .read_text(encoding="utf-8")
-        .format(label=name, prog_name=_prog_name)
+        .format(label=name, prog_name=_prog_name),
     )
 
     (path / f"{_prog_name}.py").write_text(
         (CELLOPHANE_ROOT / "template" / "entrypoint.py")
         .read_text(encoding="utf-8")
-        .format(label=name, prog_name=_prog_name)
+        .format(label=name, prog_name=_prog_name),
     )
 
     (path / "requirements.txt").write_text(
         (CELLOPHANE_ROOT / "template" / "requirements.txt")
         .read_text(encoding="utf-8")
-        .format(label=name, prog_name=_prog_name)
+        .format(label=name, prog_name=_prog_name),
     )
 
     (path / ".gitignore").write_text(
         (CELLOPHANE_ROOT / "template" / ".gitignore")
         .read_text(encoding="utf-8")
-        .format(label=name, prog_name=_prog_name)
+        .format(label=name, prog_name=_prog_name),
     )
 
     (path / "modules" / "requirements.txt").write_text(
         (CELLOPHANE_ROOT / "template" / "modules" / "requirements.txt")
         .read_text(encoding="utf-8")
-        .format(label=name, prog_name=_prog_name)
+        .format(label=name, prog_name=_prog_name),
     )
 
     update_example_config(path)
@@ -311,9 +318,34 @@ def initialize_project(
             path / "__main__.py",
             path / f"{_prog_name}.py",
             path / ".gitignore",
-        ]
+        ],
     )
     repo.index.write()
     repo.index.commit("feat(cellophane): Initial commit from cellophane 🎉")
 
     return ProjectRepo(path, modules_repo_url, modules_repo_branch)
+
+
+def add_or_update_modules_remote(repo: ProjectRepo) -> Remote:
+    """Add or update the modules remote for a project repository.
+
+    Args:
+    ----
+        repo (ProjectRepo): The project repository.
+
+    Returns:
+    -------
+        Remote: The remote object for the modules repository.
+
+    """
+    try:
+        remote = repo.create_remote("modules", repo.external.url)
+    except GitCommandError as exc:
+        # Remote already exists
+        if exc.status == 3:
+            remote = repo.remotes["modules"]
+            remote.set_url(repo.external.url)
+
+    remote.fetch()
+
+    return remote

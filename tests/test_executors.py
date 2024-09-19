@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Generator
 from unittest.mock import MagicMock
 
-from mpire import WorkerPool
 from pytest import LogCaptureFixture, fixture, raises
 from pytest_mock import MockerFixture
 
@@ -13,25 +12,20 @@ from cellophane import data, executors, logs
 
 
 @fixture(scope="function")
-def spe(tmp_path: Path) -> Generator[executors.SubprocesExecutor, None, None]:
-    """Return a SubprocesExecutor."""
+def spe(tmp_path: Path) -> Generator[executors.SubprocessExecutor, None, None]:
+    """Return a SubprocessExecutor."""
     config = data.Container(
         workdir=tmp_path,
         logdir=tmp_path,
         executor={"cpus": 1, "memory": 1},
     )
 
-    log_queue = logs.start_queue_listener()
+    log_queue, log_listener = logs.start_logging_queue_listener()
 
-    with WorkerPool(
-        daemon=False,
-        use_dill=True,
-    ) as pool:
-        yield executors.SubprocesExecutor(
-            config=config,  # type: ignore[arg-type]
-            pool=pool,
-            log_queue=log_queue,
-        )
+    with executors.SubprocessExecutor(config=config, log_queue=log_queue) as executor:
+        yield executor
+
+    log_listener.stop()
 
 
 class Test_SubprocessExecutor:
@@ -39,7 +33,7 @@ class Test_SubprocessExecutor:
 
     @staticmethod
     def test_callback(
-        spe: executors.SubprocesExecutor,  # pylint: disable=redefined-outer-name
+        spe: executors.SubprocessExecutor,  # pylint: disable=redefined-outer-name
     ) -> None:
         """Test callback."""
         _callback = MagicMock()
@@ -66,7 +60,7 @@ class Test_SubprocessExecutor:
 
     def test_executor_terminate_all(
         self,
-        spe: executors.SubprocesExecutor,  # pylint: disable=redefined-outer-name
+        spe: executors.SubprocessExecutor,  # pylint: disable=redefined-outer-name
     ) -> None:
         """Test that all processes are terminated when the executor is terminated."""
         results = [
@@ -84,30 +78,29 @@ class Test_SubprocessExecutor:
     def test_command_exception(
         mocker: MockerFixture,
         caplog: LogCaptureFixture,
-        spe: executors.SubprocesExecutor,  # pylint: disable=redefined-outer-name
+        spe: executors.SubprocessExecutor,  # pylint: disable=redefined-outer-name
     ) -> None:
         """Test command exception."""
-
         mocker.patch(
-            "cellophane.executors.sp.Popen",
+            "cellophane.executors.subprocess_executor.sp.Popen",
             side_effect=Exception("DUMMY"),
         )
 
         with (
             caplog.at_level("DEBUG"),
-            raises(SystemExit) as exception,
+            raises(SystemExit) as exc,
         ):
             result = spe.submit("exit", name="exception")[0]
 
             spe.wait()
             result.get()
 
-        assert repr(exception.value) == "SystemExit(1)"
+        assert repr(exc.value) == "SystemExit(1)"
         assert "Command failed with exception: Exception('DUMMY')" in caplog.messages
 
     @staticmethod
     def test_wait_for_uuid(
-        spe: executors.SubprocesExecutor,  # pylint: disable=redefined-outer-name
+        spe: executors.SubprocessExecutor,  # pylint: disable=redefined-outer-name
     ) -> None:
         """Test wait_for_uuid."""
         result1, uuid1 = spe.submit("sleep .1", name="sleep")

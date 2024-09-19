@@ -5,5 +5,5 @@ schema:
   required: [a]
 
 flags:
-  - key: ["a"]
+  - key: !!python/tuple ["a"]
     required: true

@@ -32,8 +32,8 @@ schema:
                   type: null
 
 flags:
-  - key: ["a", "x", "y", "z"]
+  - key: !!python/tuple ["a", "x", "y", "z"]
     required: true
 
-  - key: ["b", "x", "y", "z"]
+  - key: !!python/tuple ["b", "x", "y", "z"]
     required: false
