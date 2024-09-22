@@ -64,3 +64,8 @@ properties:
     description: "Path YAML file with samples - eg [{id: ID, files: [F1, F2]}, ...]"
     type: path
 
+  clean:
+    description: Clean intermediate files after pipeline run
+    type: boolean
+    default: true
+

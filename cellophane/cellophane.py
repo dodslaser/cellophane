@@ -223,7 +223,7 @@ def _main(
     )
 
     # If there are failed samples, unregister the workdir from the cleaner
-    if samples.failed:
+    if samples.failed or not config.clean:
         cleaner.unregister(config.workdir / config.tag)
     cleaner.clean(logger=logger)
     # If not post-hook has copied the outputs, warn the user
