@@ -1,7 +1,6 @@
 """Main cellophane entry point wrapper."""
 
 import time
-from contextlib import contextmanager
 from importlib.metadata import version
 from importlib.util import find_spec
 from logging import LoggerAdapter, getLogger
