@@ -88,7 +88,11 @@ def execute_from_structure(
         _main = cellophane.cellophane("DUMMY", root=root)
         for target, mock in (mocks or {}).items():
             mocker.patch(target=target, **(mock or {}))
-        _result = runner.invoke(_main, _args)
+        _result = runner.invoke(
+            cli=_main,
+            args=_args,
+            env={"COLUMNS": "500", "FORCE_COLOR": "false"},
+        )
         _exception = _result.exception
     except (SystemExit, Exception) as exc:  # pylint: disable=broad-except
         _exception = exc

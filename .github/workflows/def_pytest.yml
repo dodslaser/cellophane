@@ -34,7 +34,10 @@ jobs:
       - name: poetry-install
         run: poetry install
       - name: pytest
-        run: poetry run pytest --junit-xml=pytest.xml
+        env:
+          COLUMNS: 500
+          FORCE_COLOR: false
+        run: rye run pytest --junit-xml=pytest.xml
       - uses: EnricoMi/publish-unit-test-result-action@v2
         if: always()
         with:
