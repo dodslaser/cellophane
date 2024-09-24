@@ -22,7 +22,7 @@ click==8.1.7
     # via black
     # via cellophane
     # via rich-click
-colorama==0.4.6 ; platform_system == 'Windows' or sys_platform == 'win32'
+colorama==0.4.6 ; sys_platform == 'win32' or platform_system == 'Windows'
     # via bandit
     # via click
     # via pylint
@@ -30,7 +30,7 @@ colorama==0.4.6 ; platform_system == 'Windows' or sys_platform == 'win32'
     # via tqdm
 coverage==7.6.1
     # via pytest-cov
-dill==0.3.8 ; python_version >= '3.11'
+dill==0.3.8
     # via multiprocess
     # via pylint
 execnet==2.1.1
@@ -63,7 +63,7 @@ mdurl==0.1.2
     # via markdown-it-py
 mpire==2.10.2
     # via cellophane
-multiprocess==0.70.16 ; python_version >= '3.11'
+multiprocess==0.70.16
     # via mpire
 mypy==0.991
 mypy-extensions==1.0.0
@@ -95,7 +95,7 @@ pygments==2.18.0
     # via mpire
     # via rich
 pylint==3.3.1
-pyreadline3==3.5.4 ; python_version >= '3.8' and sys_platform == 'win32'
+pyreadline3==3.5.4 ; sys_platform == 'win32'
     # via humanfriendly
 pytest==8.3.3
     # via pytest-clarity
@@ -132,7 +132,7 @@ rpds-py==0.20.0
     # via referencing
 ruamel-yaml==0.17.40
     # via cellophane
-ruamel-yaml-clib==0.2.8 ; python_version < '3.13' and platform_python_implementation == 'CPython'
+ruamel-yaml-clib==0.2.8 ; python_full_version < '3.13' and platform_python_implementation == 'CPython'
     # via ruamel-yaml
 semver==3.0.2
     # via cellophane
