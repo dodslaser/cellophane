@@ -159,7 +159,7 @@
     input:
       a.txt: "INPUT_A"
   mocks:
-    cellophane.src.cleanup.cleanup.rmtree:
+    cellophane.cleanup.cleanup.rmtree:
       side_effect: !!python/object/new:Exception ["DUMMY"]
   args:
     --samples_file: samples.yaml
@@ -173,7 +173,7 @@
     modules:
       a.py: |
         from cellophane import runner
-        from cellophane.src.cleanup import DeferredCall
+        from cellophane.cleanup import DeferredCall
 
         @runner()
         def runner(cleaner, workdir, **_):

@@ -8,8 +8,8 @@ from attrs import define, field
 from dill import dumps
 from xxhash import xxh3_64
 
-from cellophane.src.cfg import Config
-from cellophane.src.data import Output, OutputGlob, Samples
+from cellophane.cfg import Config
+from cellophane.data import Output, OutputGlob, Samples
 
 
 @define

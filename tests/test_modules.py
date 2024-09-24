@@ -10,15 +10,14 @@ from pathlib import Path
 from typing import Any, Callable
 from unittest.mock import MagicMock
 
+from cellophane import data, modules
+from cellophane.executors import SubprocessExecutor
+from cellophane.modules.hook import resolve_dependencies
+from cellophane.modules.runner_ import _cleanup
 from graphlib import CycleError
 from psutil import Process, TimeoutExpired
 from pytest import LogCaptureFixture, mark, param, raises
 from pytest_mock import MockerFixture
-
-from cellophane.src import data, modules
-from cellophane.src.executors import SubprocessExecutor
-from cellophane.src.modules.hook import resolve_dependencies
-from cellophane.src.modules.runner_ import _cleanup
 
 LIB = Path(__file__).parent / "lib"
 
@@ -52,13 +51,13 @@ class Test__cleanup:
         procs, pids = self.dummy_procs(3)
 
         mocker.patch(
-            "cellophane.src.modules.runner_.Process.children",
+            "cellophane.modules.runner_.Process.children",
             return_value=[Process(pid=p) for p in pids],
         )
 
         if timeout:
             mocker.patch(
-                "cellophane.src.modules.runner_.Process.terminate",
+                "cellophane.modules.runner_.Process.terminate",
                 side_effect=TimeoutExpired(10),
             )
 

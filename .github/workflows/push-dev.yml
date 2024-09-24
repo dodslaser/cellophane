@@ -25,10 +25,10 @@ jobs:
       head: dev
       base: main
 
-  poetry:
-    name: Synchonize poetry
+  rye:
+    name: Synchonize rye
     needs: [semver]
-    uses: ./.github/workflows/def_poetry.yml
+    uses: ./.github/workflows/def_rye.yml
     permissions:
       contents: write
     with:
@@ -37,7 +37,7 @@ jobs:
 
   release-pr:
     name: Create/update release PR
-    needs: [semver, changelog, poetry]
+    needs: [semver, changelog, rye]
     uses: ./.github/workflows/def_release-pr.yml
     permissions:
       pull-requests: write
@@ -49,7 +49,7 @@ jobs:
 
   pytest:
     name: Run tests
-    needs: [poetry, release-pr]
+    needs: [rye, release-pr]
     uses: ./.github/workflows/def_pytest.yml
     permissions:
       checks: write
@@ -62,7 +62,7 @@ jobs:
 
   reviewdog-lint:
     name: Lint code
-    needs: [poetry, release-pr]
+    needs: [rye, release-pr]
     uses: ./.github/workflows/def_reviewdog-lint.yml
     permissions:
       contents: write

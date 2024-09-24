@@ -6,7 +6,7 @@ from typing import Callable
 import rich_click as click
 from ruamel.yaml import YAML
 
-from cellophane.src import data
+from cellophane import data
 
 from .config import Config
 from .jsonschema_ import get_flags

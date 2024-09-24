@@ -1,5 +1,5 @@
 ---
-name: Synchronize Poetry
+name: Synchronize Rye
 
 permissions:
   contents: write
@@ -17,7 +17,7 @@ on: # yamllint disable-line rule:truthy
         required: true
 
 jobs:
-  poetry:
+  rye:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -26,41 +26,36 @@ jobs:
       - uses: actions/cache/restore@v4
         id: cache
         with:
-          key: ${{ hashFiles('pyproject.toml') }}-${{ hashFiles('poetry.lock') }}-${{ inputs.version }}
+          key: ${{ hashFiles('pyproject.toml') }}-${{ hashFiles('requirements.lock') }}-${{ hashFiles('requirements-dev.lock') }}-${{ inputs.version }}
           path: |
             pyproject.toml
-            poetry.lock
-      - name: install-poetry
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: pipx install poetry
-      - uses: actions/setup-python@v5
-        if: steps.cache.outputs.cache-hit != 'true'
+            requirements.lock
+            requirements-dev.lock
+      - uses: eifinger/setup-rye@v4
         with:
-          python-version: '3.11'
-          cache: "poetry"
-      - name: lock
+          enable-cache: true
         if: steps.cache.outputs.cache-hit != 'true'
-        run: poetry lock
-      - name: check
+      - name: rye-lock
         if: steps.cache.outputs.cache-hit != 'true'
-        run: poetry check
+        run: rye lock
       - name: version
-        id: poetry-version
+        id: rye-version
         if: steps.cache.outputs.cache-hit != 'true'
-        run: echo "msg=$(poetry version -- ${{ inputs.version }})" >> "$GITHUB_OUTPUT"
+        run: echo "msg=$(rye version -- ${{ inputs.version }})" >> "$GITHUB_OUTPUT"
       - name: git-commit
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
           git config --global user.email ""
           git config --global user.name "github-actions[bot]"
           git diff --exit-code || {
-            git commit -am "chore[bump]: ${{ steps.poetry-version.outputs.msg }}"
+            git commit -am "chore[bump]: ${{ steps.rye-version.outputs.msg }}"
             git push
           }
       - uses: actions/cache/save@v4
         if: steps.cache.outputs.cache-hit != 'true'
         with:
-          key: ${{ hashFiles('pyproject.toml') }}-${{ hashFiles('poetry.lock') }}-${{ inputs.version }}
+          key: ${{ hashFiles('pyproject.toml') }}-${{ hashFiles('requirements.lock') }}-${{ hashFiles('requirements-dev.lock') }}-${{ inputs.version }}
           path: |
             pyproject.toml
-            poetry.lock
+            requirements.lock
+            requirements-dev.lock

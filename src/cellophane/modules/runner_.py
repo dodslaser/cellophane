@@ -10,11 +10,11 @@ from mpire import WorkerPool
 from mpire.exception import InterruptWorker
 from psutil import Process, TimeoutExpired
 
-from cellophane.src.cfg import Config
-from cellophane.src.cleanup import Cleaner, DeferredCleaner
-from cellophane.src.data import OutputGlob, Samples
-from cellophane.src.executors import Executor
-from cellophane.src.logs import handle_warnings, redirect_logging_to_queue
+from cellophane.cfg import Config
+from cellophane.cleanup import Cleaner, DeferredCleaner
+from cellophane.data import OutputGlob, Samples
+from cellophane.executors import Executor
+from cellophane.logs import handle_warnings, redirect_logging_to_queue
 
 from .checkpoint import Checkpoints
 

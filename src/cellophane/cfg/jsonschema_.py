@@ -10,7 +10,7 @@ from jsonschema.exceptions import ValidationError
 from jsonschema.protocols import Validator
 from jsonschema.validators import Draft7Validator, create, extend
 
-from cellophane.src import data, util
+from cellophane import data, util
 
 from .flag import Flag
 

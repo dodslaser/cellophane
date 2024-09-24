@@ -1,1 +1,1 @@
-pytest_plugins = "cellophane.src.testing"
+pytest_plugins = "cellophane.testing"

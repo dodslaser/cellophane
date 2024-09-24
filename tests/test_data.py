@@ -7,9 +7,8 @@ from typing import ClassVar
 
 import dill
 from attrs import define, field
+from cellophane import data
 from pytest import FixtureRequest, MonkeyPatch, fixture, mark, param, raises
-
-from cellophane.src import data
 
 LIB = Path(__file__).parent / "lib"
 

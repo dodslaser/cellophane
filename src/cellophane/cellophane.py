@@ -12,19 +12,19 @@ import rich_click as click
 from humanfriendly import format_timespan
 from ruamel.yaml.error import YAMLError
 
-from cellophane.src import executors
-from cellophane.src.cfg import Config, Schema, with_options
-from cellophane.src.cleanup import Cleaner
-from cellophane.src.data import OutputGlob, Sample, Samples
-from cellophane.src.executors import Executor
-from cellophane.src.logs import (
+from cellophane import executors
+from cellophane.cfg import Config, Schema, with_options
+from cellophane.cleanup import Cleaner
+from cellophane.data import OutputGlob, Sample, Samples
+from cellophane.executors import Executor
+from cellophane.logs import (
     ExternalFilter,
     handle_warnings,
     setup_console_handler,
     setup_file_handler,
     start_logging_queue_listener,
 )
-from cellophane.src.modules import Hook, Runner, load, run_hooks, start_runners
+from cellophane.modules import Hook, Runner, load, run_hooks, start_runners
 
 spec = find_spec("cellophane")
 CELLOPHANE_ROOT = Path(spec.origin).parent  # type: ignore[union-attr, arg-type]

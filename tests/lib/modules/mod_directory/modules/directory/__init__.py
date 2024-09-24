@@ -1,7 +1,7 @@
 # type: ignore
 # pylint: disable=all
 
-from cellophane.src import data, modules
+from cellophane import data, modules
 
 
 @modules.pre_hook()

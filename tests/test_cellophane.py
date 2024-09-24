@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Callable
 
-from cellophane.src import testing
+from cellophane import testing
 
 LIB = Path(__file__).parent / "lib"
 

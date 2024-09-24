@@ -4,9 +4,9 @@ from importlib import import_module
 from pathlib import Path
 from site import addsitedir
 
-from cellophane.src.data import Sample, Samples
-from cellophane.src.executors import Executor, MockExecutor, SubprocessExecutor
-from cellophane.src.util import freeze_logs, is_instance_or_subclass
+from cellophane.data import Sample, Samples
+from cellophane.executors import Executor, MockExecutor, SubprocessExecutor
+from cellophane.util import freeze_logs, is_instance_or_subclass
 
 from .hook import Hook, resolve_dependencies
 from .runner_ import Runner

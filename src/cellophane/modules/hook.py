@@ -7,10 +7,10 @@ from typing import Callable, Literal, Sequence
 
 from graphlib import TopologicalSorter
 
-from cellophane.src.cfg import Config
-from cellophane.src.cleanup import Cleaner
-from cellophane.src.data import Samples
-from cellophane.src.executors import Executor
+from cellophane.cfg import Config
+from cellophane.cleanup import Cleaner
+from cellophane.data import Samples
+from cellophane.executors import Executor
 
 
 class Hook:

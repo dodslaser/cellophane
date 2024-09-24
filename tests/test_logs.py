@@ -3,7 +3,7 @@
 import logging
 from pathlib import Path
 
-from cellophane.src import logs
+from cellophane import logs
 
 
 class Test_logs:
