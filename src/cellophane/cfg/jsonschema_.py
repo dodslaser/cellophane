@@ -6,10 +6,11 @@ from pathlib import Path
 from typing import Callable, Generator, Mapping
 
 from frozendict import frozendict
+from jsonschema.exceptions import ValidationError
 from jsonschema.protocols import Validator
 from jsonschema.validators import Draft7Validator, create, extend
 
-from cellophane.src import data, util
+from cellophane import data, util
 
 from .flag import Flag
 
@@ -89,7 +90,10 @@ def properties_(
         instance_ = instance or {}
         required = prop in schema.get("required", []) and instance is not None
 
-        if "properties" in subschema and subschema.get("type") != "mapping":
+        if subschema.get("type") == "object":
+            if "properties" not in subschema or not subschema["properties"]:
+                raise ValidationError(f"Invalid schema: node '{prop}' has type 'object' but no properties.")
+
             _uptate_validators(
                 validator.VALIDATORS,
                 compiled=(compiled or {}).get("properties", {}).get(prop),

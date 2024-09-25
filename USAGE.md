@@ -9,8 +9,8 @@
 At the very least wou will need an environment with python 3.11+ and pip installed. In this example micromamba is used to create a new environment.
 
 ```shell
-micromamba env create -p my_cellphane_env python=3.11
-micromamba activate my_cellphane_env
+micromamba env create -p my_cellophane_env python=3.11
+micromamba activate my_cellophane_env
 pip install git+https://github.com/ClinicalGenomicsGBG/cellophane.git@latest
 ```
 

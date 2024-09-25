@@ -6,7 +6,7 @@ from uuid import UUID
 
 from attrs import define
 
-from cellophane.src.executors.executor import Executor
+from cellophane.executors.executor import Executor
 
 
 @define(slots=False, init=False)

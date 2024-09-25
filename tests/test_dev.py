@@ -9,6 +9,7 @@ from shutil import copytree, rmtree
 from typing import Any, Iterator
 from unittest.mock import MagicMock
 
+from cellophane import dev
 from click.testing import CliRunner
 from git import Repo
 from pytest import (
@@ -21,8 +22,6 @@ from pytest import (
     raises,
 )
 from pytest_mock import MockerFixture
-
-from cellophane.src import dev
 
 LIB = Path(__file__).parent / "lib"
 
@@ -188,7 +187,7 @@ class Test_ask_modules_branch:
     ) -> None:
         """Test asking for modules."""
         _checkbox_mock = MagicMock()
-        mocker.patch("cellophane.src.dev.util.checkbox", return_value=_checkbox_mock)
+        mocker.patch("cellophane.dev.util.checkbox", return_value=_checkbox_mock)
         assert (
             raises(exception, dev.ask_modules, valid_modules)
             if exception
@@ -203,7 +202,7 @@ class Test_ask_modules_branch:
         """Test asking for branch."""
         repo, _ = modules_repo
         _select_mock = MagicMock(ask=MagicMock(return_value="latest"))
-        mocker.patch("cellophane.src.dev.util.select", return_value=_select_mock)
+        mocker.patch("cellophane.dev.util.select", return_value=_select_mock)
         assert dev.ask_version(
             [*repo.modules.keys()][0], valid=[("foo/1.33.7", "1.33.7")],
         )
@@ -325,7 +324,7 @@ class Test_module_cli:
         repo, path = cellophane_repo
         mocker.patch("cellophane.logs.setup_console_handler")
         for target, kwargs in mocks.items():
-            mocker.patch(f"cellophane.src.dev.cli.{target}", **kwargs)
+            mocker.patch(f"cellophane.dev.cli.{target}", **kwargs)
         chdir(path)
         with caplog.at_level(logging.DEBUG):
             result = self.runner.invoke(dev.main, f"module {command}")
@@ -403,7 +402,7 @@ class Test_cli_init:
     ) -> None:
         """Test exception handling in cellophane CLI for initializing a new project."""
         mocker.patch(
-            "cellophane.src.dev.cli.initialize_project",
+            "cellophane.dev.cli.initialize_project",
             side_effect=Exception("DUMMY"),
         )
         chdir(tmp_path)

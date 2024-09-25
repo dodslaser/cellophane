@@ -4,7 +4,7 @@ from typing import Any
 
 from attrs import define, field
 
-from cellophane.src import data
+from cellophane import data
 
 from .jsonschema_ import get_flags
 from .schema import Schema

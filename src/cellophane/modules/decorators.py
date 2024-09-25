@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Any, Callable, Literal
 
-from cellophane.src import data
+from cellophane import data
 
 from .hook import Hook
 from .runner_ import Runner

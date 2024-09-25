@@ -25,16 +25,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.head }}
-      - name: install-poetry
-        run: pipx install poetry
-      - uses: actions/setup-python@v5
+      - uses: eifinger/setup-rye@v4
         with:
-          python-version: '3.11'
-          cache: 'poetry'
-      - name: poetry-install
-        run: poetry install
+          enable-cache: true
+      - name: rye-sync
+        run: rye sync
       - name: pytest
-        run: poetry run pytest --junit-xml=pytest.xml
+        env:
+          COLUMNS: 500
+          FORCE_COLOR: false
+        run: rye run pytest --junit-xml=pytest.xml
       - uses: EnricoMi/publish-unit-test-result-action@v2
         if: always()
         with:

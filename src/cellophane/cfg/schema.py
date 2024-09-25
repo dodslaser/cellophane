@@ -8,7 +8,7 @@ from ruamel.yaml import YAML, CommentedMap, CommentToken
 from ruamel.yaml.error import CommentMark
 from ruamel.yaml.scalarstring import DoubleQuotedScalarString, LiteralScalarString
 
-from cellophane.src import data, util
+from cellophane import data, util
 
 from .jsonschema_ import get_flags
 from .util import comment_yaml_block, dump_yaml

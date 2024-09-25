@@ -2,8 +2,7 @@
 # pylint: disable=all
 
 from attrs import define, field
-
-from cellophane.src import data
+from cellophane import data
 
 
 class SampleMixin_base(data.Sample):

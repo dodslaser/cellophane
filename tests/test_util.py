@@ -1,11 +1,10 @@
-"""Test cellophane.src.util."""
+"""Test cellophane.util."""
 
 from collections import UserList
 from typing import Any, Callable
 
+from cellophane import data, modules, util
 from pytest import mark, param
-
-from cellophane.src import data, modules, util
 
 
 class Test_map_nested_keys:

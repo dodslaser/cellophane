@@ -1,6 +1,6 @@
 - id: executor_submit
   mocks:
-    cellophane.src.executors.executor.uuid4:
+    cellophane.executors.executor.uuid4:
       return_value: !!python/object/apply:uuid.UUID ["deadbeefdeadbeefdeadbeefdeadbeef"]
 
   structure:
@@ -51,7 +51,7 @@
 
 - id: executor_subprocess
   mocks:
-    cellophane.src.executors.executor.uuid4:
+    cellophane.executors.executor.uuid4:
       return_value: !!python/object/apply:uuid.UUID ["deadbeefdeadbeefdeadbeefdeadbeef"]
 
   structure:
@@ -73,7 +73,7 @@
 
 - id: executor_subprocess_terminate
   mocks:
-    cellophane.src.executors.executor.uuid4:
+    cellophane.executors.executor.uuid4:
       return_value: !!python/object/apply:uuid.UUID ["deadbeefdeadbeefdeadbeefdeadbeef"]
 
   structure:
@@ -99,7 +99,7 @@
 
 - id: executor_conda
   mocks:
-    cellophane.src.executors.executor.uuid4:
+    cellophane.executors.executor.uuid4:
       return_value: !!python/object/apply:uuid.UUID ["deadbeefdeadbeefdeadbeefdeadbeef"]
 
   structure:

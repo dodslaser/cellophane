@@ -19,7 +19,7 @@ from mpire.async_result import AsyncResult
 from mpire.exception import InterruptWorker
 from ruamel.yaml import YAML
 
-from cellophane.src import cfg, logs
+from cellophane import cfg, logs
 
 _LOCKS: dict[UUID, dict[UUID, Lock]] = {}
 _POOLS: dict[UUID, WorkerPool] = {}

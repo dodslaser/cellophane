@@ -8,17 +8,16 @@ from pathlib import Path
 from typing import Any, Callable, Literal
 
 import rich_click as click
-from click.testing import CliRunner
-from pytest import fail, mark, param, raises
-from ruamel.yaml import YAML
-
-from cellophane.src import cfg, data
-from cellophane.src.cfg.click_ import (
+from cellophane import cfg, data
+from cellophane.cfg.click_ import (
     FormattedString,
     ParsedSize,
     StringMapping,
     TypedArray,
 )
+from click.testing import CliRunner
+from pytest import fail, mark, param, raises
+from ruamel.yaml import YAML
 
 _YAML = YAML(typ="unsafe")
 LIB = Path("__file__").parent / "tests" / "lib"

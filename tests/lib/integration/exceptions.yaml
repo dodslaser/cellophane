@@ -82,7 +82,7 @@
     --samples_file: samples.yaml
     --workdir: out
   mocks:
-    cellophane.src.modules.runner_.WorkerPool.apply_async:
+    cellophane.modules.runner_.WorkerPool.apply_async:
       side_effect: !!python/name:KeyboardInterrupt
   logs:
     - Received SIGINT, telling runners to shut down...

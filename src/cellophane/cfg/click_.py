@@ -12,7 +12,7 @@ from humanfriendly import format_size, parse_size
 from jsonschema._format import draft7_format_checker
 from jsonschema.exceptions import FormatError
 
-from cellophane.src import data, util
+from cellophane import data, util
 
 ITEMS_TYPES = Literal[
     "string",

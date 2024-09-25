@@ -6,7 +6,7 @@ from ruamel.yaml import YAML, CommentedMap, CommentToken
 from ruamel.yaml.compat import StringIO
 from ruamel.yaml.error import CommentMark
 
-from cellophane.src import data
+from cellophane import data
 
 
 class _BLANK:
