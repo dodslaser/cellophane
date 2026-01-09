@@ -189,7 +189,7 @@ class PreHook(_PrePostHook):
         self,
         func: NamedCallable,
         label: str | None = None,
-        condition: Literal["always", "unprocessed", "failed"] = "always",
+        condition: Literal["always", "unprocessed", "failed"] = "unprocessed",
         before: str | DEPENDENCY_TYPE | None = None,
         after: str | DEPENDENCY_TYPE | None = None,
         per: Literal["session", "sample", "runner"] = "session",
