@@ -136,7 +136,7 @@ class Test_hooks(BaseTest):
             "Running post_complete hook",
             "Running pre_per_runner hook",
             "Running post_per_runner_always hook",
-            "pre: ['fail_early', 'fail_x_a', 'fail_y_b', 'fail_y_c', 'pass_x_a', 'pass_x_b', 'pass_y_c']",
+            "pre: ['fail_x_a', 'fail_y_b', 'fail_y_c', 'pass_x_a', 'pass_x_b', 'pass_y_c']",
             "pre_always: ['fail_early', 'fail_x_a', 'fail_y_b', 'fail_y_c', 'pass_x_a', 'pass_x_b', 'pass_y_c']",
             "pre_unprocessed: ['fail_x_a', 'fail_y_b', 'fail_y_c', 'pass_x_a', 'pass_x_b', 'pass_y_c']",
             "pre_failed: ['fail_early']",
@@ -206,7 +206,7 @@ class Test_hooks(BaseTest):
     )
     def test_conditional_pre_hook(self, invocation: Invocation) -> None:
         assert invocation.logs == literal(
-            "Default hook executed for ['a', 'b']",
+            "Default hook executed for ['b']",
             "Unprocessed hook executed for ['b']",
             "Failed hook executed for ['a']",
             "Always hook executed for ['a', 'b']",

@@ -160,6 +160,8 @@ def _run_pre_post_hooks(
         match hook.condition:
             case "always" if not (hook_samples := samples_):
                 hook_samples = samples_
+            case "unprocessed" if len(samples_) == 0:
+                hook_samples = samples_
             case "unprocessed" if not (hook_samples := samples_.unprocessed):
                 continue
             case "complete" if not (hook_samples := samples_.complete):

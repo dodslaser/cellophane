@@ -111,7 +111,7 @@ def runner(
 
 def pre_hook(
     label: str | None = None,
-    condition: Literal["always", "unprocessed", "failed"] = "always",
+    condition: Literal["always", "unprocessed", "failed"] = "unprocessed",
     per: Literal["session", "runner"] = "session",
     before: str | DEPENDENCY_TYPE | None = None,
     after: str | DEPENDENCY_TYPE | None = None,
