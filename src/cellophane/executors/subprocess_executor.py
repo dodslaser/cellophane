@@ -63,8 +63,10 @@ class SubprocessExecutor(Executor, name="subprocess"):
     def terminate_hook(self, uuid: UUID, logger: LoggerAdapter) -> int | None:
         if uuid not in self.pids:
             return None
-
-        proc = psutil.Process(self.pids[uuid])
+        try:
+            proc = psutil.Process(self.pids[uuid])
+        except psutil.NoSuchProcess:
+            return None
         children = proc.children(recursive=True)
         if proc.is_running():
             logger.warning(f"Terminating process (pid={self.pids[uuid]})")
