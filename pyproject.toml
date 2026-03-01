@@ -20,6 +20,7 @@ dependencies = [
     "packaging>=24.0,<25.0",
     "xxhash>=3.4.1,<4.0.0",
     "pytest-profiling>=1.7.0,<2.0.0",
+    "py-rattler>=0.22.0",
 ]
 requires-python = ">=3.11,<4.0"
 
