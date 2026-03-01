@@ -50,7 +50,7 @@ class SubprocessExecutor(Executor, name="subprocess"):
             proc = sp.Popen(  # nosec
                 shlex.split(shlex.join(args)),
                 cwd=workdir,
-                env=env | ({**os.environ} if os_env else {}),
+                env=({**os.environ} if os_env else {}) | env,
                 stdout=out,
                 stderr=err,
                 start_new_session=True,
