@@ -92,7 +92,7 @@ def cellophane(label: str, root: Path) -> Command:
         _SAMPLES = Samples.with_sample_class(_SAMPLE).with_mixins(samples_mixins)
         schema.properties.executor.properties.name.enum = [e.name for e in executors_]
 
-        @with_options(schema)
+        @with_options(schema, root)
         def inner(config: Config, **_: Any) -> None:
             """Run cellophane"""
             start_time = Timestamp()
