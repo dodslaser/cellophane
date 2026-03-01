@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from .schema import Schema
 
 
-def with_options(schema: Schema) -> Callable:
+def with_options(schema: Schema, root: Path) -> Callable:
     """Creates a decorator for adding command-line interface from a schema.
 
     The callback will be passed a Container object with the config as the first argument.
@@ -27,6 +27,7 @@ def with_options(schema: Schema) -> Callable:
     Args:
     ----
         schema (Schema): The schema object defining the command-line interface.
+        root (Path): The root path for resolving paths relative to the project root.
 
     Returns:
     -------
@@ -34,7 +35,7 @@ def with_options(schema: Schema) -> Callable:
 
     Examples:
     --------
-        @options(schema)
+        @with_options(schema, root)
         def cli(config: Container, **kwargs):
             ...
 
@@ -93,6 +94,11 @@ def with_options(schema: Schema) -> Callable:
 
             # Set the config file path
             config_container.config_file = config_file
+
+            # Set the executor environment cache path
+            config_container.executor = config_container.get("executor", {})
+            config_container.executor.environment = config_container.executor.get("environment", {})
+            config_container.executor.environment.cache = config_container.executor.environment.get("cache", root / ".environments")
 
             # Set the workdir, resultdir, and logdir (if possible)
             if "workdir" in config_container:
