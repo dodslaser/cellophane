@@ -56,6 +56,8 @@ prompt-toolkit==3.0.36
     # via questionary
 psutil==5.9.8
     # via cellophane
+py-rattler==0.23.2
+    # via cellophane
 pygments==2.18.0
     # via mpire
     # via rich
