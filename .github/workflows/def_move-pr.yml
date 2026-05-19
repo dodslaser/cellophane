@@ -23,9 +23,12 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
       - name: move-pr
         env:
           GH_TOKEN: ${{ github.token }}
+          INPUTS_BASE: ${{ inputs.base }}
           comment: |
             # 🤖 \*bleep bloop\*
 
@@ -33,4 +36,4 @@ jobs:
 
         run: |
           gh pr comment ${{ inputs.pr-number }} --body "$comment"
-          gh pr edit ${{ inputs.pr-number }} --base ${{ inputs.base }}
+          gh pr edit ${{ inputs.pr-number }} --base ${INPUTS_BASE}
