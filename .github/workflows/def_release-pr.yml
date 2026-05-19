@@ -40,13 +40,13 @@ jobs:
       pr-number: ${{ steps.create-or-update-pr.outputs.pull-request-number }}
       pr-head-sha: ${{ steps.create-or-update-pr.outputs.pull-request-head-sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           ref: ${{ inputs.base }}
           fetch-depth: 0
       - name: git-reset
         run: git reset --hard origin/${{ inputs.head }}
-      - uses: peter-evans/create-pull-request@v6
+      - uses: peter-evans/create-pull-request@c5a7806660adbe173f04e3e038b0ccdcd758773c # v6.1.0
         id: create-or-update-pr
         with:
           title: "Release ${{ inputs.version }} 🚀"
