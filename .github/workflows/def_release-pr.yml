@@ -44,8 +44,11 @@ jobs:
         with:
           ref: ${{ inputs.base }}
           fetch-depth: 0
+          persist-credentials: false
       - name: git-reset
-        run: git reset --hard origin/${{ inputs.head }}
+        run: git reset --hard origin/${INPUTS_HEAD}
+        env:
+          INPUTS_HEAD: ${{ inputs.head }}
       - uses: peter-evans/create-pull-request@c5a7806660adbe173f04e3e038b0ccdcd758773c # v6.1.0
         id: create-or-update-pr
         with:
@@ -58,8 +61,9 @@ jobs:
         if: steps.create-or-update-pr.outputs.pull-request-operation == 'created'
         env:
           GH_TOKEN: ${{ github.token }}
-          comment: |
+          INPUTS_HEAD: ${{ inputs.head }}
+          COMMENT: |
             # 🤖 \*bleep bloop\*
 
             This is a fully automated release PR. When merged I will ~~enslave all humans~~ create a new release with the listed changes.
-        run: gh pr comment ${{ inputs.head }} --body '${{ env.comment }}'
+        run: gh pr comment ${INPUTS_HEAD} --body '${{ env.COMMENT }}'

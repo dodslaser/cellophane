@@ -1,8 +1,6 @@
 ---
 name: Semver Version
 
-permissions: read-all
-
 on: # yamllint disable-line rule:truthy
   workflow_call:
     inputs:
@@ -27,6 +25,8 @@ jobs:
       next: ${{ steps.semver.outputs.nextStrict }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
       - uses: ietf-tools/semver-action@c90370b2958652d71c06a3484129a4d423a6d8a8 # v1.11.0
         id: semver
         with:

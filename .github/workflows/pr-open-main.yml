@@ -29,8 +29,7 @@ jobs:
       checks: write
       pull-requests: write
     concurrency:
-      group: ${{ github.ref }}-${{ github.workflow }}-reviewdog-test
+      group: ${{ github.ref }}-${{ github.workflow }}-pytest
     with:
       head: ${{ github.event.pull_request.head.sha }}
       pr-head-sha: ${{ github.event.pull_request.head.sha }}
-      publish-results: false

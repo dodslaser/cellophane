@@ -25,4 +25,3 @@ jobs:
     with:
       head: ${{ github.event.pull_request.head.sha }}
       pr-head-sha: ${{ github.event.pull_request.head.sha }}
-      publish-results: false

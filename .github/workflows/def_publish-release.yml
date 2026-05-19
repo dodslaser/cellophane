@@ -24,17 +24,24 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
       - name: write-changelog
         shell: python
+        env:
+          CHANGELOG: ${{ inputs.changes }}
         run: |
+          import os
           with open('CHANGELOG.md', 'w') as f:
-            f.write(${{ toJSON(inputs.changes) }})
+            f.write(os.environ['CHANGELOG'])
       - name: publish-release
         env:
           GH_TOKEN: ${{ github.token }}
+          INPUTS_VERSION: ${{ inputs.version }}
         run: |
-          gh release create '${{ inputs.version }}' \
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
+          gh release create '${INPUTS_VERSION}' \
             --notes-file CHANGELOG.md \
-            --title '${{ inputs.version }}'
+            --title '${INPUTS_VERSION}'
           git tag -f 'latest'
           git push origin 'latest' --force
