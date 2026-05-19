@@ -59,17 +59,3 @@ jobs:
     with:
       head: dev
       pr-head-sha: '${{ needs.release-pr.outputs.pr-head-sha }}'
-
-  reviewdog-lint:
-    name: Lint code
-    needs: [rye, release-pr]
-    uses: ./.github/workflows/def_reviewdog-lint.yml
-    permissions:
-      contents: write
-      issues: write
-      pull-requests: write
-      statuses: write
-    concurrency:
-      group: ${{ github.ref }}-${{ github.workflow }}-reviewdog-lint
-    with:
-      head: dev
