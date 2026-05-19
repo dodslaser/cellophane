@@ -3,11 +3,13 @@ from __future__ import annotations
 
 import logging
 import os
+import platform
 import shlex
 import sys
 from inspect import signature
 from multiprocessing import Lock
 from pathlib import Path
+from shutil import copytree
 from time import sleep
 from typing import TYPE_CHECKING, ClassVar
 from uuid import uuid4
@@ -16,9 +18,8 @@ from warnings import warn
 from attrs import define, field
 from mpire import WorkerPool
 from mpire.exception import InterruptWorker
-from ruamel.yaml import YAML
 
-from cellophane.data import PreservedDict
+from cellophane.executors.environment import build_environment
 from cellophane.logs import handle_warnings, redirect_logging_to_queue
 
 if TYPE_CHECKING:
@@ -40,10 +41,11 @@ _ROOT = Path(__file__).parent
 class ExecutorSubmitException(Exception):
     """Exception raised when trying to access a terminated executor."""
 
+
 @define(slots=False, init=False)
 class Executor:
     """Executor base class."""
-
+    environment_lock: ClassVar[LockType] = Lock()
     name: ClassVar[str]
     config: Config
     workdir_base: Path
@@ -115,7 +117,10 @@ class Executor:
                 if fn is not None:
                     fn(result_or_exception)
             except Exception as exc:  # pylint: disable=broad-except
-                logger.error(f"Unhandled exception in callback of {executor_name} job '{job_name}' (UUID={uuid.hex[:8]}): {exc!r}", exc_info=exc)
+                logger.error(
+                    f"Unhandled exception in callback of {executor_name} job '{job_name}' (UUID={uuid.hex[:8]}): {exc!r}",
+                    exc_info=exc,
+                )
                 dispatcher.run_exception_hooks(exception=exc, pool=pool)
             finally:
                 lock.release()
@@ -143,27 +148,42 @@ class Executor:
         handle_warnings()
         logger = logging.LoggerAdapter(logging.getLogger(), {"label": name})
 
-        workdir_ = workdir or self.workdir_base / f"{name}.{uuid.hex}.{self.name}"
-        workdir_.mkdir(parents=True, exist_ok=True)
+        _workdir = workdir or self.workdir_base / f"{name}.{uuid.hex}.{self.name}"
+        _workdir.mkdir(parents=True, exist_ok=True)
 
-        stdout_path = workdir_ / f"{name}.{uuid.hex}.{self.name}.stdout"
-        stderr_path = workdir_ / f"{name}.{uuid.hex}.{self.name}.stderr"
+        stdout_path = _workdir / f"{name}.{uuid.hex}.{self.name}.stdout"
+        stderr_path = _workdir / f"{name}.{uuid.hex}.{self.name}.stderr"
 
-        env_ = env or {}
-        args_ = tuple(word for arg in args for word in shlex.split(str(arg)))
+        _env = env or {}
+        _args = tuple(word for arg in args for word in shlex.split(str(arg)))
         if conda_spec:
-            yaml = YAML(typ="safe")
-            yaml.representer.add_representer(
-                PreservedDict,
-                lambda dumper, data: dumper.represent_dict(data)
+            env_path = build_environment(
+                conda_spec=conda_spec,
+                platform=config.executor.environment.get("platform", None),
+                environment_lock=self.environment_lock,
+                path=config.executor.environment.cache,
+                logger=logger,
             )
-            conda_env_spec = workdir_ / f"{name}.{uuid.hex}.environment.yaml"
-            micromamba_bootstrap = _ROOT / "scripts" / "bootstrap_micromamba.sh"
-            with open(conda_env_spec, "w") as f:
-                yaml.dump(conda_spec, f)
-            env_["_CONDA_ENV_SPEC"] = str(conda_env_spec.relative_to(workdir_))
-            env_["_CONDA_ENV_NAME"] = f"{name}.{uuid.hex}"
-            args_ = (str(micromamba_bootstrap), *args_)
+            if config.executor.environment.copy_to_workdir:
+                local_env_path = (_workdir / env_path.name).absolute()
+                copytree(env_path, local_env_path, dirs_exist_ok=True)
+            else:
+                local_env_path = env_path.absolute()
+
+            if "PATH" in _env:
+                _env["PATH"] = f"{local_env_path}/bin:{_env['PATH']}"
+            elif os_env and (os_path := os.environ.get("PATH")) is not None:
+                _env["PATH"] = f"{local_env_path}/bin:{os_path}"
+            else:
+                _env["PATH"] = f"{local_env_path}/bin"
+
+            if "CONDA_SHLVL" in _env:
+                logger.warning("Environment variable 'CONDA_SHLVL' passed to executor will be overridden to ensure proper conda environment activation.")
+            _env["CONDA_SHLVL"] = "1"
+
+            if "CONDA_PREFIX" in _env:
+                logger.warning("Environment variable 'CONDA_PREFIX' passed to executor will be overridden to ensure proper conda environment activation.")
+            _env["CONDA_PREFIX"] = f"{env_path.name}"
 
         try:
             logger.debug(f"Starting {self.name} job '{name}' (UUID={uuid.hex[:8]})")
@@ -171,8 +191,8 @@ class Executor:
             kwargs = {
                 "name": name,
                 "uuid": uuid,
-                "workdir": workdir_,
-                "env": {k: str(v) for k, v in env_.items()},
+                "workdir": _workdir,
+                "env": {k: str(v) for k, v in _env.items()},
                 "os_env": os_env,
                 "cpus": cpus or config.executor.cpus,
                 "memory": memory or config.executor.memory,
@@ -193,7 +213,7 @@ class Executor:
                     category=PendingDeprecationWarning,
                 )
 
-            self.target(*args_, **kwargs)  # type: ignore[arg-type]
+            self.target(*_args, **kwargs)  # type: ignore[arg-type]
         except InterruptWorker as exc:
             logger.debug(f"Terminating {self.name} job '{name}' (UUID={uuid.hex[:8]})")
             code = self.terminate_hook(uuid, logger)
