@@ -53,6 +53,7 @@ jobs:
         run: |
           git config --global user.email ""
           git config --global user.name "github-actions[bot]"
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
           git diff --exit-code || {
             git commit -am "chore[bump]: ${RYE_VERSION_MSG}"
             git push
