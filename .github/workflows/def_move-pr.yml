@@ -22,15 +22,18 @@ jobs:
     permissions:
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - name: move-pr
         env:
           GH_TOKEN: ${{ github.token }}
-          comment: |
+          INPUTS_BASE: ${{ inputs.base }}
+          COMMENT: |
             # 🤖 \*bleep bloop\*
 
             This PR will be moved to the ${{ inputs.base }} branch.
 
         run: |
-          gh pr comment ${{ inputs.pr-number }} --body "$comment"
-          gh pr edit ${{ inputs.pr-number }} --base ${{ inputs.base }}
+          gh pr comment ${{ inputs.pr-number }} --body "${COMMENT}"
+          gh pr edit ${{ inputs.pr-number }} --base "${INPUTS_BASE}"

@@ -22,8 +22,10 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/cache/restore@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         id: cache
         with:
           key: ${{ hashFiles('pyproject.toml') }}-${{ hashFiles('requirements.lock') }}-${{ hashFiles('requirements-dev.lock') }}-${{ inputs.version }}
@@ -31,7 +33,7 @@ jobs:
             pyproject.toml
             requirements.lock
             requirements-dev.lock
-      - uses: eifinger/setup-rye@v4
+      - uses: eifinger/setup-rye@c694239a43768373e87d0103d7f547027a23f3c8 # v4.2.9
         with:
           enable-cache: true
         if: steps.cache.outputs.cache-hit != 'true'
@@ -41,17 +43,22 @@ jobs:
       - name: version
         id: rye-version
         if: steps.cache.outputs.cache-hit != 'true'
-        run: echo "msg=$(rye version -- ${{ inputs.version }})" >> "$GITHUB_OUTPUT"
+        env:
+          INPUTS_VERSION: ${{ inputs.version }}
+        run: echo "version=$(rye version -- ${INPUTS_VERSION})" >> "$GITHUB_OUTPUT"
       - name: git-commit
         if: steps.cache.outputs.cache-hit != 'true'
+        env:
+          RYE_VERSION_MSG: ${{ steps.rye-version.outputs.version }}
         run: |
           git config --global user.email ""
           git config --global user.name "github-actions[bot]"
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
           git diff --exit-code || {
-            git commit -am "chore[bump]: ${{ steps.rye-version.outputs.msg }}"
+            git commit -am "chore[bump]: ${RYE_VERSION_MSG}"
             git push
           }
-      - uses: actions/cache/save@v4
+      - uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         if: steps.cache.outputs.cache-hit != 'true'
         with:
           key: ${{ hashFiles('pyproject.toml') }}-${{ hashFiles('requirements.lock') }}-${{ hashFiles('requirements-dev.lock') }}-${{ inputs.version }}
