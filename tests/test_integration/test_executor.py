@@ -22,6 +22,7 @@ class Test_executor_submit(BaseTest):
         """,
         "input/a.txt": "INPUT_A",
     }
+
     @mark.override(
         args=[*args, "--executor_name mock"],
         structure={
@@ -30,14 +31,14 @@ class Test_executor_submit(BaseTest):
                 from cellophane import pre_hook, runner, Executor, executors
 
                 @pre_hook()
-                def runner_a(logger, samples, executor, **_):
+                def hook_(logger, samples, executor, **_):
                     logger.info(f"HOOK - {executor.name=}")
                     logger.info(f"HOOK - {executors.EXECUTOR.name=}")
                     executor.submit("ping localhost -c 1", wait=True, name="HOOK")
                     return samples
 
                 @runner()
-                def runner_b(logger, samples, executor, **_):
+                def runner_(logger, samples, executor, **_):
                     logger.info(f"RUNNER - {executor.name=}")
                     logger.info(f"RUNNER - {executors.EXECUTOR.name=}")
                     executor.submit("ping localhost -c 1", wait=True, name="RUNNER")
@@ -60,9 +61,8 @@ class Test_executor_submit(BaseTest):
         )
         assert invocation.logs == regex(
             f"uuid={UUID4_REGEX}",
-            f"workdir=out/{TIMESTAMP_REGEX}/runner_b/RUNNER\\.{UUID4_HEX_REGEX}\\.mock",
+            f"workdir=out/{TIMESTAMP_REGEX}/runner_/RUNNER\\.{UUID4_HEX_REGEX}\\.mock",
             f"workdir=out/{TIMESTAMP_REGEX}/HOOK\\.{UUID4_HEX_REGEX}\\.mock",
-
         )
 
     @mark.override(
@@ -118,10 +118,18 @@ class Test_executor_submit(BaseTest):
         structure={
             **structure,
             "modules/a.py": """
-                from cellophane import pre_hook, Executor
+                from cellophane import pre_hook, Executor, runner
 
-                @pre_hook()
+                @runner()
                 def runner_a(executor, **_):
+                    result, uuid = executor.submit(
+                        "ping localhost -c 1",
+                        wait=True,
+                        conda_spec={"dependencies": ["python >=3.8,<3.9"]},
+                    )
+
+                @runner()
+                def runner_b(executor, **_):
                     result, uuid = executor.submit(
                         "ping localhost -c 1",
                         wait=True,
@@ -132,10 +140,14 @@ class Test_executor_submit(BaseTest):
     )
     def test_executor_conda(self, invocation: Invocation) -> None:
         assert invocation.logs == regex(
-            "bootstrap_micromamba\\.sh ping localhost -c 1",
-            f"env\\._CONDA_ENV_SPEC=mock_job.{UUID4_HEX_REGEX}\\.environment\\.yaml",
-            f"env\\._CONDA_ENV_NAME=mock_job.{UUID4_HEX_REGEX}",
+            "Built environment at .+/\\.environments/conda_[0-9a-f]{8}",
+            "Environment already exists at .+/\\.environments/conda_[0-9a-f]{8}",
+            f"env.PATH=[^:]+/out/{TIMESTAMP_REGEX}/runner_a/mock_job\\.{UUID4_HEX_REGEX}\\.mock/conda_[0-9a-f]{{8}}/bin:.*",
+            f"env.PATH=[^:]+/out/{TIMESTAMP_REGEX}/runner_b/mock_job\\.{UUID4_HEX_REGEX}\\.mock/conda_[0-9a-f]{{8}}/bin:.*",
+            "env\\.CONDA_SHLVL=1",
+            "env\\.CONDA_PREFIX=conda_[0-9a-f]{8}",
         )
+
 
     @mark.override(
         args=[*args, "--executor_name subprocess"],

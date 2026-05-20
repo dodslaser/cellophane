@@ -2,42 +2,100 @@
 #    uv export --no-dev --no-hashes
 -e .
 attrs==23.2.0
+    # via
+    #   cellophane
+    #   jsonschema
+    #   referencing
 click==8.3.1
+    # via
+    #   cellophane
+    #   rich-click
 colorama==0.4.6 ; sys_platform == 'win32'
+    # via
+    #   click
+    #   pytest
+    #   rich-click
+    #   tqdm
 dill==0.4.1
+    # via multiprocess
 frozendict==2.4.7
+    # via cellophane
 gitdb==4.0.12
+    # via gitpython
 gitpython==3.1.46
+    # via cellophane
 gprof2dot==2025.4.14
+    # via pytest-profiling
 humanfriendly==10.0
+    # via cellophane
 iniconfig==2.3.0
+    # via pytest
 jsonschema==4.26.0
+    # via cellophane
 jsonschema-specifications==2025.9.1
+    # via jsonschema
 markdown-it-py==4.0.0
+    # via rich
 mdurl==0.1.2
+    # via markdown-it-py
 mpire==2.10.2
+    # via cellophane
 multiprocess==0.70.19
+    # via mpire
 packaging==24.2
+    # via
+    #   cellophane
+    #   pytest
 pluggy==1.6.0
+    # via pytest
 prompt-toolkit==3.0.52
+    # via questionary
 psutil==5.9.8
+    # via cellophane
 py-rattler==0.22.0
+    # via cellophane
 pygments==2.19.2
+    # via
+    #   mpire
+    #   pytest
+    #   rich
 pyreadline3==3.5.4 ; sys_platform == 'win32'
+    # via humanfriendly
 pytest==8.4.2
+    # via pytest-profiling
 pytest-profiling==1.8.1
+    # via cellophane
 pywin32==311 ; sys_platform == 'win32'
+    # via mpire
 questionary==2.1.1
+    # via cellophane
 referencing==0.37.0
+    # via
+    #   jsonschema
+    #   jsonschema-specifications
 rich==14.3.3
+    # via rich-click
 rich-click==1.9.7
+    # via cellophane
 rpds-py==0.30.0
+    # via
+    #   jsonschema
+    #   referencing
 ruamel-yaml==0.17.40
+    # via cellophane
 ruamel-yaml-clib==0.2.15 ; python_full_version < '3.13' and platform_python_implementation == 'CPython'
+    # via ruamel-yaml
 semver==3.0.4
+    # via cellophane
 six==1.17.0
+    # via pytest-profiling
 smmap==5.0.2
+    # via gitdb
 tqdm==4.67.3
+    # via mpire
 typing-extensions==4.15.0 ; python_full_version < '3.13'
+    # via referencing
 wcwidth==0.6.0
+    # via prompt-toolkit
 xxhash==3.6.0
+    # via cellophane
