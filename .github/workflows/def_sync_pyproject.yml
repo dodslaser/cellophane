@@ -1,5 +1,5 @@
 ---
-name: Synchronize Rye
+name: Synchronize pyproject.toml and requirements.lock
 
 permissions:
   contents: write
@@ -8,16 +8,16 @@ on: # yamllint disable-line rule:truthy
   workflow_call:
     inputs:
       head:
-        description: The branch to operate on
+        description: The branch to checkout
         type: string
         required: true
       version:
-        description: The version to bump to
+        description: The version to set in pyproject.toml
         type: string
         required: true
 
 jobs:
-  rye:
+  pyproject:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -28,41 +28,44 @@ jobs:
       - uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         id: cache
         with:
-          key: ${{ hashFiles('pyproject.toml') }}-${{ hashFiles('requirements.lock') }}-${{ hashFiles('requirements-dev.lock') }}-${{ inputs.version }}
+          key: ${{ hashFiles('pyproject.toml', 'uv.lock', 'requirements.lock', 'requirements-dev.lock') }}-${{ inputs.version }}
           path: |
             pyproject.toml
+            uv.lock
             requirements.lock
             requirements-dev.lock
-      - uses: eifinger/setup-rye@c694239a43768373e87d0103d7f547027a23f3c8 # v4.2.9
-        with:
-          enable-cache: true
+      - uses: astral-sh/setup-uv@61cb8a9741eeb8a550a1b8544337180c0fc8476b
         if: steps.cache.outputs.cache-hit != 'true'
-      - name: rye-lock
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: rye lock
       - name: version
-        id: rye-version
         if: steps.cache.outputs.cache-hit != 'true'
         env:
           INPUTS_VERSION: ${{ inputs.version }}
-        run: echo "version=$(rye version -- ${INPUTS_VERSION})" >> "$GITHUB_OUTPUT"
+        run: uvx --from=toml-cli toml set --toml-path=pyproject.toml project.version "${INPUTS_VERSION}"
+      - name: lock
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          uv lock
+          uv export --no-dev --no-hashes > requirements.lock
+          uv export --no-hashes > requirements-dev.lock
       - name: git-commit
         if: steps.cache.outputs.cache-hit != 'true'
         env:
-          RYE_VERSION_MSG: ${{ steps.rye-version.outputs.version }}
+          INPUTS_VERSION: ${{ inputs.version }}
         run: |
           git config --global user.email ""
           git config --global user.name "github-actions[bot]"
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
           git diff --exit-code || {
-            git commit -am "chore[bump]: ${RYE_VERSION_MSG}"
+            git commit -am "chore[bump]: ${INPUTS_VERSION}"
             git push
           }
       - uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         if: steps.cache.outputs.cache-hit != 'true'
         with:
-          key: ${{ hashFiles('pyproject.toml') }}-${{ hashFiles('requirements.lock') }}-${{ hashFiles('requirements-dev.lock') }}-${{ inputs.version }}
+          key: ${{ hashFiles('pyproject.toml', 'uv.lock', 'requirements.lock', 'requirements-dev.lock') }}-${{ inputs.version }}
           path: |
             pyproject.toml
+            uv.lock
             requirements.lock
             requirements-dev.lock
+

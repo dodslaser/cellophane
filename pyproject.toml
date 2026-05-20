@@ -1,9 +1,10 @@
 [project]
 name = "cellophane"
-version = "1.2.0"
-description = "Library for wrappers integrating with SLIMS"
+version = "1.3.0.dev0"
+description = "Library for feature-rich wrapper development"
 authors = [{name = "Erik Demitz-Helin",email = "erik.demitz-helin@gu.se"}]
 readme = "README.md"
+requires-python = ">=3.11"
 dependencies = [
     "click>=8.2.0,<9.0.0",
     "psutil>=5.9.4,<6.0.0",
@@ -20,30 +21,27 @@ dependencies = [
     "packaging>=24.0,<25.0",
     "xxhash>=3.4.1,<4.0.0",
     "pytest-profiling>=1.7.0,<2.0.0",
+    "py-rattler>=0.22.0",
 ]
-requires-python = ">=3.11,<4.0"
 
-[tool]
-[tool.mypy]
-python_version = "3.11"
-disallow_untyped_defs = true
-
-
-[[tool.mypy.overrides]]
-module = [
-    "dill",
-    "mpire",
-    "mpire.exception",
-    "mpire.async_result",
-    "jsonschema",
+[dependency-groups]
+dev = [
+    "pytest>=8.3.3,<9.0.0",
+    "pytest-mock>=3.10.0,<4.0.0",
+    "pytest-cov>=4.1.0,<5.0.0",
+    "pytest-repeat>=0.9.1,<0.10.0",
+    "pytest-clarity>=1.0.1,<2.0.0",
+    "pytest-xdist>=3.3.1,<4.0.0",
+    "types-jsonschema>=4.19.0.3,<5.0.0.0",
+    "types-humanfriendly>=10.0.1.10,<11.0.0.0",
+    "types-psutil>=5.9.5.16,<6.0.0.0",
+    "pytest-subprocess>=1.5.3",
+    "ty>=0.0.38",
+    "ruff>=0.15.13",
 ]
-ignore_errors = true
-ignore_missing_imports = true
 
-[[tool.mypy.overrides]]
-module = "referencing.jsonschema"
-ignore_errors = true
-
+[project.scripts]
+cellophane = "cellophane.dev:main"
 
 [tool.coverage.run]
 omit = [
@@ -63,51 +61,6 @@ branch = false
 [tool.coverage.report]
 omit = ["**/pytest-*/*"]
 
-
-
-[project.scripts]
-cellophane = "cellophane.dev:main"
-
-
-
-[tool.ruff]
-line-length = 88
-
-[tool.pylint.'MESSAGES CONTROL']
-max-line-length = 88
-exit-zero = true
-fail-on = ["F","E","W"]
-
-[tool.rye]
-universal = true
-managed = true
-dev-dependencies = [
-    "mypy>=0.991,<0.992",
-    "bandit>=1.7.4,<2.0.0",
-    "black>=22.12.0,<23.0.0",
-    "flake8>=6.0.0,<7.0.0",
-    "pytest>=8.3.3,<9.0.0",
-    "pytest-mock>=3.10.0,<4.0.0",
-    "pytest-cov>=4.1.0,<5.0.0",
-    "isort>=5.12.0,<6.0.0",
-    "pytest-repeat>=0.9.1,<0.10.0",
-    "pytest-clarity>=1.0.1,<2.0.0",
-    "pytest-xdist>=3.3.1,<4.0.0",
-    "types-jsonschema>=4.19.0.3,<5.0.0.0",
-    "types-humanfriendly>=10.0.1.10,<11.0.0.0",
-    "types-psutil>=5.9.5.16,<6.0.0.0",
-    "pylint>=3.0.2,<4.0.0",
-    "pytest-subprocess>=1.5.3",
-]
-
-[tool.hatch]
-[tool.hatch.metadata]
-allow-direct-references = true
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/cellophane"]
-
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
+requires = ["uv_build>=0.11.15,<0.12"]
+build-backend = "uv_build"

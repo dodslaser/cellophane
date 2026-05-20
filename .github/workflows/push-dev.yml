@@ -25,19 +25,19 @@ jobs:
       head: dev
       base: main
 
-  rye:
-    name: Synchonize rye
+  pyproject:
+    name: Synchonize pyproject
     needs: [semver]
-    uses: ./.github/workflows/def_rye.yml
+    uses: ./.github/workflows/def_sync_pyproject.yml
     permissions:
       contents: write
     with:
       head: dev
-      version: ${{ needs.semver.outputs.next }}-dev
+      version: ${{ needs.semver.outputs.next }}-dev+${{ needs.semver.outputs.shorthash }}
 
   release-pr:
     name: Create/update release PR
-    needs: [semver, changelog, rye]
+    needs: [semver, changelog, pyproject]
     uses: ./.github/workflows/def_release-pr.yml
     permissions:
       pull-requests: write
@@ -49,7 +49,7 @@ jobs:
 
   pytest:
     name: Run tests
-    needs: [rye, release-pr]
+    needs: [pyproject, release-pr]
     uses: ./.github/workflows/def_pytest.yml
     permissions:
       checks: write

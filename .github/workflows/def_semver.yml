@@ -16,6 +16,9 @@ on: # yamllint disable-line rule:truthy
       next:
         value: ${{ jobs.semver.outputs.next }}
         description: "The next semver version"
+      shorthash:
+        value: ${{ jobs.semver.outputs.shorthash }}
+        description: "The short git hash of the HEAD commit"
 
 jobs:
   semver:
@@ -23,10 +26,15 @@ jobs:
     outputs:
       current: ${{ steps.semver.outputs.current }}
       next: ${{ steps.semver.outputs.nextStrict }}
+      shorthash: ${{ steps.shorthash.outputs.shorthash }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
+      - name: shorthash
+        id: shorthash
+        run:
+          echo "shorthash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
       - uses: ietf-tools/semver-action@c90370b2958652d71c06a3484129a4d423a6d8a8 # v1.11.0
         id: semver
         with:

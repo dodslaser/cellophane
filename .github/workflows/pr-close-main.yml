@@ -19,10 +19,10 @@ jobs:
     with:
       head: ${{ github.event.pull_request.base.ref }}
 
-  rye:
+  pyproject:
     name: Synchonize pyproject
     needs: [semver]
-    uses: ./.github/workflows/def_rye.yml
+    uses: ./.github/workflows/def_sync_pyproject.yml
     permissions:
       contents: write
     with:
@@ -32,7 +32,7 @@ jobs:
   publish-release:
     name: Publish Release
     if: github.event.pull_request.merged == true
-    needs: [semver, rye]
+    needs: [semver, pyproject]
     uses: ./.github/workflows/def_publish-release.yml
     permissions:
       contents: write
